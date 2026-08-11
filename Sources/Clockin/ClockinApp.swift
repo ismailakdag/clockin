@@ -41,34 +41,29 @@ struct ClockinApp: App {
 
     var body: some Scene {
         MenuBarExtra {
-            MainView()
-                .environmentObject(store)
-                .environmentObject(exchangeRates)
+            Button("Open Clockin") {
+                MainWindowController.shared.show(store: store, exchangeRates: exchangeRates)
+            }
+            Divider()
+            if store.running == nil {
+                Button("Clock in") { store.clockIn() }
+            } else if store.running?.isPaused == true {
+                Button("Resume") { store.resume() }
+            } else {
+                Button("Pause") { store.pause() }
+            }
+            if store.running != nil {
+                Button("Clock out") { _ = store.clockOut() }
+                Button("Cancel session", role: .destructive) { store.cancelRunning() }
+            }
+            Divider()
+            Button(store.pinVisible ? "Hide pinned timer" : "Show pinned timer") {
+                store.setPinned(!store.pinVisible)
+            }
+            Button("Quit Clockin") { NSApp.terminate(nil) }
         } label: {
             Image(systemName: store.running?.isPaused == true ? "pause.circle.fill" : (store.running == nil ? "timer" : "timer.circle.fill"))
-                .contextMenu {
-                    Button("Open Clockin") {
-                        MainWindowController.shared.show(store: store, exchangeRates: exchangeRates)
-                    }
-                    Divider()
-                    if store.running == nil {
-                        Button("Clock in") { store.clockIn() }
-                    } else if store.running?.isPaused == true {
-                        Button("Resume") { store.resume() }
-                    } else {
-                        Button("Pause") { store.pause() }
-                    }
-                    if store.running != nil {
-                        Button("Clock out") { _ = store.clockOut() }
-                        Button("Cancel session", role: .destructive) { store.cancelRunning() }
-                    }
-                    Divider()
-                    Button(store.pinVisible ? "Hide pinned timer" : "Show pinned timer") {
-                        store.setPinned(!store.pinVisible)
-                    }
-                    Button("Quit Clockin") { NSApp.terminate(nil) }
-                }
         }
-        .menuBarExtraStyle(.window)
+        .menuBarExtraStyle(.menu)
     }
 }
