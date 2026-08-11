@@ -8,9 +8,11 @@ final class ClockStore: ObservableObject {
 
     private let fileURL: URL
     private let calendar = Calendar.autoupdatingCurrent
+    private let backupDirectory: URL
 
     init(fileURL: URL? = nil) {
         self.fileURL = fileURL ?? Self.defaultFileURL
+        self.backupDirectory = self.fileURL.deletingLastPathComponent().appending(path: "Backups", directoryHint: .isDirectory)
         if let content = try? Data(contentsOf: self.fileURL),
            let decoded = try? JSONDecoder().decode(ClockinData.self, from: content) {
             data = decoded
@@ -28,6 +30,19 @@ final class ClockStore: ObservableObject {
     static var defaultFileURL: URL {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         return base.appending(path: "Clockin", directoryHint: .isDirectory).appending(path: "clockin.json")
+    }
+
+    var latestBackupDate: Date? {
+        let files = (try? FileManager.default.contentsOfDirectory(
+            at: backupDirectory,
+            includingPropertiesForKeys: [.contentModificationDateKey],
+            options: [.skipsHiddenFiles]
+        )) ?? []
+        return files.compactMap { try? $0.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate }.max()
+    }
+
+    var backupCount: Int {
+        ((try? FileManager.default.contentsOfDirectory(at: backupDirectory, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles])) ?? []).count
     }
 
     var running: RunningSession? { data.running }
@@ -172,6 +187,48 @@ final class ClockStore: ObservableObject {
         }
     }
 
+    func exportBackup(to url: URL) {
+        do {
+            let encoded = try JSONEncoder().encode(data)
+            try encoded.write(to: url, options: .atomic)
+            statusMessage = "Backup exported."
+        } catch {
+            statusMessage = "Could not export backup: \(error.localizedDescription)"
+        }
+    }
+
+    func importBackup(from url: URL) {
+        do {
+            let content = try Data(contentsOf: url)
+            let decoded = try JSONDecoder().decode(ClockinData.self, from: content)
+            guard decoded.sessions.allSatisfy({ $0.duration >= 0 && $0.end >= $0.start }) else {
+                throw CocoaError(.validationMissingMandatoryProperty)
+            }
+            data = decoded
+            save()
+            statusMessage = "Backup restored."
+        } catch {
+            statusMessage = "Could not restore backup: \(error.localizedDescription)"
+        }
+    }
+
+    func restoreLatestBackup() {
+        let files = ((try? FileManager.default.contentsOfDirectory(
+            at: backupDirectory,
+            includingPropertiesForKeys: [.contentModificationDateKey],
+            options: [.skipsHiddenFiles]
+        )) ?? []).sorted {
+            let left = (try? $0.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+            let right = (try? $1.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+            return left > right
+        }
+        guard let latest = files.first else {
+            statusMessage = "No automatic backup exists yet."
+            return
+        }
+        importBackup(from: latest)
+    }
+
     func previewPastedText(_ text: String) -> [WorkSession] {
         (try? PastedTextImporter.parse(text, hourlyRate: hourlyRate)) ?? []
     }
@@ -229,14 +286,24 @@ final class ClockStore: ObservableObject {
     }
 
     func todayDuration(at date: Date = .now) -> TimeInterval {
-        let completed = data.sessions.filter { calendar.isDate($0.start, inSameDayAs: date) }.reduce(0) { $0 + $1.duration }
-        let active = data.running.map { calendar.isDate($0.start, inSameDayAs: date) ? $0.elapsed(at: date) : 0 } ?? 0
-        return completed + active
+        duration(on: date)
     }
 
     func todayEarnings(at date: Date = .now) -> Double {
-        let completed = data.sessions.filter { calendar.isDate($0.start, inSameDayAs: date) }.reduce(0) { $0 + earnings(for: $1) }
-        let active = data.running.map { calendar.isDate($0.start, inSameDayAs: date) ? currentEarnings(at: date) : 0 } ?? 0
+        earnings(on: date)
+    }
+
+    func duration(on date: Date) -> TimeInterval {
+        let day = calendar.startOfDay(for: date)
+        let completed = data.sessions.filter { calendar.isDate($0.start, inSameDayAs: day) }.reduce(0) { $0 + $1.duration }
+        let active = data.running.map { calendar.isDate($0.start, inSameDayAs: day) ? $0.elapsed(at: .now) : 0 } ?? 0
+        return completed + active
+    }
+
+    func earnings(on date: Date) -> Double {
+        let day = calendar.startOfDay(for: date)
+        let completed = data.sessions.filter { calendar.isDate($0.start, inSameDayAs: day) }.reduce(0) { $0 + earnings(for: $1) }
+        let active = data.running.map { calendar.isDate($0.start, inSameDayAs: day) ? currentEarnings(at: .now) : 0 } ?? 0
         return completed + active
     }
 
@@ -266,10 +333,30 @@ final class ClockStore: ObservableObject {
     private func save() {
         do {
             try FileManager.default.createDirectory(at: fileURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+            createAutomaticBackupIfNeeded()
             let encoded = try JSONEncoder().encode(data)
             try encoded.write(to: fileURL, options: .atomic)
         } catch {
             statusMessage = "Could not save: \(error.localizedDescription)"
+        }
+    }
+
+    private func createAutomaticBackupIfNeeded() {
+        guard FileManager.default.fileExists(atPath: fileURL.path) else { return }
+        do {
+            try FileManager.default.createDirectory(at: backupDirectory, withIntermediateDirectories: true)
+            let stamp = Int(Date().timeIntervalSince1970 * 1000)
+            let destination = backupDirectory.appending(path: "clockin-\(stamp)-\(UUID().uuidString).json")
+            try FileManager.default.copyItem(at: fileURL, to: destination)
+            let backups = try FileManager.default.contentsOfDirectory(at: backupDirectory, includingPropertiesForKeys: [.contentModificationDateKey], options: [.skipsHiddenFiles])
+                .sorted {
+                    let left = (try? $0.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+                    let right = (try? $1.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+                    return left > right
+                }
+            for old in backups.dropFirst(30) { try? FileManager.default.removeItem(at: old) }
+        } catch {
+            // A failed backup must never block the primary save.
         }
     }
 }

@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct SettingsView: View {
     @EnvironmentObject private var store: ClockStore
@@ -21,6 +22,7 @@ struct SettingsView: View {
     @State private var rateText = ""
     @State private var showRateSchedule = false
     @State private var showPasteImporter = false
+    @State private var confirmRestore = false
     let onBack: () -> Void
 
     private var theme: ClockinPalette { ClockinThemeChoice.selected(themeRaw).palette }
@@ -34,6 +36,7 @@ struct SettingsView: View {
                     section("EARNINGS GOALS", content: goalsSection)
                     section("APPEARANCE", content: appearanceSection)
                     section("FOCUS CHIME", content: chimeSection)
+                    section("KEYBOARD SHORTCUTS", content: shortcutsSection)
                     section("FOCUS RADIO", content: radioSection)
                     section("DATA", content: dataSection)
                     Text("Settings are saved automatically.")
@@ -50,6 +53,12 @@ struct SettingsView: View {
         }
         .sheet(isPresented: $showRateSchedule) { RateScheduleView().environmentObject(store) }
         .sheet(isPresented: $showPasteImporter) { PasteImportView().environmentObject(store) }
+        .alert("Restore latest backup?", isPresented: $confirmRestore) {
+            Button("Cancel", role: .cancel) {}
+            Button("Restore", role: .destructive) { store.restoreLatestBackup() }
+        } message: {
+            Text("This replaces the current Clockin data with the newest automatic backup.")
+        }
     }
 
     private var header: some View {
@@ -194,8 +203,47 @@ struct SettingsView: View {
                 .buttonStyle(.bordered)
             Button { showPasteImporter = true } label: { Label("Paste approved timecards", systemImage: "doc.on.clipboard").frame(maxWidth: .infinity) }
                 .buttonStyle(.bordered)
+            HStack(spacing: 9) {
+                Button(action: exportBackup) {
+                    Label("Export backup", systemImage: "square.and.arrow.up").frame(maxWidth: .infinity)
+                }.buttonStyle(.bordered)
+                Button(action: importBackup) {
+                    Label("Restore file", systemImage: "arrow.down.doc").frame(maxWidth: .infinity)
+                }.buttonStyle(.bordered)
+            }
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("AUTOMATIC BACKUPS").font(.system(size: 9, weight: .bold)).foregroundStyle(.secondary).tracking(1)
+                    Text(store.latestBackupDate.map { "Last \($0.formatted(.dateTime.month(.abbreviated).day().hour().minute())) • \(store.backupCount) saved" } ?? "Created automatically before each save")
+                        .font(.system(size: 9)).foregroundStyle(.tertiary)
+                }
+                Spacer()
+                Button("Restore latest") { confirmRestore = true }
+                    .buttonStyle(.plain).foregroundStyle(theme.accent)
+                    .disabled(store.latestBackupDate == nil)
+            }.padding(10).background(card)
             if let message = store.statusMessage { Text(message).font(.system(size: 9)).foregroundStyle(.secondary) }
         }
+    }
+
+    private var shortcutsSection: some View {
+        VStack(spacing: 7) {
+            shortcutRow("⌥⌘I", "Clock in / resume", icon: "play.fill")
+            shortcutRow("⌥⌘P", "Pause / resume", icon: "pause.fill")
+            shortcutRow("⌥⌘O", "Clock out", icon: "stop.fill")
+            shortcutRow("⌥⌘E", "Open Clockin window", icon: "macwindow")
+            Text("Works while Clockin is running. macOS may ask for accessibility permission for use while another app is focused.")
+                .font(.system(size: 8)).foregroundStyle(.tertiary)
+        }
+    }
+
+    private func shortcutRow(_ shortcut: String, _ title: String, icon: String) -> some View {
+        HStack(spacing: 9) {
+            Image(systemName: icon).frame(width: 17).foregroundStyle(theme.accent)
+            Text(title).font(.system(size: 10, weight: .medium))
+            Spacer()
+            Text(shortcut).font(.system(size: 10, weight: .bold, design: .monospaced)).foregroundStyle(.secondary)
+        }.padding(9).background(card)
     }
 
     private var radioSection: some View {
@@ -249,5 +297,20 @@ struct SettingsView: View {
         let panel = NSOpenPanel(); panel.allowedContentTypes = [.commaSeparatedText, .text]
         panel.allowsMultipleSelection = false; panel.canChooseDirectories = false
         if panel.runModal() == .OK, let url = panel.url { store.importCSV(from: url) }
+    }
+
+    private func exportBackup() {
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.json]
+        panel.nameFieldStringValue = "clockin-backup.json"
+        if panel.runModal() == .OK, let url = panel.url { store.exportBackup(to: url) }
+    }
+
+    private func importBackup() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.json]
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        if panel.runModal() == .OK, let url = panel.url { store.importBackup(from: url) }
     }
 }

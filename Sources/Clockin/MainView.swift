@@ -7,6 +7,7 @@ struct MainView: View {
     @State private var now = Date()
     @State private var rateText = ""
     @State private var showHistory = false
+    @State private var showHeatmap = false
     @State private var showSettings = false
     @State private var showProgress = false
     @State private var showPasteImporter = false
@@ -29,6 +30,8 @@ struct MainView: View {
         Group {
             if showHistory {
                 HistoryView { showHistory = false }
+            } else if showHeatmap {
+                HeatmapView { showHeatmap = false }
             } else if showSettings {
                 SettingsView { showSettings = false }
                     .environmentObject(exchangeRates)
@@ -104,6 +107,12 @@ struct MainView: View {
             .buttonStyle(.plain)
             .foregroundStyle(.secondary)
             .help("Earnings history")
+            Button { showHeatmap = true } label: {
+                Image(systemName: "square.grid.3x3.fill").frame(width: 28, height: 28)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.secondary)
+            .help("Work heatmap")
             Button { showProgress = true } label: {
                 Label("XP \(max(1, Int((store.totalDuration + store.elapsed(at: now)) / 3600 * 100) / 500 + 1))", systemImage: "trophy.fill")
                     .font(.system(size: 9, weight: .bold, design: .monospaced)).frame(height: 28)

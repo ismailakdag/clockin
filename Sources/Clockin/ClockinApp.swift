@@ -15,6 +15,7 @@ final class ClockinAppDelegate: NSObject, NSApplicationDelegate {
         DispatchQueue.main.async {
             let dependencies = AppDependencies.shared
             FocusChimeController.shared.start(store: dependencies.store)
+            KeyboardShortcutController.shared.start(store: dependencies.store)
             MainWindowController.shared.show(store: dependencies.store, exchangeRates: dependencies.exchangeRates)
         }
     }
