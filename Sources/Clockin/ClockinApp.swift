@@ -16,8 +16,10 @@ final class ClockinAppDelegate: NSObject, NSApplicationDelegate {
             let dependencies = AppDependencies.shared
             FocusChimeController.shared.start(store: dependencies.store)
             KeyboardShortcutController.shared.start(store: dependencies.store)
-            if !UserDefaults.standard.bool(forKey: "Clockin.MinimalMode") {
-                MainWindowController.shared.show(store: dependencies.store, exchangeRates: dependencies.exchangeRates)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                if !UserDefaults.standard.bool(forKey: "Clockin.MinimalMode") {
+                    MainWindowController.shared.show(store: dependencies.store, exchangeRates: dependencies.exchangeRates)
+                }
             }
         }
     }
@@ -74,6 +76,7 @@ struct ClockinApp: App {
             Button(minimalMode ? "Exit minimal mode" : "Use minimal menu bar mode") {
                 minimalMode.toggle()
                 if minimalMode {
+                    NSApp.setActivationPolicy(.accessory)
                     store.setPinned(false)
                     MainWindowController.shared.hide()
                 } else {
@@ -82,21 +85,31 @@ struct ClockinApp: App {
             }
             Button("Quit Clockin") { NSApp.terminate(nil) }
         } label: {
-            TimelineView(.periodic(from: .now, by: 1)) { context in
-                HStack(spacing: 4) {
-                    Image(systemName: store.running?.isPaused == true ? "pause.circle.fill" : (store.running == nil ? "timer" : "timer.circle.fill"))
-                    if minimalMode {
-                        Text(menuBarStatus(at: context.date))
-                            .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                            .lineLimit(1)
-                    }
-                }
-            }
+            MenuBarStatusLabel(store: store)
         }
         .menuBarExtraStyle(.menu)
     }
+}
 
-    private func menuBarStatus(at date: Date) -> String {
+private struct MenuBarStatusLabel: View {
+    @ObservedObject var store: ClockStore
+    @AppStorage("Clockin.MinimalMode") private var minimalMode = false
+    @State private var now = Date()
+    private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: store.running?.isPaused == true ? "pause.circle.fill" : (store.running == nil ? "timer" : "timer.circle.fill"))
+            if minimalMode {
+                Text(status(at: now))
+                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                    .lineLimit(1)
+            }
+        }
+        .onReceive(timer) { now = $0 }
+    }
+
+    private func status(at date: Date) -> String {
         if store.running != nil {
             return DurationText.clock(store.elapsed(at: date)) + "  " + store.currentEarnings(at: date).money(code: store.currencyCode)
         }

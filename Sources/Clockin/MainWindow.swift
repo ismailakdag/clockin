@@ -26,18 +26,32 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             window.contentMinSize = NSSize(width: 390, height: 650)
             window.contentMaxSize = NSSize(width: 390, height: 650)
             window.delegate = self
-            window.setFrameAutosaveName("ClockinMainWindow")
             window.contentView = NSHostingView(rootView:
                 MainView()
                     .environmentObject(store)
                     .environmentObject(exchangeRates)
             )
-            if !window.setFrameUsingName("ClockinMainWindow") { window.center() }
+            // Always start a fresh launch on the primary display. A previous
+            // autosaved frame can belong to a disconnected/virtual display.
+            let screen = NSScreen.screens.first ?? NSScreen.main
+            let frame = screen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
+            let size = window.frame.size
+            window.setFrameOrigin(NSPoint(x: frame.midX - size.width / 2, y: frame.midY - size.height / 2))
             self.window = window
         }
 
+        // Accessory/menu-bar apps do not always activate a normal window when
+        // launched from Finder or `open`. Temporarily use a regular activation
+        // policy while presenting it, then force the window to the front.
+        NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
+        NSRunningApplication.current.activate(options: [.activateAllWindows])
         window?.makeKeyAndOrderFront(nil)
+        window?.orderFrontRegardless()
+        // Keep the presentation deterministic after launch.
+        DispatchQueue.main.async { [weak self] in
+            self?.window?.orderFrontRegardless()
+        }
     }
 
     func windowShouldClose(_ sender: NSWindow) -> Bool {

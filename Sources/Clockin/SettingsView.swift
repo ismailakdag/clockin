@@ -131,8 +131,12 @@ struct SettingsView: View {
                     .labelsHidden().toggleStyle(.switch)
                     .onChange(of: minimalMode) { _, value in
                         if value {
+                            NSApp.setActivationPolicy(.accessory)
                             store.setPinned(false)
                             MainWindowController.shared.hide()
+                        } else {
+                            NSApp.setActivationPolicy(.regular)
+                            MainWindowController.shared.show(store: store, exchangeRates: exchangeRates)
                         }
                     }
             }.padding(10).background(card)
