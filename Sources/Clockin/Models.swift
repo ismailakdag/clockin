@@ -16,7 +16,31 @@ struct WorkSession: Codable, Identifiable, Hashable, Sendable {
 struct RateRule: Codable, Identifiable, Hashable, Sendable {
     var id: UUID = UUID()
     var effectiveFrom: Date
+    /// Inclusive end date for a manually bounded period. Nil means open-ended.
+    var effectiveUntil: Date?
     var hourlyRate: Double
+
+    init(id: UUID = UUID(), effectiveFrom: Date, effectiveUntil: Date? = nil, hourlyRate: Double) {
+        self.id = id
+        self.effectiveFrom = effectiveFrom
+        self.effectiveUntil = effectiveUntil
+        self.hourlyRate = hourlyRate
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+        effectiveFrom = try container.decode(Date.self, forKey: .effectiveFrom)
+        effectiveUntil = try container.decodeIfPresent(Date.self, forKey: .effectiveUntil)
+        hourlyRate = try container.decode(Double.self, forKey: .hourlyRate)
+    }
+
+    func applies(to date: Date, calendar: Calendar = .autoupdatingCurrent) -> Bool {
+        guard date >= effectiveFrom else { return false }
+        guard let effectiveUntil else { return true }
+        let endExclusive = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: effectiveUntil)) ?? effectiveUntil
+        return date < endExclusive
+    }
 }
 
 struct RunningSession: Codable, Equatable, Sendable {

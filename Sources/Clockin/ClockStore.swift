@@ -52,13 +52,14 @@ final class ClockStore: ObservableObject {
     var currencyCode: String { data.currencyCode }
     var pinVisible: Bool { data.pinVisible }
     var rateRules: [RateRule] { (data.rateRules ?? []).sorted { $0.effectiveFrom < $1.effectiveFrom } }
-    var currentRateEffectiveFrom: Date? { rateRules.last(where: { $0.effectiveFrom <= Date() })?.effectiveFrom }
+    var currentRateEffectiveFrom: Date? { rateRules.filter { $0.applies(to: Date(), calendar: calendar) }.max { $0.effectiveFrom < $1.effectiveFrom }?.effectiveFrom }
 
     func elapsed(at date: Date = .now) -> TimeInterval { data.running?.elapsed(at: date) ?? 0 }
     func currentEarnings(at date: Date = .now) -> Double { elapsed(at: date) / 3600 * effectiveRate(at: date, fallback: hourlyRate) }
 
     func effectiveRate(at date: Date, fallback: Double) -> Double {
-        rateRules.last(where: { $0.effectiveFrom <= date })?.hourlyRate ?? fallback
+        rateRules.filter { $0.applies(to: date, calendar: calendar) }
+            .max { $0.effectiveFrom < $1.effectiveFrom }?.hourlyRate ?? fallback
     }
 
     func earnings(for session: WorkSession) -> Double {
@@ -116,29 +117,45 @@ final class ClockStore: ObservableObject {
         guard value >= 0, value.isFinite else { return }
         data.hourlyRate = value
         if let index = data.rateRules?.indices
-            .filter({ data.rateRules![$0].effectiveFrom <= Date() })
+            .filter({ data.rateRules![$0].applies(to: Date(), calendar: calendar) })
             .max(by: { data.rateRules![$0].effectiveFrom < data.rateRules![$1].effectiveFrom }) {
             data.rateRules?[index].hourlyRate = value
         }
         save()
     }
 
-    func addRateRule(effectiveFrom: Date, hourlyRate: Double) {
+    func addRateRule(effectiveFrom: Date, effectiveUntil: Date? = nil, hourlyRate: Double) {
         guard hourlyRate >= 0, hourlyRate.isFinite else { return }
         let day = calendar.startOfDay(for: effectiveFrom)
-        if let index = data.rateRules?.firstIndex(where: { calendar.isDate($0.effectiveFrom, inSameDayAs: day) }) {
-            data.rateRules?[index].hourlyRate = hourlyRate
-        } else {
-            data.rateRules = (data.rateRules ?? []) + [RateRule(effectiveFrom: day, hourlyRate: hourlyRate)]
+        let end = effectiveUntil.map { calendar.startOfDay(for: $0) }
+        guard end == nil || end! >= day else {
+            statusMessage = "Rate period end must be on or after its start."
+            return
         }
+        guard !overlapsRatePeriod(start: day, end: end, excluding: nil) else {
+            statusMessage = "Rate period overlaps an existing period."
+            return
+        }
+        data.rateRules = (data.rateRules ?? []) + [RateRule(effectiveFrom: day, effectiveUntil: end, hourlyRate: hourlyRate)]
         syncCurrentRate()
         save()
     }
 
-    func updateRateRule(id: UUID, effectiveFrom: Date, hourlyRate: Double) {
+    func updateRateRule(id: UUID, effectiveFrom: Date, effectiveUntil: Date? = nil, hourlyRate: Double) {
         guard hourlyRate >= 0, hourlyRate.isFinite,
               let index = data.rateRules?.firstIndex(where: { $0.id == id }) else { return }
-        data.rateRules?[index].effectiveFrom = calendar.startOfDay(for: effectiveFrom)
+        let day = calendar.startOfDay(for: effectiveFrom)
+        let end = effectiveUntil.map { calendar.startOfDay(for: $0) }
+        guard end == nil || end! >= day else {
+            statusMessage = "Rate period end must be on or after its start."
+            return
+        }
+        guard !overlapsRatePeriod(start: day, end: end, excluding: id) else {
+            statusMessage = "Rate period overlaps an existing period."
+            return
+        }
+        data.rateRules?[index].effectiveFrom = day
+        data.rateRules?[index].effectiveUntil = end
         data.rateRules?[index].hourlyRate = hourlyRate
         syncCurrentRate()
         save()
@@ -152,8 +169,17 @@ final class ClockStore: ObservableObject {
     }
 
     private func syncCurrentRate() {
-        if let current = (data.rateRules ?? []).filter({ $0.effectiveFrom <= Date() }).max(by: { $0.effectiveFrom < $1.effectiveFrom }) {
+        if let current = (data.rateRules ?? []).filter({ $0.applies(to: Date(), calendar: calendar) }).max(by: { $0.effectiveFrom < $1.effectiveFrom }) {
             data.hourlyRate = current.hourlyRate
+        }
+    }
+
+    private func overlapsRatePeriod(start: Date, end: Date?, excluding id: UUID?) -> Bool {
+        guard let newEnd = end else { return false }
+        return (data.rateRules ?? []).contains { rule in
+            guard rule.id != id else { return false }
+            guard let oldEnd = rule.effectiveUntil else { return false }
+            return start <= oldEnd && rule.effectiveFrom <= newEnd
         }
     }
 
