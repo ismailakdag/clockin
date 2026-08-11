@@ -20,6 +20,10 @@ struct PasteImportView: View {
                     Text("One task or the entire page works.").font(.system(size: 11)).foregroundStyle(.secondary)
                 }
                 Spacer()
+                Button { dismiss() } label: {
+                    Image(systemName: "xmark").frame(width: 28, height: 28)
+                }
+                .buttonStyle(.plain).foregroundStyle(.secondary).help("Close")
                 Button("Paste") {
                     text = NSPasteboard.general.string(forType: .string) ?? ""
                 }
@@ -53,7 +57,7 @@ struct PasteImportView: View {
                     }
                 }
                 Spacer()
-                Button("Cancel") { dismiss() }.buttonStyle(.plain).foregroundStyle(.secondary)
+                Button("Cancel") { dismiss() }.buttonStyle(.bordered).keyboardShortcut(.cancelAction)
                 Button("Import") {
                     store.importPastedText(text)
                     dismiss()
