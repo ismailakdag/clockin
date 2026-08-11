@@ -29,43 +29,46 @@ struct MainView: View {
     private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
     private var theme: ClockinPalette { ClockinThemeChoice.selected(themeRaw).palette }
 
-    private var progressDailyDurations: [Date: TimeInterval] {
-        let calendar = Calendar.current
-        var values: [Date: TimeInterval] = [:]
-        for session in store.sessions { values[calendar.startOfDay(for: session.start), default: 0] += session.duration }
-        if let running = store.running { values[calendar.startOfDay(for: running.start), default: 0] += running.elapsed(at: now) }
-        return values
+    private struct ProgressStats {
+        var longestStreak: Int
+        var xp: Int
+        var level: Int
     }
 
-    private var progressLongestStreak: Int {
-        let days = progressDailyDurations.keys.sorted()
-        guard !days.isEmpty else { return 0 }
-        var best = 1
+    /// Gunluk toplamlar, en uzun seri ve XP tek gecisde hesaplanir.
+    /// Ayri computed property'ler halindeyken her erisim butun oturumlari
+    /// yeniden tariyordu ve header bunu saniyede 14 kez tetikliyordu.
+    private var progressStats: ProgressStats {
+        let calendar = Calendar.current
+        var daily: [Date: TimeInterval] = [:]
+        for session in store.sessions { daily[calendar.startOfDay(for: session.start), default: 0] += session.duration }
+        if let running = store.running { daily[calendar.startOfDay(for: running.start), default: 0] += running.elapsed(at: now) }
+
+        let days = daily.keys.sorted()
+        var longestStreak = days.isEmpty ? 0 : 1
         var current = 1
         for pair in zip(days, days.dropFirst()) {
-            if Calendar.current.dateComponents([.day], from: pair.0, to: pair.1).day == 1 {
+            if calendar.dateComponents([.day], from: pair.0, to: pair.1).day == 1 {
                 current += 1
-                best = max(best, current)
+                longestStreak = max(longestStreak, current)
             } else { current = 1 }
         }
-        return best
-    }
 
-    private var progressXP: Int {
-        let daily = progressDailyDurations.values
-        let goalDays = dailyGoalHours > 0 ? daily.filter { $0 >= dailyGoalHours * 3600 }.count : 0
-        let doubleDays = dailyGoalHours > 0 ? daily.filter { $0 >= dailyGoalHours * 7200 }.count : 0
+        let values = daily.values
+        let goalDays = dailyGoalHours > 0 ? values.filter { $0 >= dailyGoalHours * 3600 }.count : 0
+        let doubleDays = dailyGoalHours > 0 ? values.filter { $0 >= dailyGoalHours * 7200 }.count : 0
         let monthGoals: Int
         if monthlyGoalHours > 0 {
-            let grouped = Dictionary(grouping: progressDailyDurations) { Calendar.current.dateInterval(of: .month, for: $0.key)?.start ?? $0.key }
+            let grouped = Dictionary(grouping: daily) { calendar.dateInterval(of: .month, for: $0.key)?.start ?? $0.key }
             monthGoals = grouped.values.map { $0.reduce(0) { $0 + $1.value } }.filter { $0 >= monthlyGoalHours * 3600 }.count
         } else { monthGoals = 0 }
         let streakXP = [(3, 100), (7, 250), (14, 500), (30, 1_000), (60, 2_000)]
-            .filter { progressLongestStreak >= $0.0 }.reduce(0) { $0 + $1.1 }
-        return Int((store.totalDuration + store.elapsed(at: now)) / 3600 * 100) + goalDays * 100 + doubleDays * 250 + monthGoals * 500 + streakXP
-    }
+            .filter { longestStreak >= $0.0 }.reduce(0) { $0 + $1.1 }
 
-    private var progressLevel: Int { max(1, progressXP / 500 + 1) }
+        let xp = Int((store.totalDuration + store.elapsed(at: now)) / 3600 * 100)
+            + goalDays * 100 + doubleDays * 250 + monthGoals * 500 + streakXP
+        return ProgressStats(longestStreak: longestStreak, xp: xp, level: max(1, xp / 500 + 1))
+    }
 
     var body: some View {
         Group {
@@ -141,7 +144,9 @@ struct MainView: View {
     }
 
     private var header: some View {
-        HStack {
+        // Tek kez hesaplanip iki yerde kullanilir (LV rozeti ve help metni).
+        let stats = progressStats
+        return HStack {
             HStack(spacing: 9) {
                 Image(systemName: "timer")
                     .font(.system(size: 16, weight: .bold))
@@ -160,12 +165,12 @@ struct MainView: View {
             .background(theme.surface, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
             HStack(spacing: 2) {
                 Button { showProgress = true } label: {
-                    Label("LV \(progressLevel)", systemImage: "trophy.fill")
+                    Label("LV \(stats.level)", systemImage: "trophy.fill")
                         .font(.system(size: 9, weight: .bold, design: .monospaced))
                         .frame(width: 52, height: 28)
                 }
                 .buttonStyle(.plain).foregroundStyle(theme.accent)
-                .help("Progress • \(progressXP) XP • streaks • mascot • records")
+                .help("Progress • \(stats.xp) XP • streaks • mascot • records")
                 headerIcon("gearshape.fill", help: "Settings") { showSettings = true }
                 Button { store.setPinned(!store.pinVisible) } label: {
                     Image(systemName: store.pinVisible ? "pin.fill" : "pin")
