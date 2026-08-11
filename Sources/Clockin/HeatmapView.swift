@@ -20,6 +20,7 @@ struct HeatmapView: View {
     @State private var now = Date()
     @State private var hoveredDate: Date?
     @State private var cachedStats: [Date: DayStats] = [:]
+    @State private var cachedAggregateStats: [Date: DayStats] = [:]
     let onBack: () -> Void
 
     private let calendar: Calendar = {
@@ -40,22 +41,13 @@ struct HeatmapView: View {
         return calendar.date(byAdding: .day, value: -offset, to: day) ?? day
     }
 
-    private var selectedBounds: (start: Date, end: Date) {
-        switch selectedRange {
-        case .week:
-            let start = calendar.date(byAdding: .day, value: -6, to: today) ?? today
-            return (start, today)
-        case .month:
-            let start = calendar.date(byAdding: .day, value: -29, to: today) ?? today
-            return (start, today)
-        case .all:
-            let earliest = store.sessions.map(\.start).min() ?? store.running?.start ?? today
-            return (calendar.startOfDay(for: earliest), today)
-        }
+    private var dataBounds: (start: Date, end: Date) {
+        let earliest = store.sessions.map(\.start).min() ?? store.running?.start ?? today
+        return (calendar.startOfDay(for: earliest), today)
     }
 
     private var weeks: [[Date]] {
-        let bounds = selectedBounds
+        let bounds = dataBounds
         let first = weekStart(for: bounds.start)
         let last = weekStart(for: bounds.end)
         var starts: [Date] = []
@@ -71,8 +63,59 @@ struct HeatmapView: View {
     }
 
     private var visibleDays: [Date] {
-        let bounds = selectedBounds
+        let bounds = dataBounds
         return weeks.flatMap { $0 }.filter { $0 >= bounds.start && $0 <= bounds.end && $0 <= today }
+    }
+
+    private var aggregatePeriods: [Date] {
+        let bounds = dataBounds
+        let first: Date
+        let step: Calendar.Component
+        switch selectedRange {
+        case .week:
+            first = weekStart(for: bounds.start)
+            step = .weekOfYear
+        case .month:
+            first = calendar.dateInterval(of: .month, for: bounds.start)?.start ?? bounds.start
+            step = .month
+        case .all:
+            return []
+        }
+        var result: [Date] = []
+        var cursor = first
+        while cursor <= bounds.end {
+            result.append(cursor)
+            guard let next = calendar.date(byAdding: step, value: 1, to: cursor) else { break }
+            cursor = next
+        }
+        return result
+    }
+
+    private func aggregateStats(for period: Date) -> DayStats {
+        let start = calendar.startOfDay(for: period)
+        return cachedAggregateStats[start] ?? DayStats()
+    }
+
+    private func makeAggregateStats() -> [Date: DayStats] {
+        guard selectedRange != .all else { return [:] }
+        var result: [Date: DayStats] = [:]
+        for period in aggregatePeriods {
+            let start = calendar.startOfDay(for: period)
+            let end = selectedRange == .week
+                ? (calendar.date(byAdding: .day, value: 7, to: start) ?? start)
+                : (calendar.date(byAdding: .month, value: 1, to: start) ?? start)
+            var value = DayStats()
+            for session in store.sessions where session.start >= start && session.start < end {
+                value.duration += session.duration
+                value.earnings += store.earnings(for: session)
+            }
+            if let running = store.running, running.start >= start && running.start < end {
+                value.duration += running.elapsed(at: now)
+                value.earnings += store.currentEarnings(at: now)
+            }
+            result[start] = value
+        }
+        return result
     }
     private func makeDailyStats(at date: Date) -> [Date: DayStats] {
         var result: [Date: DayStats] = [:]
@@ -122,9 +165,17 @@ struct HeatmapView: View {
         .onReceive(timer) {
             now = $0
             cachedStats = makeDailyStats(at: $0)
+            cachedAggregateStats = makeAggregateStats()
         }
-        .onAppear { cachedStats = makeDailyStats(at: now) }
-        .onChange(of: store.sessions.count) { _, _ in cachedStats = makeDailyStats(at: now) }
+        .onAppear {
+            cachedStats = makeDailyStats(at: now)
+            cachedAggregateStats = makeAggregateStats()
+        }
+        .onChange(of: store.sessions.count) {
+            cachedStats = makeDailyStats(at: now)
+            cachedAggregateStats = makeAggregateStats()
+        }
+        .onChange(of: rangeRaw) { _, _ in cachedAggregateStats = makeAggregateStats() }
         .task(id: store.sessions.count) {
             await exchangeRates.refresh(sessionDates: store.sessions.map(\.start))
         }
@@ -160,7 +211,7 @@ struct HeatmapView: View {
                 .labelsHidden()
                 .frame(width: 158)
             }
-            Text("Each square is one day. Scroll or drag horizontally to pan through the range.")
+            Text((selectedRange == .all ? "Each square is one day." : (selectedRange == .week ? "Each column is one week." : "Each column is one month.")) + " Scroll horizontally to pan.")
                 .font(.system(size: 11, weight: .medium)).foregroundStyle(.secondary)
         }
     }
@@ -175,9 +226,9 @@ struct HeatmapView: View {
 
     private var periodLabel: String {
         switch selectedRange {
-        case .week: return "LAST 7 DAYS"
-        case .month: return "LAST 30 DAYS"
-        case .all: return "ALL TIME"
+        case .week: return "WEEKLY"
+        case .month: return "MONTHLY"
+        case .all: return "DAILY / ALL"
         }
     }
 
@@ -191,91 +242,148 @@ struct HeatmapView: View {
         .background(.white.opacity(0.045), in: RoundedRectangle(cornerRadius: 9))
     }
 
-    private var heatmap: some View {
+    @ViewBuilder private var heatmap: some View {
         VStack(alignment: .leading, spacing: 9) {
-            HStack(alignment: .top, spacing: 6) {
-                VStack(spacing: 3) {
-                    Text("").frame(height: 17)
-                    ForEach(["M", "W", "F"], id: \.self) { day in
-                        Text(day).font(.system(size: 8, weight: .bold, design: .monospaced)).foregroundStyle(.tertiary).frame(height: 12)
-                        if day != "F" { Spacer().frame(height: 3) }
-                    }
-                }
-                ScrollViewReader { proxy in
-                    VStack(spacing: 5) {
-                        HStack(spacing: 6) {
-                            Text("PAN").font(.system(size: 7, weight: .bold)).foregroundStyle(.tertiary).tracking(0.8)
-                            Spacer()
-                            Button("Start") { proxy.scrollTo(0, anchor: .leading) }
-                                .buttonStyle(.plain).font(.system(size: 8, weight: .semibold)).foregroundStyle(.secondary)
-                            Button("Today") { proxy.scrollTo(max(0, weeks.count - 1), anchor: .trailing) }
-                                .buttonStyle(.plain).font(.system(size: 8, weight: .bold)).foregroundStyle(theme.accent)
-                        }
-                        ScrollView(.horizontal, showsIndicators: true) {
-                            HStack(alignment: .top, spacing: 3) {
-                                ForEach(Array(weeks.enumerated()), id: \.offset) { index, week in
-                                    VStack(spacing: 3) {
-                                        Text(monthLabel(for: index, week: week))
-                                            .font(.system(size: 8, weight: .medium))
-                                            .foregroundStyle(.tertiary)
-                                            .frame(height: 17, alignment: .leading)
-                                        ForEach(Array(week.enumerated()), id: \.offset) { _, day in
-                                            heatCell(day)
-                                        }
-                                    }
-                                    .id(index)
-                                }
-                            }
-                            .padding(.bottom, 4)
-                        }
-                    }
-                    .id(rangeRaw)
-                    .onAppear {
-                        proxy.scrollTo(max(0, weeks.count - 1), anchor: .trailing)
-                    }
-                }
-            }
+            if selectedRange == .all { dailyGrid } else { aggregateGrid }
             if let hoveredDate { hoverTooltip(for: hoveredDate) }
         }
         .padding(12)
         .background(.black.opacity(0.18), in: RoundedRectangle(cornerRadius: 12))
     }
 
+    private var dailyGrid: some View {
+        HStack(alignment: .top, spacing: 6) {
+            VStack(spacing: 3) {
+                Text("").frame(height: 17)
+                ForEach(["M", "W", "F"], id: \.self) { day in
+                    Text(day).font(.system(size: 8, weight: .bold, design: .monospaced)).foregroundStyle(.tertiary).frame(height: 12)
+                    if day != "F" { Spacer().frame(height: 3) }
+                }
+            }
+            ScrollViewReader { proxy in
+                VStack(spacing: 5) {
+                    panControls(proxy: proxy, firstID: 0, lastID: max(0, weeks.count - 1))
+                    ScrollView(.horizontal, showsIndicators: true) {
+                        HStack(alignment: .top, spacing: 3) {
+                            ForEach(Array(weeks.enumerated()), id: \.offset) { index, week in
+                                VStack(spacing: 3) {
+                                    Text(monthLabel(for: index, week: week))
+                                        .font(.system(size: 8, weight: .medium))
+                                        .foregroundStyle(.tertiary)
+                                        .frame(height: 17, alignment: .leading)
+                                    ForEach(Array(week.enumerated()), id: \.offset) { _, day in heatCell(day) }
+                                }
+                                .id(index)
+                            }
+                        }
+                        .padding(.bottom, 4)
+                    }
+                }
+                .id(rangeRaw)
+                .onAppear { proxy.scrollTo(max(0, weeks.count - 1), anchor: .trailing) }
+            }
+        }
+    }
+
+    private var aggregateGrid: some View {
+        ScrollViewReader { proxy in
+            VStack(spacing: 5) {
+                if let first = aggregatePeriods.first, let last = aggregatePeriods.last {
+                    panControls(proxy: proxy, firstID: first, lastID: last)
+                }
+                ScrollView(.horizontal, showsIndicators: true) {
+                    HStack(alignment: .bottom, spacing: 5) {
+                        ForEach(aggregatePeriods, id: \.self) { period in aggregateCell(period).id(period) }
+                    }
+                    .frame(minHeight: 105, alignment: .bottom)
+                    .padding(.bottom, 4)
+                }
+            }
+            .id(rangeRaw)
+            .onAppear { if let last = aggregatePeriods.last { proxy.scrollTo(last, anchor: .trailing) } }
+        }
+    }
+
+    private func panControls<ID: Hashable>(proxy: ScrollViewProxy, firstID: ID, lastID: ID) -> some View {
+        HStack(spacing: 6) {
+            Text("PAN").font(.system(size: 7, weight: .bold)).foregroundStyle(.tertiary).tracking(0.8)
+            Spacer()
+            Button("Start") { proxy.scrollTo(firstID, anchor: .leading) }
+                .buttonStyle(.plain).font(.system(size: 8, weight: .semibold)).foregroundStyle(.secondary)
+            Button("Today") { proxy.scrollTo(lastID, anchor: .trailing) }
+                .buttonStyle(.plain).font(.system(size: 8, weight: .bold)).foregroundStyle(theme.accent)
+        }
+    }
+
+    private func aggregateCell(_ period: Date) -> some View {
+        let value = aggregateStats(for: period)
+        let maximum = max(1, aggregatePeriods.map { aggregateStats(for: $0).earnings }.max() ?? 1)
+        let title: String
+        switch selectedRange {
+        case .week: title = period.formatted(.dateTime.month(.abbreviated).day())
+        case .month: title = period.formatted(.dateTime.month(.abbreviated).year(.twoDigits))
+        case .all: title = ""
+        }
+        return VStack(spacing: 4) {
+            Text(title).font(.system(size: 8, weight: .medium)).foregroundStyle(.tertiary).frame(height: 14)
+            RoundedRectangle(cornerRadius: 4)
+                .fill(heatColor(hours: value.earnings, reference: maximum))
+                .frame(width: 28, height: 50)
+                .overlay(Text(DurationText.compact(value.duration)).font(.system(size: 7, weight: .bold, design: .monospaced)).foregroundStyle(.white.opacity(0.85)).rotationEffect(.degrees(-90)))
+            Text(value.earnings.money(code: store.currencyCode, maxFractionDigits: 0))
+                .font(.system(size: 7, weight: .semibold, design: .monospaced)).foregroundStyle(theme.accent)
+        }
+        .frame(width: 34)
+        .contentShape(Rectangle())
+        .onHover { inside in
+            withAnimation(.easeOut(duration: 0.05)) {
+                if inside { hoveredDate = period }
+                else if hoveredDate == period { hoveredDate = nil }
+            }
+        }
+    }
+
     private func heatCell(_ date: Date) -> some View {
         let hours = stats(for: date).duration / 3600
-        let bounds = selectedBounds
-        let isInRange = date >= bounds.start && date <= bounds.end
         let isFuture = date > today
         return ZStack {
             Color.clear
             RoundedRectangle(cornerRadius: 2)
-                .fill(isInRange && !isFuture ? heatColor(hours: hours) : .clear)
+                .fill(!isFuture ? heatColor(hours: hours) : .clear)
                 .frame(width: 11, height: 11)
-                .overlay(RoundedRectangle(cornerRadius: 2).stroke(.white.opacity(isInRange && !isFuture ? 0.04 : 0.02)))
+                .overlay(RoundedRectangle(cornerRadius: 2).stroke(.white.opacity(!isFuture ? 0.04 : 0.02)))
         }
             .frame(width: 18, height: 18)
             .contentShape(Rectangle())
             .onHover { inside in
                 withAnimation(.easeOut(duration: 0.05)) {
-                    if inside && isInRange { hoveredDate = date }
+                    if inside && !isFuture { hoveredDate = date }
                     else if hoveredDate == date { hoveredDate = nil }
                 }
             }
     }
 
     private func hoverTooltip(for date: Date) -> some View {
-        HStack(spacing: 8) {
+        let periodStats = selectedRange == .all ? stats(for: date) : aggregateStats(for: date)
+        let periodTitle: String
+        switch selectedRange {
+        case .all: periodTitle = date.formatted(.dateTime.weekday(.wide).month(.wide).day())
+        case .week:
+            let end = calendar.date(byAdding: .day, value: 6, to: date) ?? date
+            periodTitle = "Week of \(date.formatted(.dateTime.month(.abbreviated).day())) – \(end.formatted(.dateTime.month(.abbreviated).day()))"
+        case .month: periodTitle = date.formatted(.dateTime.month(.wide).year())
+        }
+        return HStack(spacing: 8) {
             Image(systemName: "calendar").foregroundStyle(theme.accent)
             VStack(alignment: .leading, spacing: 2) {
-                Text(date.formatted(.dateTime.weekday(.wide).month(.wide).day()))
+                Text(periodTitle)
                     .font(.system(size: 10, weight: .bold))
-                let dayStats = stats(for: date)
-                Text("\(DurationText.compact(dayStats.duration)) • \(dayStats.earnings.money(code: store.currencyCode))")
+                Text("\(DurationText.compact(periodStats.duration)) • \(periodStats.earnings.money(code: store.currencyCode))")
                     .font(.system(size: 9, weight: .semibold, design: .monospaced))
                     .foregroundStyle(.secondary)
                 if store.currencyCode == "USD" {
                     if let rate = exchangeRates.rate(on: date) ?? exchangeRates.latestRate {
-                        Text("≈ \((dayStats.earnings * rate).money(code: "TRY")) • 1 USD = \(String(format: "%.3f", rate)) TRY")
+                        Text("≈ \((periodStats.earnings * rate).money(code: "TRY")) • 1 USD = \(String(format: "%.3f", rate)) TRY")
                             .font(.system(size: 8, weight: .medium, design: .monospaced))
                             .foregroundStyle(theme.accent)
                     } else {
@@ -300,14 +408,14 @@ struct HeatmapView: View {
         return firstDay.formatted(.dateTime.month(.abbreviated))
     }
 
-    private func heatColor(hours: Double) -> Color {
+    private func heatColor(hours: Double, reference: Double = 8) -> Color {
         guard hours > 0 else { return .white.opacity(0.07) }
-        return theme.accent.opacity(min(1, 0.25 + hours / 8 * 0.75))
+        return theme.accent.opacity(min(1, 0.25 + hours / max(reference, 0.1) * 0.75))
     }
 
     private var legend: some View {
         HStack(spacing: 5) {
-            Text("Less").font(.system(size: 8)).foregroundStyle(.tertiary)
+            Text(selectedRange == .all ? "Less hours" : "Less earnings").font(.system(size: 8)).foregroundStyle(.tertiary)
             ForEach([0.0, 0.5, 2.0, 4.0, 8.0], id: \.self) { value in
                 RoundedRectangle(cornerRadius: 2).fill(heatColor(hours: value)).frame(width: 11, height: 11)
             }

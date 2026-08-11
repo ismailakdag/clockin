@@ -13,7 +13,56 @@ struct ProgressDashboardView: View {
     private var theme: ClockinPalette { ClockinThemeChoice.selected(themeRaw).palette }
 
     private var totalHours: Double { (store.totalDuration + store.elapsed(at: now)) / 3600 }
-    private var xp: Int { Int(totalHours * 100) }
+    private var dailyDurations: [Date: TimeInterval] {
+        let calendar = Calendar.current
+        var values: [Date: TimeInterval] = [:]
+        for session in store.sessions {
+            let day = calendar.startOfDay(for: session.start)
+            values[day, default: 0] += session.duration
+        }
+        if let running = store.running {
+            values[calendar.startOfDay(for: running.start), default: 0] += running.elapsed(at: now)
+        }
+        return values
+    }
+    private var baseXP: Int { Int(totalHours * 100) }
+    private var completedGoalDays: Int {
+        guard dailyGoalHours > 0 else { return 0 }
+        return dailyDurations.values.filter { $0 >= dailyGoalHours * 3600 }.count
+    }
+    private var doubleGoalDays: Int {
+        guard dailyGoalHours > 0 else { return 0 }
+        return dailyDurations.values.filter { $0 >= dailyGoalHours * 7200 }.count
+    }
+    private var completedGoalMonths: Int {
+        guard monthlyGoalHours > 0 else { return 0 }
+        let calendar = Calendar.current
+        let monthly = Dictionary(grouping: dailyDurations) { calendar.dateInterval(of: .month, for: $0.key)?.start ?? $0.key }
+        return monthly.values.map { $0.reduce(0) { $0 + $1.value } }.filter { $0 >= monthlyGoalHours * 3600 }.count
+    }
+    private var longestStreak: Int {
+        let calendar = Calendar.current
+        let days = dailyDurations.keys.sorted()
+        guard !days.isEmpty else { return 0 }
+        var best = 1
+        var current = 1
+        for pair in zip(days, days.dropFirst()) {
+            if calendar.dateComponents([.day], from: pair.0, to: pair.1).day == 1 {
+                current += 1
+                best = max(best, current)
+            } else {
+                current = 1
+            }
+        }
+        return best
+    }
+    private var goalBonusXP: Int { completedGoalDays * 100 + doubleGoalDays * 250 + completedGoalMonths * 500 }
+    private var streakBonusXP: Int {
+        [(3, 100), (7, 250), (14, 500), (30, 1_000), (60, 2_000)]
+            .filter { longestStreak >= $0.0 }
+            .reduce(0) { $0 + $1.1 }
+    }
+    private var xp: Int { baseXP + goalBonusXP + streakBonusXP }
     private var level: Int { max(1, xp / 500 + 1) }
     private var levelProgress: Double { Double(xp % 500) / 500 }
     private var streak: Int {
@@ -38,16 +87,31 @@ struct ProgressDashboardView: View {
 
     private var overview: some View {
         VStack(spacing: 12) {
-            HStack(spacing: 14) { if mascotEnabled { MascotView(store: store, now: now, level: level) }; VStack(alignment: .leading, spacing: 4) { Text("LEVEL \(level)").font(.system(size: 18, weight: .black)); Text("\(xp) XP • \(500 - xp % 500) XP to next level").font(.system(size: 10)).foregroundStyle(.secondary); ProgressView(value: levelProgress).tint(theme.accent).frame(width: 180) }; Spacer() }.padding(16).background(card)
-            HStack { stat("🔥", "STREAK", "\(streak) day\(streak == 1 ? "" : "s")"); Divider(); stat("⏱", "TOTAL", DurationText.compact(store.totalDuration + store.elapsed(at: now))); Divider(); stat("⚡", "XP RATE", "100 / hour") }.padding(13).background(card)
+            HStack(spacing: 14) { if mascotEnabled { MascotView(store: store, now: now, level: level) }; VStack(alignment: .leading, spacing: 4) { Text("LEVEL \(level)").font(.system(size: 18, weight: .black)); Text("\(xp) XP • \(500 - xp % 500) XP to next level").font(.system(size: 10)).foregroundStyle(.secondary); ProgressView(value: levelProgress).tint(theme.accent).frame(width: 180); Text("Base \(baseXP) • Goal +\(goalBonusXP) • Streak +\(streakBonusXP)").font(.system(size: 8, design: .monospaced)).foregroundStyle(theme.accent) }; Spacer() }.padding(16).background(card)
+            HStack { stat("🔥", "STREAK", "\(streak) day\(streak == 1 ? "" : "s")"); Divider(); stat("⏱", "TOTAL", DurationText.compact(store.totalDuration + store.elapsed(at: now))); Divider(); stat("⚡", "XP RATE", "100 / hour + bonus") }.padding(13).background(card)
+            goalBonusCard
             goalETA
         }
+    }
+
+    private var goalBonusCard: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("BONUS ENGINE").font(.system(size: 9, weight: .bold)).foregroundStyle(.secondary).tracking(1)
+            if dailyGoalHours <= 0 && monthlyGoalHours <= 0 {
+                Text("Set daily or monthly goals to earn bonus XP.").font(.system(size: 10)).foregroundStyle(.secondary)
+            } else {
+                Text("+\(goalBonusXP) XP from goals • \(completedGoalDays) daily • \(doubleGoalDays) double-goal • \(completedGoalMonths) monthly")
+                    .font(.system(size: 10, weight: .semibold, design: .monospaced)).foregroundStyle(theme.accent)
+                Text("A completed day gives +100 XP; a 2× goal day gives an additional +250 XP.")
+                    .font(.system(size: 8)).foregroundStyle(.tertiary)
+            }
+        }.padding(12).background(card)
     }
 
     private var records: some View {
         let longest = store.sessions.map(\.duration).max() ?? 0
         let bestDay = Dictionary(grouping: store.sessions) { Calendar.current.startOfDay(for: $0.start) }.mapValues { $0.reduce(0) { $0 + $1.duration } }.max { $0.value < $1.value }?.value ?? 0
-        return VStack(spacing: 9) { record("trophy.fill", "Longest session", DurationText.compact(longest)); record("calendar.badge.exclamationmark", "Best day", DurationText.compact(bestDay)); record("flame.fill", "Current streak", "\(streak) days"); record("star.fill", "Total XP", "\(xp) XP") }
+        return VStack(spacing: 9) { record("trophy.fill", "Longest session", DurationText.compact(longest)); record("calendar.badge.exclamationmark", "Best day", DurationText.compact(bestDay)); record("flame.fill", "Current streak", "\(streak) days"); record("flame.circle.fill", "Longest streak", "\(longestStreak) days"); record("target", "Goal days", "\(completedGoalDays)"); record("star.fill", "Total XP", "\(xp) XP") }
     }
 
     private var badges: some View {
@@ -61,11 +125,17 @@ struct ProgressDashboardView: View {
             ("streak", "On a roll", "Keep a 3-day streak", streak >= 3),
             ("weekstreak", "Weekly fire", "Keep a 7-day streak", streak >= 7),
             ("monthstreak", "Unstoppable", "Keep a 30-day streak", streak >= 30),
+            ("streak14", "Fortnight fire", "Reach a 14-day streak", longestStreak >= 14),
+            ("streak60", "Seasoned", "Reach a 60-day streak", longestStreak >= 60),
             ("week", "Weekly finisher", "Log 7 sessions", store.sessions.count >= 7),
             ("sessions25", "Session collector", "Log 25 sessions", store.sessions.count >= 25),
             ("marathon", "Marathon", "Complete a 4-hour session", (store.sessions.map(\.duration).max() ?? 0) >= 4 * 3600),
             ("ultra", "Ultra focus", "Complete an 8-hour session", (store.sessions.map(\.duration).max() ?? 0) >= 8 * 3600),
-            ("xp", "XP engine", "Earn 10,000 XP", xp >= 10_000)
+            ("xp", "XP engine", "Earn 10,000 XP", xp >= 10_000),
+            ("goal", "Goal setter", "Complete a daily goal", completedGoalDays >= 1),
+            ("doublegoal", "Double down", "Reach 2× a daily goal", doubleGoalDays >= 1),
+            ("monthgoal", "Month finisher", "Complete a monthly goal", completedGoalMonths >= 1),
+            ("xp25", "Quarter XP", "Earn 25,000 XP", xp >= 25_000)
         ]
         return LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
             ForEach(earned, id: \.0) { badge in
