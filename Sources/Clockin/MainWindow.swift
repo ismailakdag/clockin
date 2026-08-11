@@ -5,6 +5,10 @@ import SwiftUI
 final class MainWindowController: NSWindowController, NSWindowDelegate {
     static let shared = MainWindowController()
 
+    func hide() {
+        window?.orderOut(nil)
+    }
+
     func show(store: ClockStore, exchangeRates: ExchangeRateStore) {
         if window == nil {
             let window = NSWindow(

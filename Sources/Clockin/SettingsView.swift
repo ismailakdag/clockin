@@ -13,6 +13,7 @@ struct SettingsView: View {
     @AppStorage("Clockin.ChimeIntervalMinutes") private var chimeInterval = 10
     @AppStorage("Clockin.MascotEnabled") private var mascotEnabled = true
     @AppStorage("Clockin.MascotDefault") private var mascotDefault = "Auto"
+    @AppStorage("Clockin.MinimalMode") private var minimalMode = false
     @AppStorage("Clockin.GoalDailyHours") private var dailyGoalHours = 0.0
     @AppStorage("Clockin.GoalMonthlyHours") private var monthlyGoalHours = 0.0
     @State private var dailyGoalText = ""
@@ -117,6 +118,23 @@ struct SettingsView: View {
                 Picker("", selection: $themeRaw) {
                     ForEach(ClockinThemeChoice.allCases) { Text($0.rawValue).tag($0.rawValue) }
                 }.labelsHidden().frame(width: 140)
+            }.padding(10).background(card)
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Label("Minimal menu bar mode", systemImage: "menubar.rectangle")
+                        .foregroundStyle(.secondary)
+                    Text("Hide the main window and pinned widget; keep controls in the menu bar.")
+                        .font(.system(size: 8)).foregroundStyle(.tertiary)
+                }
+                Spacer()
+                Toggle("", isOn: $minimalMode)
+                    .labelsHidden().toggleStyle(.switch)
+                    .onChange(of: minimalMode) { _, value in
+                        if value {
+                            store.setPinned(false)
+                            MainWindowController.shared.hide()
+                        }
+                    }
             }.padding(10).background(card)
             HStack {
                 Label("Pinned widget", systemImage: "pin.fill").foregroundStyle(.secondary)

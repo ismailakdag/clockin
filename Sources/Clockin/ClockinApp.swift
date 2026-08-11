@@ -16,7 +16,9 @@ final class ClockinAppDelegate: NSObject, NSApplicationDelegate {
             let dependencies = AppDependencies.shared
             FocusChimeController.shared.start(store: dependencies.store)
             KeyboardShortcutController.shared.start(store: dependencies.store)
-            MainWindowController.shared.show(store: dependencies.store, exchangeRates: dependencies.exchangeRates)
+            if !UserDefaults.standard.bool(forKey: "Clockin.MinimalMode") {
+                MainWindowController.shared.show(store: dependencies.store, exchangeRates: dependencies.exchangeRates)
+            }
         }
     }
 
@@ -33,6 +35,7 @@ struct ClockinApp: App {
     @NSApplicationDelegateAdaptor(ClockinAppDelegate.self) private var appDelegate
     @StateObject private var store: ClockStore
     @StateObject private var exchangeRates: ExchangeRateStore
+    @AppStorage("Clockin.MinimalMode") private var minimalMode = false
 
     init() {
         let dependencies = AppDependencies.shared
@@ -46,6 +49,11 @@ struct ClockinApp: App {
                 MainWindowController.shared.show(store: store, exchangeRates: exchangeRates)
             }
             Divider()
+            if minimalMode {
+                Text("MINIMAL MENU BAR MODE")
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                Divider()
+            }
             if store.running == nil {
                 Button("Clock in") { store.clockIn() }
             } else if store.running?.isPaused == true {
@@ -58,8 +66,19 @@ struct ClockinApp: App {
                 Button("Cancel session", role: .destructive) { store.cancelRunning() }
             }
             Divider()
-            Button(store.pinVisible ? "Hide pinned timer" : "Show pinned timer") {
-                store.setPinned(!store.pinVisible)
+            if !minimalMode {
+                Button(store.pinVisible ? "Hide pinned timer" : "Show pinned timer") {
+                    store.setPinned(!store.pinVisible)
+                }
+            }
+            Button(minimalMode ? "Exit minimal mode" : "Use minimal menu bar mode") {
+                minimalMode.toggle()
+                if minimalMode {
+                    store.setPinned(false)
+                    MainWindowController.shared.hide()
+                } else {
+                    MainWindowController.shared.show(store: store, exchangeRates: exchangeRates)
+                }
             }
             Button("Quit Clockin") { NSApp.terminate(nil) }
         } label: {
