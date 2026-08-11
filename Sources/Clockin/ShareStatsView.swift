@@ -205,7 +205,7 @@ struct ShareStatsView: View {
         .frame(width: 390, height: 650)
         .background(theme.background)
         .fontDesign(theme.fontDesign)
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(theme.colorScheme)
         .onReceive(timer) { now = $0 }
     }
 

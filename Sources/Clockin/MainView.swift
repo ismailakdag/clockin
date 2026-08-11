@@ -60,7 +60,7 @@ struct MainView: View {
         .frame(width: 390, height: 650)
         .background(theme.background)
         .fontDesign(theme.fontDesign)
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(theme.colorScheme)
         .onAppear {
             rateText = formattedRate
             if store.pinVisible { PinnedWindowController.shared.update(isVisible: true, store: store) }
@@ -608,8 +608,8 @@ struct MainView: View {
 
     private var cardBackground: some View {
         RoundedRectangle(cornerRadius: 15, style: .continuous)
-            .fill(.white.opacity(0.045))
-            .overlay(RoundedRectangle(cornerRadius: 15).stroke(.white.opacity(0.07)))
+            .fill(theme.surface)
+            .overlay(RoundedRectangle(cornerRadius: 15).stroke(theme.surfaceStroke))
     }
 
     private var statusColor: Color {

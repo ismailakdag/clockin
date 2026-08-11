@@ -30,7 +30,7 @@ struct ManualStartView: View {
                 Text("NOTE (OPTIONAL)").font(.system(size: 9, weight: .bold)).foregroundStyle(.secondary).tracking(1)
                 TextField("What are you working on?", text: $note)
                     .textFieldStyle(.plain).padding(10)
-                    .background(.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 9))
+                    .background(theme.surface, in: RoundedRectangle(cornerRadius: 9))
             }
 
             HStack {
@@ -56,7 +56,7 @@ struct ManualStartView: View {
         .frame(width: 430, height: 330)
         .background(theme.background)
         .fontDesign(theme.fontDesign)
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(theme.colorScheme)
     }
 
     private func valueStepper(title: String, value: Binding<Int>, range: ClosedRange<Int>) -> some View {
@@ -76,6 +76,6 @@ struct ManualStartView: View {
             }
         }
         .padding(12).frame(maxWidth: .infinity)
-        .background(.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 11))
+        .background(theme.surface, in: RoundedRectangle(cornerRadius: 11))
     }
 }

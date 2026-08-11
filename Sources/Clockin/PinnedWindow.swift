@@ -124,7 +124,7 @@ struct PinnedTimerView: View {
             Image(systemName: "arrow.up.left.and.arrow.down.right")
                 .font(.system(size: 7)).foregroundStyle(.white.opacity(0.2)).padding(6)
         }
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(theme.colorScheme)
         .fontDesign(theme.fontDesign)
         .onReceive(timer) { now = $0 }
     }

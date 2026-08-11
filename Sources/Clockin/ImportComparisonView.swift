@@ -72,7 +72,7 @@ struct ImportComparisonView: View {
         .frame(width: 560, height: 560)
         .background(theme.background)
         .fontDesign(theme.fontDesign)
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(theme.colorScheme)
     }
 
     private func summaryCard(_ label: String, _ value: Int, color: Color) -> some View {
@@ -102,12 +102,12 @@ struct ImportComparisonView: View {
                 .foregroundStyle(.secondary)
         }
         .padding(.horizontal, 9).padding(.vertical, 7)
-        .background(.white.opacity(0.04), in: RoundedRectangle(cornerRadius: 7))
+        .background(theme.surface, in: RoundedRectangle(cornerRadius: 7))
     }
 
     private var card: some View {
         RoundedRectangle(cornerRadius: 10)
-            .fill(.white.opacity(0.045))
-            .overlay(RoundedRectangle(cornerRadius: 10).stroke(.white.opacity(0.07)))
+            .fill(theme.surface)
+            .overlay(RoundedRectangle(cornerRadius: 10).stroke(theme.surfaceStroke))
     }
 }

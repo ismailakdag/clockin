@@ -34,8 +34,8 @@ struct PasteImportView: View {
                 .font(.system(size: 11, design: .monospaced))
                 .scrollContentBackground(.hidden)
                 .padding(8)
-                .background(.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 10))
-                .overlay(RoundedRectangle(cornerRadius: 10).stroke(.white.opacity(0.08)))
+                .background(theme.surface, in: RoundedRectangle(cornerRadius: 10))
+                .overlay(RoundedRectangle(cornerRadius: 10).stroke(theme.surfaceStroke))
 
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
@@ -72,7 +72,7 @@ struct PasteImportView: View {
         .frame(width: 520, height: 430)
         .background(theme.background)
         .fontDesign(theme.fontDesign)
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(theme.colorScheme)
         .sheet(isPresented: $showComparison) {
             ImportComparisonView(sessions: preview, sourceTitle: "Pasted timecards") {
                 dismiss()

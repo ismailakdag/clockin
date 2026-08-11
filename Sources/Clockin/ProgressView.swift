@@ -1,5 +1,14 @@
 import SwiftUI
 
+private struct ProgressBadge: Identifiable {
+    let id: String
+    let title: String
+    let requirement: String
+    let icon: String
+    let color: Color
+    let unlocked: Bool
+}
+
 struct ProgressDashboardView: View {
     @EnvironmentObject private var store: ClockStore
     @AppStorage("Clockin.Theme") private var themeRaw = ClockinThemeChoice.carbon.rawValue
@@ -120,30 +129,40 @@ struct ProgressDashboardView: View {
 
     private var badges: some View {
         let total = totalHours
-        let earned: [(String, String, String, Bool)] = [
-            ("first", "First session", "Complete your first session", total > 0),
-            ("ten", "10-hour club", "Work 10 total hours", total >= 10),
-            ("fifty", "Half-century", "Work 50 total hours", total >= 50),
-            ("hundred", "Century", "Work 100 total hours", total >= 100),
-            ("quarter", "Quarter kilo", "Work 250 total hours", total >= 250),
-            ("streak", "On a roll", "Keep a 3-day streak", streak >= 3),
-            ("weekstreak", "Weekly fire", "Keep a 7-day streak", streak >= 7),
-            ("monthstreak", "Unstoppable", "Keep a 30-day streak", streak >= 30),
-            ("streak14", "Fortnight fire", "Reach a 14-day streak", longestStreak >= 14),
-            ("streak60", "Seasoned", "Reach a 60-day streak", longestStreak >= 60),
-            ("week", "Weekly finisher", "Log 7 sessions", store.sessions.count >= 7),
-            ("sessions25", "Session collector", "Log 25 sessions", store.sessions.count >= 25),
-            ("marathon", "Marathon", "Complete a 4-hour session", (store.sessions.map(\.duration).max() ?? 0) >= 4 * 3600),
-            ("ultra", "Ultra focus", "Complete an 8-hour session", (store.sessions.map(\.duration).max() ?? 0) >= 8 * 3600),
-            ("xp", "XP engine", "Earn 10,000 XP", xp >= 10_000),
-            ("goal", "Goal setter", "Complete a daily goal", completedGoalDays >= 1),
-            ("doublegoal", "Double down", "Reach 2× a daily goal", doubleGoalDays >= 1),
-            ("monthgoal", "Month finisher", "Complete a monthly goal", completedGoalMonths >= 1),
-            ("xp25", "Quarter XP", "Earn 25,000 XP", xp >= 25_000)
+        let earned: [ProgressBadge] = [
+            .init(id: "first", title: "First session", requirement: "Complete your first session", icon: "flag.fill", color: .green, unlocked: total > 0),
+            .init(id: "ten", title: "10-hour club", requirement: "Work 10 total hours", icon: "clock.fill", color: .blue, unlocked: total >= 10),
+            .init(id: "fifty", title: "Half-century", requirement: "Work 50 total hours", icon: "flame.fill", color: .orange, unlocked: total >= 50),
+            .init(id: "hundred", title: "Century", requirement: "Work 100 total hours", icon: "bolt.fill", color: .yellow, unlocked: total >= 100),
+            .init(id: "quarter", title: "Quarter kilo", requirement: "Work 250 total hours", icon: "crown.fill", color: .purple, unlocked: total >= 250),
+            .init(id: "streak", title: "On a roll", requirement: "Keep a 3-day streak", icon: "flame.circle.fill", color: .orange, unlocked: streak >= 3),
+            .init(id: "weekstreak", title: "Weekly fire", requirement: "Keep a 7-day streak", icon: "calendar.badge.clock", color: .red, unlocked: streak >= 7),
+            .init(id: "monthstreak", title: "Unstoppable", requirement: "Keep a 30-day streak", icon: "infinity", color: .pink, unlocked: streak >= 30),
+            .init(id: "streak14", title: "Fortnight fire", requirement: "Reach a 14-day streak", icon: "sparkles", color: .cyan, unlocked: longestStreak >= 14),
+            .init(id: "streak60", title: "Seasoned", requirement: "Reach a 60-day streak", icon: "mountain.2.fill", color: .indigo, unlocked: longestStreak >= 60),
+            .init(id: "week", title: "Weekly finisher", requirement: "Log 7 sessions", icon: "calendar.badge.plus", color: .teal, unlocked: store.sessions.count >= 7),
+            .init(id: "sessions25", title: "Session collector", requirement: "Log 25 sessions", icon: "square.stack.3d.up.fill", color: .mint, unlocked: store.sessions.count >= 25),
+            .init(id: "marathon", title: "Marathon", requirement: "Complete a 4-hour session", icon: "figure.run", color: .orange, unlocked: (store.sessions.map(\.duration).max() ?? 0) >= 4 * 3600),
+            .init(id: "ultra", title: "Ultra focus", requirement: "Complete an 8-hour session", icon: "bolt.circle.fill", color: .yellow, unlocked: (store.sessions.map(\.duration).max() ?? 0) >= 8 * 3600),
+            .init(id: "xp", title: "XP engine", requirement: "Earn 10,000 XP", icon: "star.fill", color: .yellow, unlocked: xp >= 10_000),
+            .init(id: "goal", title: "Goal setter", requirement: "Complete a daily goal", icon: "target", color: .green, unlocked: completedGoalDays >= 1),
+            .init(id: "doublegoal", title: "Double down", requirement: "Reach 2× a daily goal", icon: "arrow.up.right.circle.fill", color: .blue, unlocked: doubleGoalDays >= 1),
+            .init(id: "monthgoal", title: "Month finisher", requirement: "Complete a monthly goal", icon: "calendar.circle.fill", color: .purple, unlocked: completedGoalMonths >= 1),
+            .init(id: "xp25", title: "Quarter XP", requirement: "Earn 25,000 XP", icon: "rosette", color: .pink, unlocked: xp >= 25_000)
         ]
         return LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
-            ForEach(earned, id: \.0) { badge in
-                VStack(spacing: 7) { Text(badge.3 ? "🏅" : "🔒").font(.system(size: 27)); Text(badge.1).font(.system(size: 10, weight: .bold)); Text(badge.3 ? "Unlocked" : badge.2).font(.system(size: 8)).foregroundStyle(badge.3 ? theme.accent : .secondary).multilineTextAlignment(.center) }.frame(maxWidth: .infinity, minHeight: 100).padding(8).background(card).opacity(badge.3 ? 1 : 0.65)
+            ForEach(earned) { badge in
+                VStack(spacing: 7) {
+                    ZStack(alignment: .bottomTrailing) {
+                        Image(systemName: badge.icon).font(.system(size: 26, weight: .bold)).foregroundStyle(badge.unlocked ? badge.color : .secondary)
+                        if !badge.unlocked { Image(systemName: "lock.fill").font(.system(size: 9, weight: .bold)).foregroundStyle(.secondary).padding(2).background(.thinMaterial, in: Circle()) }
+                    }
+                    Text(badge.title).font(.system(size: 10, weight: .bold))
+                    Text(badge.unlocked ? "Unlocked • \(badge.requirement)" : badge.requirement)
+                        .font(.system(size: 8)).foregroundStyle(badge.unlocked ? theme.accent : .secondary)
+                        .multilineTextAlignment(.center).lineLimit(2).minimumScaleFactor(0.78)
+                }
+                .frame(maxWidth: .infinity, minHeight: 100).padding(8).background(card).opacity(badge.unlocked ? 1 : 0.65)
             }
         }
     }
