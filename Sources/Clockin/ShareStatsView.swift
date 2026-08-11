@@ -38,6 +38,7 @@ struct ShareStatsView: View {
     @AppStorage("Clockin.GoalDailyHours") private var dailyGoalHours = 0.0
     @AppStorage("Clockin.GoalMonthlyHours") private var monthlyGoalHours = 0.0
     @State private var visibility: ShareVisibility = .publicStats
+    @State private var page = 0
     @State private var now = Date()
     @State private var status: String?
 
@@ -161,16 +162,28 @@ struct ShareStatsView: View {
             .pickerStyle(.segmented)
             .padding(.horizontal, 16).padding(.top, 12)
 
+            HStack(spacing: 12) {
+                Button { page = max(0, page - 1) } label: { Image(systemName: "chevron.left") }
+                    .buttonStyle(.plain).disabled(page == 0)
+                Text("PAGE \(page + 1) / 3 • \(["OVERVIEW", "RHYTHM", "MILESTONES"][page])")
+                    .font(.system(size: 9, weight: .bold, design: .monospaced)).foregroundStyle(theme.accent)
+                Button { page = min(2, page + 1) } label: { Image(systemName: "chevron.right") }
+                    .buttonStyle(.plain).disabled(page == 2)
+            }
+            .padding(.top, 9)
+
             ScrollView {
-                ShareStatsRewindCard(snapshot: snapshot, visibility: visibility, theme: theme)
+                ShareStatsPageCard(snapshot: snapshot, visibility: visibility, theme: theme, page: page)
                     .padding(.vertical, 14)
             }
 
             HStack(spacing: 9) {
+                Button { copyPNG() } label: { Label("Copy", systemImage: "doc.on.doc") }
+                    .buttonStyle(.bordered)
                 Button { savePNG() } label: { Label("Save PNG", systemImage: "arrow.down.to.line") }
                     .buttonStyle(.bordered)
                 Button { sharePNG() } label: { Label("Share", systemImage: "square.and.arrow.up") }
-                    .buttonStyle(.borderedProminent).tint(theme.accent).foregroundStyle(.black)
+                    .buttonStyle(RewindShareButtonStyle(background: theme.accent, foreground: theme.background))
             }
             .padding(.horizontal, 16).padding(.bottom, 8)
             if let status { Text(status).font(.system(size: 9)).foregroundStyle(.secondary).padding(.bottom, 7) }
@@ -196,7 +209,7 @@ struct ShareStatsView: View {
     }
 
     private func renderPNG() -> URL? {
-        let renderer = ImageRenderer(content: ShareStatsRewindCard(snapshot: snapshot, visibility: visibility, theme: theme))
+        let renderer = ImageRenderer(content: ShareStatsPageCard(snapshot: snapshot, visibility: visibility, theme: theme, page: page))
         renderer.scale = 2
         guard let image = renderer.nsImage,
               let tiff = image.tiffRepresentation,
@@ -234,6 +247,28 @@ struct ShareStatsView: View {
         guard let url = renderPNG(), let contentView = NSApp.keyWindow?.contentView else { return }
         let picker = NSSharingServicePicker(items: [url])
         picker.show(relativeTo: NSRect(x: contentView.bounds.midX, y: contentView.bounds.minY + 12, width: 1, height: 1), of: contentView, preferredEdge: .minY)
+    }
+
+    private func copyPNG() {
+        guard let url = renderPNG(), let image = NSImage(contentsOf: url) else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.writeObjects([image])
+        status = "PNG copied to clipboard."
+    }
+}
+
+private struct RewindShareButtonStyle: ButtonStyle {
+    let background: Color
+    let foreground: Color
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 11, weight: .bold))
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+            .foregroundStyle(foreground)
+            .background(background.opacity(configuration.isPressed ? 0.72 : 1), in: RoundedRectangle(cornerRadius: 8))
+            .overlay(RoundedRectangle(cornerRadius: 8).stroke(.white.opacity(0.18)))
     }
 }
 
@@ -453,6 +488,120 @@ private struct ShareStatsRewindCard: View {
         VStack(alignment: .leading, spacing: 4) {
             Text(label).font(.system(size: 9, weight: .bold, design: .monospaced)).foregroundStyle(.white.opacity(0.62)).tracking(1)
             Text(value).font(.system(size: accent ? 28 : 24, weight: .black, design: theme.fontDesign)).foregroundStyle(accent ? theme.accent : .white)
+        }
+    }
+
+    private func mini(_ label: String, _ value: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(label).font(.system(size: 8, weight: .bold, design: .monospaced)).foregroundStyle(.white.opacity(0.55))
+            Text(value).font(.system(size: 16, weight: .black, design: .monospaced)).foregroundStyle(.white)
+        }
+    }
+}
+
+private struct ShareStatsPageCard: View {
+    let snapshot: ShareStatsSnapshot
+    let visibility: ShareVisibility
+    let theme: ClockinPalette
+    let page: Int
+
+    var body: some View {
+        ZStack(alignment: .topLeading) {
+            LinearGradient(colors: [theme.background, theme.background.opacity(0.88), theme.accent.opacity(0.34)], startPoint: .topLeading, endPoint: .bottomTrailing)
+            Circle().fill(theme.accent.opacity(0.18)).frame(width: 240, height: 240).blur(radius: 4).offset(x: 230, y: -90)
+            Circle().fill(.white.opacity(0.07)).frame(width: 170, height: 170).blur(radius: 4).offset(x: -90, y: 390)
+            VStack(alignment: .leading, spacing: 0) {
+                HStack {
+                    Text("CLOCKIN").font(.system(size: 13, weight: .black, design: theme.fontDesign)).tracking(2.4)
+                    Spacer()
+                    Text("\(String(format: "%02d", page + 1)) / 03").font(.system(size: 9, weight: .bold, design: .monospaced)).foregroundStyle(.white.opacity(0.65))
+                }
+                Spacer().frame(height: 42)
+                Text(pageTitle).font(.system(size: 30, weight: .black, design: theme.fontDesign)).tracking(-0.8).foregroundStyle(.white)
+                Text(snapshot.generatedAt.formatted(.dateTime.month(.wide).day().year()))
+                    .font(.system(size: 10, weight: .semibold, design: .monospaced)).foregroundStyle(.white.opacity(0.65)).padding(.top, 8)
+                Spacer().frame(height: 36)
+                if page == 0 { overview } else if page == 1 { rhythm } else { milestones }
+                Spacer()
+                HStack {
+                    Text("CLOCKIN • STATS REWIND").font(.system(size: 9, weight: .bold, design: .monospaced)).foregroundStyle(.white.opacity(0.55))
+                    Spacer()
+                    Text(visibility == .publicStats ? "PUBLIC" : "PRIVATE").font(.system(size: 8, weight: .black, design: .monospaced)).foregroundStyle(theme.accent)
+                }
+            }
+            .padding(28)
+        }
+        .frame(width: 350, height: 500)
+        .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 26, style: .continuous).stroke(.white.opacity(0.16)))
+        .shadow(color: theme.accent.opacity(0.22), radius: 18, y: 8)
+    }
+
+    private var pageTitle: String {
+        switch page {
+        case 0: return visibility == .publicStats ? "FOCUS\nIN NUMBERS" : "FOCUS\nJOURNEY"
+        case 1: return "RHYTHM\nREPORT"
+        default: return "MILESTONES\n& MOMENTUM"
+        }
+    }
+
+    private var overview: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            if visibility == .publicStats {
+                stat("TIME INVESTED", DurationText.compact(snapshot.totalDuration), accent: true)
+                stat("EARNED", snapshot.earnings.money(code: snapshot.currencyCode), accent: false)
+                HStack(spacing: 23) { mini("SESSIONS", "\(snapshot.sessions)"); mini("ACTIVE DAYS", "\(snapshot.activeDays)"); mini("STREAK", "\(snapshot.currentStreak)d") }
+            } else {
+                HStack(spacing: 12) { Image(systemName: "sparkles").font(.system(size: 23)).foregroundStyle(theme.accent); Text("FOCUS JOURNEY").font(.system(size: 13, weight: .black, design: .monospaced)) }
+                Text("Momentum, milestones and rhythm — ready to share.").font(.system(size: 12, weight: .medium)).foregroundStyle(.white.opacity(0.7)).fixedSize(horizontal: false, vertical: true)
+                HStack(spacing: 23) { mini("STREAK", "\(snapshot.currentStreak)d"); mini("BADGES", "\(snapshot.badges)"); mini("XP", "\(snapshot.xp)") }
+            }
+        }
+    }
+
+    private var rhythm: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            metric("BEST DAY", bestDayText)
+            metric("BEST STREAK", "\(snapshot.longestStreak) days")
+            metric("ACTIVE DAYS", "\(snapshot.activeDays)")
+            Divider().opacity(0.18)
+            metric("BEST WEEKDAY", snapshot.bestWeekday)
+            metric("POWER HOUR", snapshot.bestStartHour)
+            metric("SESSIONS", "\(snapshot.sessions)")
+        }
+    }
+
+    private var milestones: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            metric("LEVEL", "\(snapshot.level)")
+            metric("TOTAL XP", "\(snapshot.xp)")
+            metric("BADGES UNLOCKED", "\(snapshot.badges)")
+            Divider().opacity(0.18)
+            metric("GOAL DAYS", "\(snapshot.goalDays)")
+            metric("2× GOAL DAYS", "\(snapshot.doubleGoalDays)")
+            metric("MONTH GOALS", "\(snapshot.monthlyGoals)")
+            metric("MOMENTUM", "\(snapshot.momentum >= 0 ? "+" : "")\(snapshot.momentum)%")
+        }
+    }
+
+    private var bestDayText: String {
+        guard let date = snapshot.bestDayDate else { return "—" }
+        let value = date.formatted(.dateTime.month(.abbreviated).day())
+        return visibility == .publicStats ? "\(value) • \(DurationText.compact(snapshot.bestDayDuration))" : value
+    }
+
+    private func stat(_ label: String, _ value: String, accent: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(label).font(.system(size: 9, weight: .bold, design: .monospaced)).foregroundStyle(.white.opacity(0.6)).tracking(1)
+            Text(value).font(.system(size: accent ? 28 : 24, weight: .black, design: theme.fontDesign)).foregroundStyle(accent ? theme.accent : .white)
+        }
+    }
+
+    private func metric(_ label: String, _ value: String) -> some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text(label).font(.system(size: 9, weight: .bold, design: .monospaced)).foregroundStyle(.white.opacity(0.58)).tracking(0.8)
+            Spacer()
+            Text(value).font(.system(size: 17, weight: .black, design: .monospaced)).foregroundStyle(.white).lineLimit(1).minimumScaleFactor(0.65)
         }
     }
 
