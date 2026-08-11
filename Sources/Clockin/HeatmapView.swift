@@ -43,12 +43,11 @@ struct HeatmapView: View {
     private var selectedBounds: (start: Date, end: Date) {
         switch selectedRange {
         case .week:
-            let start = weekStart(for: today)
-            return (start, calendar.date(byAdding: .day, value: 6, to: start) ?? start)
+            let start = calendar.date(byAdding: .day, value: -6, to: today) ?? today
+            return (start, today)
         case .month:
-            let start = calendar.dateInterval(of: .month, for: today)?.start ?? today
-            let end = calendar.date(byAdding: .day, value: -1, to: calendar.date(byAdding: .month, value: 1, to: start) ?? today) ?? today
-            return (start, end)
+            let start = calendar.date(byAdding: .day, value: -29, to: today) ?? today
+            return (start, today)
         case .all:
             let earliest = store.sessions.map(\.start).min() ?? store.running?.start ?? today
             return (calendar.startOfDay(for: earliest), today)
@@ -176,8 +175,8 @@ struct HeatmapView: View {
 
     private var periodLabel: String {
         switch selectedRange {
-        case .week: return "THIS WEEK"
-        case .month: return today.formatted(.dateTime.month(.abbreviated)).uppercased()
+        case .week: return "LAST 7 DAYS"
+        case .month: return "LAST 30 DAYS"
         case .all: return "ALL TIME"
         }
     }
