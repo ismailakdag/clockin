@@ -94,23 +94,44 @@ struct HistoryView: View {
     }
 
     private func summary(at date: Date) -> some View {
-        HStack {
+        let totals = scopedTotals(at: date)
+        return HStack {
             VStack(alignment: .leading, spacing: 4) {
                 Text("TOTAL EARNED").font(.system(size: 9, weight: .bold)).foregroundStyle(.secondary).tracking(1)
-                Text(store.allEarnings(at: date).money(code: store.currencyCode))
+                Text(totals.earnings.money(code: store.currencyCode))
                     .font(.system(size: 25, weight: .bold, design: .rounded))
                 if store.currencyCode == "USD", let rate = exchangeRates.latestRate {
-                    Text("Includes active • ≈ \((store.allEarnings(at: date) * rate).money(code: "TRY"))")
+                    Text("\(range.rawValue) • \(totals.includesActive ? "includes active" : "completed") • ≈ \((totals.earnings * rate).money(code: "TRY"))")
+                        .font(.system(size: 11)).foregroundStyle(theme.accent)
+                } else {
+                    Text("\(range.rawValue) • \(totals.includesActive ? "includes active" : "completed")")
                         .font(.system(size: 11)).foregroundStyle(theme.accent)
                 }
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 4) {
-                Text(DurationText.compact(store.allDuration(at: date))).font(.system(size: 15, weight: .semibold, design: .rounded))
-                Text("\(store.sessions.count) sessions").font(.system(size: 10)).foregroundStyle(.secondary)
+                Text(DurationText.compact(totals.duration)).font(.system(size: 15, weight: .semibold, design: .rounded))
+                Text("\(filteredSessions.count) sessions").font(.system(size: 10)).foregroundStyle(.secondary)
             }
         }
         .padding(15).background(card)
+    }
+
+    private func scopedTotals(at date: Date) -> (duration: TimeInterval, earnings: Double, includesActive: Bool) {
+        let completedDuration = filteredSessions.reduce(0) { $0 + $1.duration }
+        let completedEarnings = filteredSessions.reduce(0) { $0 + store.earnings(for: $1) }
+        guard let running = store.running else {
+            return (completedDuration, completedEarnings, false)
+        }
+        let activeIncluded: Bool
+        if let days = range.days,
+           let cutoff = Calendar.current.date(byAdding: .day, value: -days + 1, to: date) {
+            activeIncluded = running.start >= Calendar.current.startOfDay(for: cutoff)
+        } else {
+            activeIncluded = true
+        }
+        guard activeIncluded else { return (completedDuration, completedEarnings, false) }
+        return (completedDuration + running.elapsed(at: date), completedEarnings + store.currentEarnings(at: date), true)
     }
 
     private func chartCard(at date: Date) -> some View {

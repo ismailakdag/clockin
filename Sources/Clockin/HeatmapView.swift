@@ -2,6 +2,7 @@ import SwiftUI
 
 struct HeatmapView: View {
     @EnvironmentObject private var store: ClockStore
+    @EnvironmentObject private var exchangeRates: ExchangeRateStore
     @AppStorage("Clockin.Theme") private var themeRaw = ClockinThemeChoice.carbon.rawValue
     @State private var now = Date()
     @State private var hoveredDate: Date?
@@ -50,6 +51,9 @@ struct HeatmapView: View {
         .fontDesign(theme.fontDesign)
         .preferredColorScheme(.dark)
         .onReceive(timer) { now = $0 }
+        .task(id: store.sessions.count) {
+            await exchangeRates.refresh(sessionDates: store.sessions.map(\.start))
+        }
     }
 
     private var header: some View {
@@ -142,8 +146,10 @@ struct HeatmapView: View {
             .overlay(RoundedRectangle(cornerRadius: 2).stroke(.white.opacity(isFuture ? 0.025 : 0.04)))
             .contentShape(Rectangle())
             .onHover { inside in
-                if inside { hoveredDate = date }
-                else if hoveredDate == date { hoveredDate = nil }
+                withAnimation(.easeOut(duration: 0.05)) {
+                    if inside { hoveredDate = date }
+                    else if hoveredDate == date { hoveredDate = nil }
+                }
             }
     }
 
@@ -156,6 +162,17 @@ struct HeatmapView: View {
                 Text("\(DurationText.compact(store.duration(on: date))) • \(store.earnings(on: date).money(code: store.currencyCode))")
                     .font(.system(size: 9, weight: .semibold, design: .monospaced))
                     .foregroundStyle(.secondary)
+                if store.currencyCode == "USD" {
+                    if let rate = exchangeRates.rate(on: date) ?? exchangeRates.latestRate {
+                        Text("≈ \((store.earnings(on: date) * rate).money(code: "TRY")) • 1 USD = \(String(format: "%.3f", rate) ) TRY")
+                            .font(.system(size: 8, weight: .medium, design: .monospaced))
+                            .foregroundStyle(theme.accent)
+                    } else {
+                        Text("TRY rate is still loading…")
+                            .font(.system(size: 8, weight: .medium))
+                            .foregroundStyle(.tertiary)
+                    }
+                }
             }
             Spacer()
         }
