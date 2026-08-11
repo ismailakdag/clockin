@@ -103,20 +103,26 @@ struct HeatmapView: View {
                 }
             }
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(alignment: .top, spacing: 3) {
-                    ForEach(Array(weeks.enumerated()), id: \.offset) { index, week in
-                        VStack(spacing: 3) {
-                            Text(index.isMultiple(of: 4) ? week[0].formatted(.dateTime.month(.abbreviated)) : "")
-                                .font(.system(size: 8, weight: .medium))
-                                .foregroundStyle(.tertiary)
-                                .frame(height: 17, alignment: .leading)
-                            ForEach(Array(week.enumerated()), id: \.offset) { _, day in
-                                heatCell(day)
+                ScrollViewReader { proxy in
+                    HStack(alignment: .top, spacing: 3) {
+                        ForEach(Array(weeks.enumerated()), id: \.offset) { index, week in
+                            VStack(spacing: 3) {
+                                Text(monthLabel(for: index, week: week))
+                                    .font(.system(size: 8, weight: .medium))
+                                    .foregroundStyle(.tertiary)
+                                    .frame(height: 17, alignment: .leading)
+                                ForEach(Array(week.enumerated()), id: \.offset) { _, day in
+                                    heatCell(day)
+                                }
                             }
+                            .id(index)
                         }
                     }
+                    .padding(.bottom, 4)
+                    .onAppear {
+                        proxy.scrollTo(weeks.count - 1, anchor: .trailing)
+                    }
                 }
-                .padding(.bottom, 4)
             }
         }
         .padding(12)
@@ -131,6 +137,13 @@ struct HeatmapView: View {
             .frame(width: 11, height: 11)
             .overlay(RoundedRectangle(cornerRadius: 2).stroke(.white.opacity(isFuture ? 0.025 : 0.04)))
             .help("\(date.formatted(.dateTime.weekday(.wide).month(.wide).day())) • \(DurationText.compact(hours * 3600)) • \(store.earnings(on: date).money(code: store.currencyCode))")
+    }
+
+    private func monthLabel(for index: Int, week: [Date]) -> String {
+        guard let firstDay = week.first(where: { calendar.component(.day, from: $0) == 1 }) else {
+            return index == 0 ? week[0].formatted(.dateTime.month(.abbreviated)) : ""
+        }
+        return firstDay.formatted(.dateTime.month(.abbreviated))
     }
 
     private func heatColor(hours: Double) -> Color {
