@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 
 @MainActor
-final class PinnedWindowController {
+final class PinnedWindowController: NSObject, NSWindowDelegate {
     static let shared = PinnedWindowController()
     private var panel: NSPanel?
 
@@ -17,11 +17,47 @@ final class PinnedWindowController {
 
     func applyPreset(_ mode: String) {
         guard let panel else { return }
-        let size = mode == "Compact" ? NSSize(width: 246, height: 72) : (mode == "Goal" ? NSSize(width: 300, height: 116) : (mode == "All" ? NSSize(width: 370, height: 230) : NSSize(width: 320, height: 112)))
+        let size = savedSize(for: mode) ?? defaultSize(for: mode)
         var frame = panel.frame
         frame.origin.y += frame.height - size.height
         frame.size = size
         panel.setFrame(frame, display: true, animate: true)
+    }
+
+    func windowDidEndLiveResize(_ notification: Notification) {
+        saveCurrentSize()
+    }
+
+    func windowDidMove(_ notification: Notification) {
+        panel?.saveFrame(usingName: "ClockinPinnedTimer")
+    }
+
+    private func defaultSize(for mode: String) -> NSSize {
+        switch mode {
+        case "Compact": return NSSize(width: 246, height: 72)
+        case "Goal": return NSSize(width: 300, height: 116)
+        case "All": return NSSize(width: 370, height: 230)
+        default: return NSSize(width: 320, height: 112)
+        }
+    }
+
+    private func savedSize(for mode: String) -> NSSize? {
+        let defaults = UserDefaults.standard
+        let widthKey = "Clockin.PinnedWidth.\(mode)"
+        let heightKey = "Clockin.PinnedHeight.\(mode)"
+        guard defaults.object(forKey: widthKey) != nil, defaults.object(forKey: heightKey) != nil else { return nil }
+        let width = defaults.double(forKey: widthKey)
+        let height = defaults.double(forKey: heightKey)
+        guard width > 0, height > 0 else { return nil }
+        return NSSize(width: width, height: height)
+    }
+
+    private func saveCurrentSize() {
+        guard let panel else { return }
+        let mode = UserDefaults.standard.string(forKey: "Clockin.PinnedMode") ?? "Money"
+        UserDefaults.standard.set(panel.frame.width, forKey: "Clockin.PinnedWidth.\(mode)")
+        UserDefaults.standard.set(panel.frame.height, forKey: "Clockin.PinnedHeight.\(mode)")
+        panel.saveFrame(usingName: "ClockinPinnedTimer")
     }
 
     private func makePanel(store: ClockStore) -> NSPanel {
@@ -41,8 +77,9 @@ final class PinnedWindowController {
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
         panel.hidesOnDeactivate = false
         panel.minSize = NSSize(width: 246, height: 72)
-        panel.maxSize = NSSize(width: 420, height: 180)
+        panel.maxSize = NSSize(width: 640, height: 500)
         panel.setFrameAutosaveName("ClockinPinnedTimer")
+        panel.delegate = self
         panel.contentView = NSHostingView(rootView:
             PinnedTimerView()
                 .environmentObject(store)
@@ -51,15 +88,14 @@ final class PinnedWindowController {
         )
 
         let restored = panel.setFrameUsingName("ClockinPinnedTimer")
-        if !restored, let screen = NSScreen.main {
+        if let saved = savedSize(for: savedMode) {
+            var frame = panel.frame
+            frame.origin.y += frame.height - saved.height
+            frame.size = saved
+            panel.setFrame(frame, display: false)
+        } else if !restored, let screen = NSScreen.main {
             let visible = screen.visibleFrame
             panel.setFrameOrigin(NSPoint(x: visible.maxX - 266, y: visible.maxY - 92))
-        }
-        if savedMode == "Money", panel.frame.width < 300 {
-            var frame = panel.frame
-            frame.origin.y += frame.height - 112
-            frame.size = NSSize(width: 320, height: 112)
-            panel.setFrame(frame, display: false)
         }
         return panel
     }
