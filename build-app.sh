@@ -12,6 +12,7 @@ cp "Resources/Info.plist" "$CONTENTS/Info.plist"
 if [[ -d ".build/release/Clockin_Clockin.bundle" ]]; then
   cp -R ".build/release/Clockin_Clockin.bundle" "$CONTENTS/Resources/"
 fi
+cp "Resources/Clockin.icns" "$CONTENTS/Resources/Clockin.icns"
 codesign --force --deep --sign - "$APP_DIR"
 
 print "Built: $APP_DIR"
