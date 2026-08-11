@@ -9,6 +9,7 @@ struct MainView: View {
     @State private var showHistory = false
     @State private var showHeatmap = false
     @State private var showSettings = false
+    @State private var showGuide = false
     @State private var showProgress = false
     @State private var showPasteImporter = false
     @State private var showCSVComparison = false
@@ -72,6 +73,9 @@ struct MainView: View {
         .sheet(isPresented: $showPasteImporter) {
             PasteImportView().environmentObject(store)
         }
+        .sheet(isPresented: $showGuide) {
+            GuideView()
+        }
         .sheet(isPresented: $showCSVComparison) {
             ImportComparisonView(sessions: csvPreviewSessions, sourceTitle: "Timesheet CSV") {
                 showCSVComparison = false
@@ -121,6 +125,12 @@ struct MainView: View {
             .buttonStyle(.plain)
             .foregroundStyle(.secondary)
             .help("Work heatmap")
+            Button { showGuide = true } label: {
+                Image(systemName: "questionmark.circle").frame(width: 28, height: 28)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.secondary)
+            .help("How to use Clockin")
             Button { showProgress = true } label: {
                 Label("XP \(max(1, Int((store.totalDuration + store.elapsed(at: now)) / 3600 * 100) / 500 + 1))", systemImage: "trophy.fill")
                     .font(.system(size: 9, weight: .bold, design: .monospaced)).frame(height: 28)

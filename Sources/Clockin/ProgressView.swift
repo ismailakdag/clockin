@@ -115,9 +115,24 @@ struct ProgressDashboardView: View {
         .sheet(isPresented: $showShareStats) {
             ShareStatsView().environmentObject(store).environmentObject(AppDependencies.shared.exchangeRates)
         }
-        .popover(item: $selectedBadge, arrowEdge: .bottom) { badge in
-            BadgeDetailView(badge: badge, theme: theme)
+        .overlay {
+            if let badge = selectedBadge {
+                ZStack {
+                    Color.black.opacity(0.34)
+                        .ignoresSafeArea()
+                        .contentShape(Rectangle())
+                        .onTapGesture { selectedBadge = nil }
+                    BadgeDetailView(badge: badge, theme: theme)
+                        .background(theme.background, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(theme.accent.opacity(0.35)))
+                        .shadow(color: .black.opacity(0.35), radius: 22, y: 10)
+                        .onTapGesture { }
+                        .transition(.scale(scale: 0.92).combined(with: .opacity))
+                }
+                .zIndex(20)
+            }
         }
+        .animation(.easeInOut(duration: 0.18), value: selectedBadge != nil)
     }
 
     private var overview: some View {
@@ -152,35 +167,52 @@ struct ProgressDashboardView: View {
     private var badges: some View {
         let total = totalHours
         let earned: [ProgressBadge] = [
-            .init(id: "first", title: "First session", requirement: "Complete your first session", icon: "flag.fill", color: .green, unlocked: total > 0, progress: "(store.sessions.count) sessions"),
-            .init(id: "ten", title: "10-hour club", requirement: "Work 10 total hours", icon: "clock.fill", color: .blue, unlocked: total >= 10, progress: String(format: "%.1f / 10h", total)),
-            .init(id: "fifty", title: "Half-century", requirement: "Work 50 total hours", icon: "flame.fill", color: .orange, unlocked: total >= 50, progress: String(format: "%.1f / 50h", total)),
-            .init(id: "hundred", title: "Century", requirement: "Work 100 total hours", icon: "bolt.fill", color: .yellow, unlocked: total >= 100, progress: String(format: "%.1f / 100h", total)),
-            .init(id: "quarter", title: "Quarter kilo", requirement: "Work 250 total hours", icon: "crown.fill", color: .purple, unlocked: total >= 250, progress: String(format: "%.1f / 250h", total)),
-            .init(id: "streak", title: "On a roll", requirement: "Keep a 3-day streak", icon: "flame.circle.fill", color: .orange, unlocked: streak >= 3, progress: "(streak) / 3 days"),
-            .init(id: "weekstreak", title: "Weekly fire", requirement: "Keep a 7-day streak", icon: "calendar.badge.clock", color: .red, unlocked: streak >= 7, progress: "(streak) / 7 days"),
-            .init(id: "monthstreak", title: "Unstoppable", requirement: "Keep a 30-day streak", icon: "infinity", color: .pink, unlocked: streak >= 30, progress: "(streak) / 30 days"),
-            .init(id: "streak14", title: "Fortnight fire", requirement: "Reach a 14-day streak", icon: "sparkles", color: .cyan, unlocked: longestStreak >= 14, progress: "(longestStreak) / 14 days"),
-            .init(id: "streak60", title: "Seasoned", requirement: "Reach a 60-day streak", icon: "mountain.2.fill", color: .indigo, unlocked: longestStreak >= 60, progress: "(longestStreak) / 60 days"),
-            .init(id: "week", title: "Weekly finisher", requirement: "Log 7 sessions", icon: "calendar.badge.plus", color: .teal, unlocked: store.sessions.count >= 7, progress: "(store.sessions.count) / 7 sessions"),
-            .init(id: "sessions25", title: "Session collector", requirement: "Log 25 sessions", icon: "square.stack.3d.up.fill", color: .mint, unlocked: store.sessions.count >= 25, progress: "(store.sessions.count) / 25 sessions"),
-            .init(id: "marathon", title: "Marathon", requirement: "Complete a 4-hour session", icon: "figure.run", color: .orange, unlocked: longestSession >= 4 * 3600, progress: "(DurationText.compact(longestSession)) / 4h"),
-            .init(id: "ultra", title: "Ultra focus", requirement: "Complete an 8-hour session", icon: "bolt.circle.fill", color: .yellow, unlocked: longestSession >= 8 * 3600, progress: "(DurationText.compact(longestSession)) / 8h"),
-            .init(id: "xp", title: "XP engine", requirement: "Earn 10,000 XP", icon: "star.fill", color: .yellow, unlocked: xp >= 10_000, progress: "(xp) / 10,000 XP"),
-            .init(id: "goal", title: "Goal setter", requirement: "Complete a daily goal", icon: "target", color: .green, unlocked: completedGoalDays >= 1, progress: "(completedGoalDays) goal days"),
-            .init(id: "doublegoal", title: "Double down", requirement: "Reach 2× a daily goal", icon: "arrow.up.right.circle.fill", color: .blue, unlocked: doubleGoalDays >= 1, progress: "(doubleGoalDays) double-goal days"),
-            .init(id: "monthgoal", title: "Month finisher", requirement: "Complete a monthly goal", icon: "calendar.circle.fill", color: .purple, unlocked: completedGoalMonths >= 1, progress: "(completedGoalMonths) goal months"),
-            .init(id: "xp25", title: "Quarter XP", requirement: "Earn 25,000 XP", icon: "rosette", color: .pink, unlocked: xp >= 25_000, progress: "(xp) / 25,000 XP"),
-            .init(id: "active5", title: "Getting steady", requirement: "Work on 5 different days", icon: "calendar", color: .teal, unlocked: activeDays >= 5, progress: "(activeDays) / 5 active days"),
-            .init(id: "active25", title: "Calendar regular", requirement: "Work on 25 different days", icon: "calendar.badge.checkmark", color: .green, unlocked: activeDays >= 25, progress: "(activeDays) / 25 active days"),
-            .init(id: "active100", title: "Daily craft", requirement: "Work on 100 different days", icon: "calendar.circle", color: .blue, unlocked: activeDays >= 100, progress: "(activeDays) / 100 active days"),
-            .init(id: "earlybird", title: "Early bird", requirement: "Start 5 sessions before 08:00", icon: "sunrise.fill", color: .yellow, unlocked: earlyBirdSessions >= 5, progress: "(earlyBirdSessions) / 5 early starts"),
-            .init(id: "nightowl", title: "Night owl", requirement: "Start 5 sessions after 22:00", icon: "moon.stars.fill", color: .indigo, unlocked: nightOwlSessions >= 5, progress: "(nightOwlSessions) / 5 late starts"),
-            .init(id: "weekend", title: "Weekend warrior", requirement: "Work on 4 weekend days", icon: "sun.max.fill", color: .orange, unlocked: weekendDays >= 4, progress: "(weekendDays) / 4 weekend days"),
-            .init(id: "sessions50", title: "Deep archive", requirement: "Log 50 sessions", icon: "books.vertical.fill", color: .purple, unlocked: store.sessions.count >= 50, progress: "(store.sessions.count) / 50 sessions"),
-            .init(id: "sessions100", title: "Century sessions", requirement: "Log 100 sessions", icon: "building.columns.fill", color: .pink, unlocked: store.sessions.count >= 100, progress: "(store.sessions.count) / 100 sessions"),
-            .init(id: "ultra12", title: "Iron focus", requirement: "Complete a 12-hour session", icon: "hourglass.bottomhalf.filled", color: .red, unlocked: longestSession >= 12 * 3600, progress: "(DurationText.compact(longestSession)) / 12h"),
-            .init(id: "goal7", title: "Goal rhythm", requirement: "Complete daily goals on 7 days", icon: "checkmark.seal.fill", color: .mint, unlocked: completedGoalDays >= 7, progress: "(completedGoalDays) / 7 goal days")
+            .init(id: "first", title: "First session", requirement: "Complete your first session", icon: "flag.fill", color: .green, unlocked: total > 0, progress: String(store.sessions.count) + " sessions"),
+            .init(id: "ten", title: "10-hour club", requirement: "Work 10 total hours", icon: "clock.fill", color: .blue, unlocked: total >= 10, progress: progressText(DurationText.compact(total * 3600), "10h")),
+            .init(id: "fifty", title: "Half-century", requirement: "Work 50 total hours", icon: "flame.fill", color: .orange, unlocked: total >= 50, progress: progressText(DurationText.compact(total * 3600), "50h")),
+            .init(id: "hundred", title: "Century", requirement: "Work 100 total hours", icon: "bolt.fill", color: .yellow, unlocked: total >= 100, progress: progressText(DurationText.compact(total * 3600), "100h")),
+            .init(id: "quarter", title: "Quarter kilo", requirement: "Work 250 total hours", icon: "crown.fill", color: .purple, unlocked: total >= 250, progress: progressText(DurationText.compact(total * 3600), "250h")),
+            .init(id: "fivehundred", title: "Half-thousand", requirement: "Work 500 total hours", icon: "crown.fill", color: .indigo, unlocked: total >= 500, progress: progressText(DurationText.compact(total * 3600), "500h")),
+            .init(id: "sevenfifty", title: "Three-quarter legend", requirement: "Work 750 total hours", icon: "medal.fill", color: .mint, unlocked: total >= 750, progress: progressText(DurationText.compact(total * 3600), "750h")),
+            .init(id: "thousand", title: "Thousand-hour", requirement: "Work 1,000 total hours", icon: "trophy.fill", color: .yellow, unlocked: total >= 1_000, progress: progressText(DurationText.compact(total * 3600), "1,000h")),
+            .init(id: "titan", title: "Time titan", requirement: "Work 1,500 total hours", icon: "diamond.fill", color: .pink, unlocked: total >= 1_500, progress: progressText(DurationText.compact(total * 3600), "1,500h")),
+            .init(id: "streak", title: "On a roll", requirement: "Keep a 3-day streak", icon: "flame.circle.fill", color: .orange, unlocked: streak >= 3, progress: progressText(String(streak), "3 days")),
+            .init(id: "weekstreak", title: "Weekly fire", requirement: "Keep a 7-day streak", icon: "calendar.badge.clock", color: .red, unlocked: streak >= 7, progress: progressText(String(streak), "7 days")),
+            .init(id: "monthstreak", title: "Unstoppable", requirement: "Keep a 30-day streak", icon: "infinity", color: .pink, unlocked: streak >= 30, progress: progressText(String(streak), "30 days")),
+            .init(id: "streak14", title: "Fortnight fire", requirement: "Reach a 14-day streak", icon: "sparkles", color: .cyan, unlocked: longestStreak >= 14, progress: progressText(String(longestStreak), "14 days")),
+            .init(id: "streak60", title: "Seasoned", requirement: "Reach a 60-day streak", icon: "mountain.2.fill", color: .indigo, unlocked: longestStreak >= 60, progress: progressText(String(longestStreak), "60 days")),
+            .init(id: "week", title: "Weekly finisher", requirement: "Log 7 sessions", icon: "calendar.badge.plus", color: .teal, unlocked: store.sessions.count >= 7, progress: progressText(String(store.sessions.count), "7 sessions")),
+            .init(id: "sessions25", title: "Session collector", requirement: "Log 25 sessions", icon: "square.stack.3d.up.fill", color: .mint, unlocked: store.sessions.count >= 25, progress: progressText(String(store.sessions.count), "25 sessions")),
+            .init(id: "marathon", title: "Marathon", requirement: "Complete a 4-hour session", icon: "figure.run", color: .orange, unlocked: longestSession >= 4 * 3600, progress: progressText(DurationText.compact(longestSession), "4h")),
+            .init(id: "ultra", title: "Ultra focus", requirement: "Complete an 8-hour session", icon: "bolt.circle.fill", color: .yellow, unlocked: longestSession >= 8 * 3600, progress: progressText(DurationText.compact(longestSession), "8h")),
+            .init(id: "xp", title: "XP engine", requirement: "Earn 10,000 XP", icon: "star.fill", color: .yellow, unlocked: xp >= 10_000, progress: progressText(String(xp), "10,000 XP")),
+            .init(id: "goal", title: "Goal setter", requirement: "Complete a daily goal", icon: "target", color: .green, unlocked: completedGoalDays >= 1, progress: String(completedGoalDays) + " goal days"),
+            .init(id: "doublegoal", title: "Double down", requirement: "Reach 2× a daily goal", icon: "arrow.up.right.circle.fill", color: .blue, unlocked: doubleGoalDays >= 1, progress: String(doubleGoalDays) + " double-goal days"),
+            .init(id: "monthgoal", title: "Month finisher", requirement: "Complete a monthly goal", icon: "calendar.circle.fill", color: .purple, unlocked: completedGoalMonths >= 1, progress: String(completedGoalMonths) + " goal months"),
+            .init(id: "xp25", title: "Quarter XP", requirement: "Earn 25,000 XP", icon: "rosette", color: .pink, unlocked: xp >= 25_000, progress: progressText(String(xp), "25,000 XP")),
+            .init(id: "active5", title: "Getting steady", requirement: "Work on 5 different days", icon: "calendar", color: .teal, unlocked: activeDays >= 5, progress: progressText(String(activeDays), "5 active days")),
+            .init(id: "active25", title: "Calendar regular", requirement: "Work on 25 different days", icon: "calendar.badge.checkmark", color: .green, unlocked: activeDays >= 25, progress: progressText(String(activeDays), "25 active days")),
+            .init(id: "active100", title: "Daily craft", requirement: "Work on 100 different days", icon: "calendar.circle", color: .blue, unlocked: activeDays >= 100, progress: progressText(String(activeDays), "100 active days")),
+            .init(id: "earlybird", title: "Early bird", requirement: "Start 5 sessions before 08:00", icon: "sunrise.fill", color: .yellow, unlocked: earlyBirdSessions >= 5, progress: progressText(String(earlyBirdSessions), "5 early starts")),
+            .init(id: "nightowl", title: "Night owl", requirement: "Start 5 sessions after 22:00", icon: "moon.stars.fill", color: .indigo, unlocked: nightOwlSessions >= 5, progress: progressText(String(nightOwlSessions), "5 late starts")),
+            .init(id: "weekend", title: "Weekend warrior", requirement: "Work on 4 weekend days", icon: "sun.max.fill", color: .orange, unlocked: weekendDays >= 4, progress: progressText(String(weekendDays), "4 weekend days")),
+            .init(id: "sessions50", title: "Deep archive", requirement: "Log 50 sessions", icon: "books.vertical.fill", color: .purple, unlocked: store.sessions.count >= 50, progress: progressText(String(store.sessions.count), "50 sessions")),
+            .init(id: "sessions100", title: "Century sessions", requirement: "Log 100 sessions", icon: "building.columns.fill", color: .pink, unlocked: store.sessions.count >= 100, progress: progressText(String(store.sessions.count), "100 sessions")),
+            .init(id: "sessions200", title: "Archive master", requirement: "Log 200 sessions", icon: "square.stack.3d.up.fill", color: .indigo, unlocked: store.sessions.count >= 200, progress: progressText(String(store.sessions.count), "200 sessions")),
+            .init(id: "sessions500", title: "Session institution", requirement: "Log 500 sessions", icon: "building.2.crop.circle.fill", color: .yellow, unlocked: store.sessions.count >= 500, progress: progressText(String(store.sessions.count), "500 sessions")),
+            .init(id: "ultra12", title: "Iron focus", requirement: "Complete a 12-hour session", icon: "hourglass.bottomhalf.filled", color: .red, unlocked: longestSession >= 12 * 3600, progress: progressText(DurationText.compact(longestSession), "12h")),
+            .init(id: "ultra15", title: "Deep dive", requirement: "Complete a 15-hour session", icon: "water.waves", color: .cyan, unlocked: longestSession >= 15 * 3600, progress: progressText(DurationText.compact(longestSession), "15h")),
+            .init(id: "goal7", title: "Goal rhythm", requirement: "Complete daily goals on 7 days", icon: "checkmark.seal.fill", color: .mint, unlocked: completedGoalDays >= 7, progress: progressText(String(completedGoalDays), "7 goal days")),
+            .init(id: "goal30", title: "Goal machine", requirement: "Complete daily goals on 30 days", icon: "target", color: .green, unlocked: completedGoalDays >= 30, progress: progressText(String(completedGoalDays), "30 goal days")),
+            .init(id: "month3", title: "Quarter planner", requirement: "Complete 3 monthly goals", icon: "calendar.badge.checkmark", color: .blue, unlocked: completedGoalMonths >= 3, progress: progressText(String(completedGoalMonths), "3 goal months")),
+            .init(id: "month12", title: "Year planner", requirement: "Complete 12 monthly goals", icon: "calendar.badge.clock", color: .purple, unlocked: completedGoalMonths >= 12, progress: progressText(String(completedGoalMonths), "12 goal months")),
+            .init(id: "streak90", title: "Season streak", requirement: "Reach a 90-day streak", icon: "flame.circle.fill", color: .orange, unlocked: longestStreak >= 90, progress: progressText(String(longestStreak), "90 days")),
+            .init(id: "streak180", title: "Half-year fire", requirement: "Reach a 180-day streak", icon: "sun.max.fill", color: .yellow, unlocked: longestStreak >= 180, progress: progressText(String(longestStreak), "180 days")),
+            .init(id: "streak365", title: "Year-round", requirement: "Reach a 365-day streak", icon: "globe.americas.fill", color: .mint, unlocked: longestStreak >= 365, progress: progressText(String(longestStreak), "365 days")),
+            .init(id: "active250", title: "Always on", requirement: "Work on 250 different days", icon: "calendar.badge.clock", color: .teal, unlocked: activeDays >= 250, progress: progressText(String(activeDays), "250 active days")),
+            .init(id: "active500", title: "Permanent practice", requirement: "Work on 500 different days", icon: "calendar.circle.fill", color: .pink, unlocked: activeDays >= 500, progress: progressText(String(activeDays), "500 active days")),
+            .init(id: "xp50", title: "XP architect", requirement: "Earn 50,000 XP", icon: "star.circle.fill", color: .yellow, unlocked: xp >= 50_000, progress: progressText(String(xp), "50,000 XP")),
+            .init(id: "xp100", title: "XP legend", requirement: "Earn 100,000 XP", icon: "sparkles", color: .purple, unlocked: xp >= 100_000, progress: progressText(String(xp), "100,000 XP"))
         ]
         return LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
             ForEach(earned) { badge in
@@ -254,6 +286,7 @@ struct ProgressDashboardView: View {
     private func stat(_ icon: String, _ title: String, _ value: String) -> some View { VStack(spacing: 4) { Text(icon); Text(title).font(.system(size: 7, weight: .bold)).foregroundStyle(.secondary); Text(value).font(.system(size: 10, weight: .semibold, design: .monospaced)) }.frame(maxWidth: .infinity) }
     private func record(_ icon: String, _ title: String, _ value: String) -> some View { HStack { Image(systemName: icon).foregroundStyle(theme.accent).frame(width: 22); Text(title).font(.system(size: 11, weight: .semibold)); Spacer(); Text(value).font(.system(size: 11, weight: .bold, design: .monospaced)) }.padding(13).background(card) }
     private func reportMetric(_ title: String, _ value: String) -> some View { HStack { Text(title).font(.system(size: 9, weight: .bold)).foregroundStyle(.secondary).tracking(1); Spacer(); Text(value).font(.system(size: 16, weight: .bold, design: .rounded)) }.padding(14).background(card) }
+    private func progressText(_ current: String, _ target: String) -> String { current + " / " + target }
     private var card: some ShapeStyle { .black.opacity(0.16) }
 }
 
