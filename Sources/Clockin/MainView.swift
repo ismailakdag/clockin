@@ -322,10 +322,12 @@ struct MainView: View {
     }
 
     private var todayCard: some View {
-        HStack {
+        HStack(spacing: 0) {
             metric(title: "TODAY", value: DurationText.compact(store.todayDuration(at: now)), icon: "clock")
+                .frame(maxWidth: .infinity, alignment: .leading)
             Divider().frame(height: 35).opacity(0.25)
             todayEarnedMetric
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(.vertical, 14)
         .background(cardBackground)
