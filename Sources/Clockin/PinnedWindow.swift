@@ -237,9 +237,10 @@ struct PinnedTimerView: View {
             }
             .font(.system(size: 8, weight: .semibold, design: .monospaced))
             HStack(spacing: 6) {
-                averageChip("DAY", hours: rollingAverage(days: 7, at: now))
-                averageChip("WEEK", hours: rollingAverage(days: 28, at: now) / 4)
-                averageChip("MONTH", hours: rollingAverage(days: 90, at: now) / 3)
+                let averages = allTimeAverages(at: now)
+                averageChip("DAY", hours: averages.day)
+                averageChip("WEEK", hours: averages.week)
+                averageChip("MONTH", hours: averages.month)
             }
             if dailyGoalHours > 0 { goalGauge("DAY", value: day, goal: dailyGoalHours) }
             if monthlyGoalHours > 0 { goalGauge("MONTH", value: month, goal: monthlyGoalHours) }
@@ -275,11 +276,14 @@ struct PinnedTimerView: View {
         .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 6))
     }
 
-    private func rollingAverage(days: Int, at date: Date) -> Double {
-        let cutoff = date.addingTimeInterval(-Double(days) * 86_400)
-        let completed = store.sessions.filter { $0.start >= cutoff && $0.start <= date }.reduce(0) { $0 + $1.duration }
-        let active = store.running.map { $0.start >= cutoff ? $0.elapsed(at: date) : 0 } ?? 0
-        return (completed + active) / 3600 / Double(days)
+    private func allTimeAverages(at date: Date) -> (day: Double, week: Double, month: Double) {
+        let calendar = Calendar.autoupdatingCurrent
+        let earliest = store.sessions.map(\.start).min() ?? store.running?.start ?? date
+        let start = calendar.startOfDay(for: earliest)
+        let end = calendar.startOfDay(for: date)
+        let calendarDays = max(1, (calendar.dateComponents([.day], from: start, to: end).day ?? 0) + 1)
+        let daily = store.allDuration(at: date) / 3600 / Double(calendarDays)
+        return (daily, daily * 7, daily * 30.44)
     }
 
 }
