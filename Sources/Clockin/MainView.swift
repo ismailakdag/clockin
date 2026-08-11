@@ -29,6 +29,44 @@ struct MainView: View {
     private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
     private var theme: ClockinPalette { ClockinThemeChoice.selected(themeRaw).palette }
 
+    private var progressDailyDurations: [Date: TimeInterval] {
+        let calendar = Calendar.current
+        var values: [Date: TimeInterval] = [:]
+        for session in store.sessions { values[calendar.startOfDay(for: session.start), default: 0] += session.duration }
+        if let running = store.running { values[calendar.startOfDay(for: running.start), default: 0] += running.elapsed(at: now) }
+        return values
+    }
+
+    private var progressLongestStreak: Int {
+        let days = progressDailyDurations.keys.sorted()
+        guard !days.isEmpty else { return 0 }
+        var best = 1
+        var current = 1
+        for pair in zip(days, days.dropFirst()) {
+            if Calendar.current.dateComponents([.day], from: pair.0, to: pair.1).day == 1 {
+                current += 1
+                best = max(best, current)
+            } else { current = 1 }
+        }
+        return best
+    }
+
+    private var progressXP: Int {
+        let daily = progressDailyDurations.values
+        let goalDays = dailyGoalHours > 0 ? daily.filter { $0 >= dailyGoalHours * 3600 }.count : 0
+        let doubleDays = dailyGoalHours > 0 ? daily.filter { $0 >= dailyGoalHours * 7200 }.count : 0
+        let monthGoals: Int
+        if monthlyGoalHours > 0 {
+            let grouped = Dictionary(grouping: progressDailyDurations) { Calendar.current.dateInterval(of: .month, for: $0.key)?.start ?? $0.key }
+            monthGoals = grouped.values.map { $0.reduce(0) { $0 + $1.value } }.filter { $0 >= monthlyGoalHours * 3600 }.count
+        } else { monthGoals = 0 }
+        let streakXP = [(3, 100), (7, 250), (14, 500), (30, 1_000), (60, 2_000)]
+            .filter { progressLongestStreak >= $0.0 }.reduce(0) { $0 + $1.1 }
+        return Int((store.totalDuration + store.elapsed(at: now)) / 3600 * 100) + goalDays * 100 + doubleDays * 250 + monthGoals * 500 + streakXP
+    }
+
+    private var progressLevel: Int { max(1, progressXP / 500 + 1) }
+
     var body: some View {
         Group {
             if showHistory {
@@ -113,50 +151,46 @@ struct MainView: View {
                     .tracking(1.8)
             }
             Spacer()
-            Button { showHistory = true } label: {
-                Image(systemName: "chart.bar.xaxis").frame(width: 28, height: 28)
+            HStack(spacing: 2) {
+                headerIcon("chart.bar.xaxis", help: "Earnings history") { showHistory = true }
+                headerIcon("square.grid.3x3.fill", help: "Work heatmap") { showHeatmap = true }
+                headerIcon("questionmark.circle", help: "How to use Clockin") { showGuide = true }
             }
-            .buttonStyle(.plain)
-            .foregroundStyle(.secondary)
-            .help("Earnings history")
-            Button { showHeatmap = true } label: {
-                Image(systemName: "square.grid.3x3.fill").frame(width: 28, height: 28)
+            .padding(3)
+            .background(theme.surface, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+            HStack(spacing: 2) {
+                Button { showProgress = true } label: {
+                    Label("LV \(progressLevel)", systemImage: "trophy.fill")
+                        .font(.system(size: 9, weight: .bold, design: .monospaced))
+                        .frame(width: 52, height: 28)
+                }
+                .buttonStyle(.plain).foregroundStyle(theme.accent)
+                .help("Progress • \(progressXP) XP • streaks • mascot • records")
+                headerIcon("gearshape.fill", help: "Settings") { showSettings = true }
+                Button { store.setPinned(!store.pinVisible) } label: {
+                    Image(systemName: store.pinVisible ? "pin.fill" : "pin")
+                        .frame(width: 28, height: 28)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(store.pinVisible ? theme.accent : .secondary)
+                .help(store.pinVisible ? "Hide floating timer" : "Pin timer to desktop")
             }
-            .buttonStyle(.plain)
-            .foregroundStyle(.secondary)
-            .help("Work heatmap")
-            Button { showGuide = true } label: {
-                Image(systemName: "questionmark.circle").frame(width: 28, height: 28)
-            }
-            .buttonStyle(.plain)
-            .foregroundStyle(.secondary)
-            .help("How to use Clockin")
-            Button { showProgress = true } label: {
-                Label("XP \(max(1, Int((store.totalDuration + store.elapsed(at: now)) / 3600 * 100) / 500 + 1))", systemImage: "trophy.fill")
-                    .font(.system(size: 9, weight: .bold, design: .monospaced)).frame(height: 28)
-            }
-            .buttonStyle(.plain).foregroundStyle(theme.accent).help("Progress • streaks • mascot • records")
-            Button { showSettings = true } label: {
-                Image(systemName: "gearshape.fill").frame(width: 28, height: 28)
-            }
-            .buttonStyle(.plain)
-            .foregroundStyle(.secondary)
-            .help("Settings")
-            Button {
-                store.setPinned(!store.pinVisible)
-            } label: {
-                Label(store.pinVisible ? "Unpin" : "Pin timer", systemImage: store.pinVisible ? "pin.fill" : "pin")
-                    .labelStyle(.iconOnly)
-                    .frame(width: 28, height: 28)
-            }
-            .buttonStyle(.plain)
-            .foregroundStyle(store.pinVisible ? theme.accent : .secondary)
-            .help(store.pinVisible ? "Hide floating timer" : "Pin timer to desktop")
+            .padding(3)
+            .background(theme.surface, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
         }
         .padding(.horizontal, 18)
         .frame(height: 50)
         .background(.white.opacity(0.025))
         .overlay(alignment: .bottom) { Divider().opacity(0.25) }
+    }
+
+    private func headerIcon(_ systemName: String, color: Color = .secondary, help: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: systemName).frame(width: 28, height: 28)
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(color)
+        .help(help)
     }
 
     private var timerCard: some View {
