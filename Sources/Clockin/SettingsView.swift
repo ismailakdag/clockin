@@ -22,6 +22,8 @@ struct SettingsView: View {
     @State private var rateText = ""
     @State private var showRateSchedule = false
     @State private var showPasteImporter = false
+    @State private var showCSVComparison = false
+    @State private var csvPreviewSessions: [WorkSession] = []
     @State private var confirmRestore = false
     let onBack: () -> Void
 
@@ -53,6 +55,12 @@ struct SettingsView: View {
         }
         .sheet(isPresented: $showRateSchedule) { RateScheduleView().environmentObject(store) }
         .sheet(isPresented: $showPasteImporter) { PasteImportView().environmentObject(store) }
+        .sheet(isPresented: $showCSVComparison) {
+            ImportComparisonView(sessions: csvPreviewSessions, sourceTitle: "Timesheet CSV") {
+                showCSVComparison = false
+            }
+            .environmentObject(store)
+        }
         .alert("Restore latest backup?", isPresented: $confirmRestore) {
             Button("Cancel", role: .cancel) {}
             Button("Restore", role: .destructive) { store.restoreLatestBackup() }
@@ -296,7 +304,15 @@ struct SettingsView: View {
     private func chooseCSV() {
         let panel = NSOpenPanel(); panel.allowedContentTypes = [.commaSeparatedText, .text]
         panel.allowsMultipleSelection = false; panel.canChooseDirectories = false
-        if panel.runModal() == .OK, let url = panel.url { store.importCSV(from: url) }
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            let granted = url.startAccessingSecurityScopedResource()
+            defer { if granted { url.stopAccessingSecurityScopedResource() } }
+            csvPreviewSessions = try CSVImporter.parse(data: Data(contentsOf: url), hourlyRate: store.hourlyRate)
+            showCSVComparison = true
+        } catch {
+            store.statusMessage = error.localizedDescription
+        }
     }
 
     private func exportBackup() {

@@ -5,6 +5,7 @@ struct PasteImportView: View {
     @EnvironmentObject private var store: ClockStore
     @Environment(\.dismiss) private var dismiss
     @State private var text = ""
+    @State private var showComparison = false
     @AppStorage("Clockin.Theme") private var themeRaw = ClockinThemeChoice.carbon.rawValue
 
     private var preview: [WorkSession] { store.previewPastedText(text) }
@@ -59,8 +60,7 @@ struct PasteImportView: View {
                 Spacer()
                 Button("Cancel") { dismiss() }.buttonStyle(.bordered).keyboardShortcut(.cancelAction)
                 Button("Import") {
-                    store.importPastedText(text)
-                    dismiss()
+                    showComparison = true
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(theme.accent)
@@ -73,5 +73,11 @@ struct PasteImportView: View {
         .background(theme.background)
         .fontDesign(theme.fontDesign)
         .preferredColorScheme(.dark)
+        .sheet(isPresented: $showComparison) {
+            ImportComparisonView(sessions: preview, sourceTitle: "Pasted timecards") {
+                dismiss()
+            }
+            .environmentObject(store)
+        }
     }
 }

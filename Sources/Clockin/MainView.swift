@@ -11,6 +11,8 @@ struct MainView: View {
     @State private var showSettings = false
     @State private var showProgress = false
     @State private var showPasteImporter = false
+    @State private var showCSVComparison = false
+    @State private var csvPreviewSessions: [WorkSession] = []
     @State private var showManualStart = false
     @State private var confirmCancel = false
     @State private var showRateSchedule = false
@@ -69,6 +71,12 @@ struct MainView: View {
         }
         .sheet(isPresented: $showPasteImporter) {
             PasteImportView().environmentObject(store)
+        }
+        .sheet(isPresented: $showCSVComparison) {
+            ImportComparisonView(sessions: csvPreviewSessions, sourceTitle: "Timesheet CSV") {
+                showCSVComparison = false
+            }
+            .environmentObject(store)
         }
         .sheet(isPresented: $showManualStart) {
             ManualStartView().environmentObject(store)
@@ -631,7 +639,15 @@ struct MainView: View {
         panel.allowedContentTypes = [.commaSeparatedText, .text]
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
-        if panel.runModal() == .OK, let url = panel.url { store.importCSV(from: url) }
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            let granted = url.startAccessingSecurityScopedResource()
+            defer { if granted { url.stopAccessingSecurityScopedResource() } }
+            csvPreviewSessions = try CSVImporter.parse(data: Data(contentsOf: url), hourlyRate: store.hourlyRate)
+            showCSVComparison = true
+        } catch {
+            store.statusMessage = error.localizedDescription
+        }
     }
 }
 

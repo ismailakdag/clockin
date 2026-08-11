@@ -260,6 +260,22 @@ final class ClockStore: ObservableObject {
         (try? PastedTextImporter.parse(text, hourlyRate: hourlyRate)) ?? []
     }
 
+    func compareImportedSessions(_ imported: [WorkSession]) -> ImportComparisonSummary {
+        var seenKeys = Set<String>()
+        let items = imported.map { session -> ImportComparisonItem in
+            let key = Self.deduplicationKey(session)
+            if data.sessions.contains(where: { Self.deduplicationKey($0) == key }) || seenKeys.contains(key) {
+                return ImportComparisonItem(session: session, kind: .duplicate)
+            }
+            seenKeys.insert(key)
+            if session.source != "Clockin", let index = findClockinMatch(for: session) {
+                return ImportComparisonItem(session: session, kind: .matched, localMatch: data.sessions[index])
+            }
+            return ImportComparisonItem(session: session, kind: .new)
+        }
+        return ImportComparisonSummary(items: items)
+    }
+
     func deleteSession(id: UUID) {
         guard let index = data.sessions.firstIndex(where: { $0.id == id }) else { return }
         data.sessions.remove(at: index)
@@ -267,7 +283,7 @@ final class ClockStore: ObservableObject {
         statusMessage = "Session deleted."
     }
 
-    private func importSessions(_ imported: [WorkSession]) {
+    func importSessions(_ imported: [WorkSession]) {
         var fresh: [WorkSession] = []
         var matched = 0
         for session in imported {
