@@ -13,6 +13,7 @@ struct MainView: View {
     @State private var showManualStart = false
     @State private var confirmCancel = false
     @State private var showRateSchedule = false
+    @State private var completedSummary: WorkSession?
     @AppStorage("Clockin.PinnedMode") private var pinnedMode = "Money"
     @AppStorage("Clockin.Theme") private var themeRaw = ClockinThemeChoice.carbon.rawValue
     @AppStorage("Clockin.ChimeEnabled") private var chimeEnabled = false
@@ -71,6 +72,9 @@ struct MainView: View {
         }
         .sheet(isPresented: $showRateSchedule) {
             RateScheduleView().environmentObject(store)
+        }
+        .sheet(item: $completedSummary) { session in
+            SessionSummaryView(session: session).environmentObject(store)
         }
         .onChange(of: store.hourlyRate) { _, newRate in
             rateText = String(format: "%.2f", newRate)
@@ -222,7 +226,7 @@ struct MainView: View {
                     .buttonStyle(SecondaryButtonStyle())
 
                     Button {
-                        _ = store.clockOut()
+                        completedSummary = store.clockOut()
                     } label: {
                         Label("Clock out", systemImage: "stop.fill")
                             .frame(maxWidth: .infinity)
