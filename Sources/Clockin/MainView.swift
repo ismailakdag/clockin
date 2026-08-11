@@ -325,10 +325,34 @@ struct MainView: View {
         HStack {
             metric(title: "TODAY", value: DurationText.compact(store.todayDuration(at: now)), icon: "clock")
             Divider().frame(height: 35).opacity(0.25)
-            metric(title: "EARNED", value: store.todayEarnings(at: now).money(code: store.currencyCode), icon: "chart.line.uptrend.xyaxis")
+            todayEarnedMetric
         }
         .padding(.vertical, 14)
         .background(cardBackground)
+    }
+
+    private var todayEarnedMetric: some View {
+        let earned = store.todayEarnings(at: now)
+        return HStack(spacing: 10) {
+            Image(systemName: "chart.line.uptrend.xyaxis")
+                .foregroundStyle(theme.accent.opacity(0.8))
+                .frame(width: 20)
+            VStack(alignment: .leading, spacing: 3) {
+                Text("EARNED").font(.system(size: 9, weight: .bold)).foregroundStyle(.secondary).tracking(1)
+                Text(earned.money(code: store.currencyCode)).font(.system(size: 13, weight: .semibold, design: .rounded))
+                if store.currencyCode == "USD" {
+                    if let rate = exchangeRates.latestRate {
+                        Text("≈ " + (earned * rate).money(code: "TRY"))
+                            .font(.system(size: 9, weight: .medium, design: .rounded))
+                            .foregroundStyle(theme.accent)
+                    } else {
+                        Text("TRY rate unavailable")
+                            .font(.system(size: 8, weight: .medium))
+                            .foregroundStyle(.orange)
+                    }
+                }
+            }
+        }
     }
 
     private var mascotCard: some View {
