@@ -232,16 +232,27 @@ struct HistoryView: View {
     }
 
     private func averagesStrip(_ values: [DailyEarning]) -> some View {
-        let daily = values.reduce(0) { $0 + $1.duration } / 3600 / Double(max(values.count, 1))
+        let totalHours = values.reduce(0) { $0 + $1.duration } / 3600
+        let calendarDays = selectedCalendarDays(at: .now)
+        let daily = totalHours / calendarDays
         return VStack(alignment: .leading, spacing: 5) {
-            Text("AVERAGES • PROJECTED FROM SELECTED RANGE")
+            Text("AVERAGES • CALENDAR DAYS (\(Int(calendarDays)))")
                 .font(.system(size: 7, weight: .bold)).foregroundStyle(.tertiary).tracking(0.7)
             HStack(spacing: 7) {
             averageChip("DAILY AVG", hours: daily)
             averageChip("WEEKLY AVG", hours: daily * 7)
-            averageChip("MONTHLY AVG", hours: daily * 30)
+            averageChip("MONTHLY AVG", hours: daily * 30.44)
             }
         }
+    }
+
+    private func selectedCalendarDays(at date: Date) -> Double {
+        let calendar = Calendar.autoupdatingCurrent
+        if let days = range.days { return Double(days) }
+        guard let earliest = store.sessions.map(\.start).min() else { return 1 }
+        let start = calendar.startOfDay(for: earliest)
+        let end = calendar.startOfDay(for: date)
+        return max(1, Double(calendar.dateComponents([.day], from: start, to: end).day ?? 0) + 1)
     }
 
     private func averageChip(_ label: String, hours: Double) -> some View {
