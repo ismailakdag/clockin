@@ -8,6 +8,12 @@ private enum ShareVisibility: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
+private enum ShareExportMode: String, CaseIterable, Identifiable {
+    case all = "All 3"
+    case page = "Current page"
+    var id: String { rawValue }
+}
+
 private struct ShareStatsSnapshot {
     let totalDuration: TimeInterval
     let earnings: Double
@@ -38,6 +44,7 @@ struct ShareStatsView: View {
     @AppStorage("Clockin.GoalDailyHours") private var dailyGoalHours = 0.0
     @AppStorage("Clockin.GoalMonthlyHours") private var monthlyGoalHours = 0.0
     @State private var visibility: ShareVisibility = .publicStats
+    @State private var exportMode: ShareExportMode = .all
     @State private var page = 0
     @State private var now = Date()
     @State private var status: String?
@@ -172,8 +179,15 @@ struct ShareStatsView: View {
             }
             .padding(.top, 9)
 
+            Picker("Export", selection: $exportMode) {
+                ForEach(ShareExportMode.allCases) { Text($0.rawValue).tag($0) }
+            }
+            .pickerStyle(.segmented)
+            .padding(.horizontal, 16)
+            .padding(.top, 9)
+
             ScrollView {
-                ShareStatsPageCard(snapshot: snapshot, visibility: visibility, theme: theme, page: page)
+                exportPreview
                     .padding(.vertical, 14)
             }
 
@@ -195,6 +209,15 @@ struct ShareStatsView: View {
         .onReceive(timer) { now = $0 }
     }
 
+    @ViewBuilder
+    private var exportPreview: some View {
+        if exportMode == .all {
+            ShareStatsLongCard(snapshot: snapshot, visibility: visibility, theme: theme)
+        } else {
+            ShareStatsPageCard(snapshot: snapshot, visibility: visibility, theme: theme, page: page)
+        }
+    }
+
     private var currentStreak: Int {
         let calendar = Calendar.current
         let days = Set(store.sessions.map { calendar.startOfDay(for: $0.start) } + (store.running.map { [calendar.startOfDay(for: $0.start)] } ?? []))
@@ -209,7 +232,12 @@ struct ShareStatsView: View {
     }
 
     private func renderPNG() -> URL? {
-        let renderer = ImageRenderer(content: ShareStatsPageCard(snapshot: snapshot, visibility: visibility, theme: theme, page: page))
+        let renderer: ImageRenderer<AnyView>
+        if exportMode == .all {
+            renderer = ImageRenderer(content: AnyView(ShareStatsLongCard(snapshot: snapshot, visibility: visibility, theme: theme)))
+        } else {
+            renderer = ImageRenderer(content: AnyView(ShareStatsPageCard(snapshot: snapshot, visibility: visibility, theme: theme, page: page)))
+        }
         renderer.scale = 2
         guard let image = renderer.nsImage,
               let tiff = image.tiffRepresentation,
@@ -219,7 +247,8 @@ struct ShareStatsView: View {
             return nil
         }
         let label = visibility == .publicStats ? "public" : "private"
-        let url = FileManager.default.temporaryDirectory.appending(path: "clockin-stats-\(label)-\(Int(now.timeIntervalSince1970)).png")
+        let suffix = exportMode == .all ? "all" : "page-\(page + 1)"
+        let url = FileManager.default.temporaryDirectory.appending(path: "clockin-stats-\(label)-\(suffix)-\(Int(now.timeIntervalSince1970)).png")
         do {
             try png.write(to: url, options: .atomic)
             return url
@@ -610,5 +639,22 @@ private struct ShareStatsPageCard: View {
             Text(label).font(.system(size: 8, weight: .bold, design: .monospaced)).foregroundStyle(.white.opacity(0.55))
             Text(value).font(.system(size: 16, weight: .black, design: .monospaced)).foregroundStyle(.white)
         }
+    }
+}
+
+private struct ShareStatsLongCard: View {
+    let snapshot: ShareStatsSnapshot
+    let visibility: ShareVisibility
+    let theme: ClockinPalette
+
+    var body: some View {
+        VStack(spacing: 12) {
+            ShareStatsPageCard(snapshot: snapshot, visibility: visibility, theme: theme, page: 0)
+            ShareStatsPageCard(snapshot: snapshot, visibility: visibility, theme: theme, page: 1)
+            ShareStatsPageCard(snapshot: snapshot, visibility: visibility, theme: theme, page: 2)
+        }
+        .padding(12)
+        .background(theme.background)
+        .frame(width: 374)
     }
 }

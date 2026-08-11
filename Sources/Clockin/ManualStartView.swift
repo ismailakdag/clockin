@@ -62,10 +62,17 @@ struct ManualStartView: View {
     private func valueStepper(title: String, value: Binding<Int>, range: ClosedRange<Int>) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title).font(.system(size: 9, weight: .bold)).foregroundStyle(.secondary).tracking(1)
-            Stepper(value: value, in: range) {
-                Text("\(value.wrappedValue)")
-                    .font(.system(size: 25, weight: .semibold, design: .monospaced))
-                    .frame(maxWidth: .infinity, alignment: .leading)
+            HStack(spacing: 8) {
+                TextField("0", value: value, format: .number)
+                    .textFieldStyle(.roundedBorder)
+                    .font(.system(size: 23, weight: .semibold, design: .monospaced))
+                    .multilineTextAlignment(.leading)
+                    .frame(width: 78)
+                    .onChange(of: value.wrappedValue) { _, newValue in
+                        let clamped = min(range.upperBound, max(range.lowerBound, newValue))
+                        if clamped != newValue { value.wrappedValue = clamped }
+                    }
+                Stepper("", value: value, in: range).labelsHidden().controlSize(.small)
             }
         }
         .padding(12).frame(maxWidth: .infinity)
