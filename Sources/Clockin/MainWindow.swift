@@ -43,11 +43,9 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             window.setFrameAutosaveName("ClockinMainWindow")
             window.delegate = self
             window.contentView = NSHostingView(rootView:
-                ScaledCanvas {
-                    MainView()
-                        .environmentObject(store)
-                        .environmentObject(exchangeRates)
-                }
+                MainView()
+                    .environmentObject(store)
+                    .environmentObject(exchangeRates)
             )
             // Elle ayarlanan boyutu geri getir, ama oranin gerektirdigi en
             // kucuk boyutun altina dusmesine izin verme.

@@ -21,6 +21,7 @@ private struct ProgressBadge: Identifiable {
 }
 
 struct ProgressDashboardView: View {
+    @AppStorage(UIScale.key) private var uiScaleObserver = 1.0
     @EnvironmentObject private var store: ClockStore
     @AppStorage("Clockin.Theme") private var themeRaw = ClockinThemeChoice.carbon.rawValue
     @AppStorage("Clockin.MascotEnabled") private var mascotEnabled = true
@@ -105,11 +106,11 @@ struct ProgressDashboardView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            HStack { Button(action: onBack) { Image(systemName: "chevron.left").frame(width: 26, height: 26) }.buttonStyle(.plain); Text("PROGRESS").font(.system(size: 13, weight: .black)).tracking(1.3); Spacer(); Button { showShareStats = true } label: { Image(systemName: "square.and.arrow.up").frame(width: 28, height: 28) }.buttonStyle(.plain).foregroundStyle(theme.accent).help("Share stats") }
-                .padding(.horizontal, 15).frame(height: 50).overlay(alignment: .bottom) { Divider().opacity(0.25) }
-            Picker("", selection: $tab) { Text("Overview").tag(0); Text("Badges").tag(1); Text("Records").tag(2); Text("Weekly").tag(3); Text("Reports").tag(4) }.pickerStyle(.segmented).padding(16)
-            ScrollView { Group { if tab == 0 { overview } else if tab == 1 { badges } else if tab == 2 { records } else if tab == 3 { weekly } else { reports } }.padding(.horizontal, 16).padding(.bottom, 16) }
+        VStack(spacing: S(0)) {
+            HStack { Button(action: onBack) { Image(systemName: "chevron.left").frame(width: S(26), height: S(26)) }.buttonStyle(.plain); Text("PROGRESS").font(.system(size: S(13), weight: .black)).tracking(S(1.3)); Spacer(); Button { showShareStats = true } label: { Image(systemName: "square.and.arrow.up").frame(width: S(28), height: S(28)) }.buttonStyle(.plain).foregroundStyle(theme.accent).help("Share stats") }
+                .padding(.horizontal, S(15)).frame(height: S(50)).overlay(alignment: .bottom) { Divider().opacity(0.25) }
+            Picker("", selection: $tab) { Text("Overview").tag(0); Text("Badges").tag(1); Text("Records").tag(2); Text("Weekly").tag(3); Text("Reports").tag(4) }.pickerStyle(.segmented).padding(S(16))
+            ScrollView { Group { if tab == 0 { overview } else if tab == 1 { badges } else if tab == 2 { records } else if tab == 3 { weekly } else { reports } }.padding(.horizontal, S(16)).padding(.bottom, S(16)) }
         }
         .fontDesign(theme.fontDesign).onReceive(timer) { now = $0 }
         .sheet(isPresented: $showShareStats) {
@@ -123,8 +124,8 @@ struct ProgressDashboardView: View {
                         .contentShape(Rectangle())
                         .onTapGesture { selectedBadge = nil }
                     BadgeDetailView(badge: badge, theme: theme)
-                        .background(theme.background, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(theme.accent.opacity(0.35)))
+                        .background(theme.background, in: RoundedRectangle(cornerRadius: S(16), style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: S(16), style: .continuous).stroke(theme.accent.opacity(0.35)))
                         .shadow(color: .black.opacity(0.35), radius: 22, y: 10)
                         .onTapGesture { }
                         .transition(.scale(scale: 0.92).combined(with: .opacity))
@@ -136,32 +137,32 @@ struct ProgressDashboardView: View {
     }
 
     private var overview: some View {
-        VStack(spacing: 12) {
-            HStack(spacing: 14) { if mascotEnabled { MascotView(store: store, now: now, level: level) }; VStack(alignment: .leading, spacing: 4) { Text("LEVEL \(level)").font(.system(size: 18, weight: .black)); Text("\(xp) XP • \(500 - xp % 500) XP to next level").font(.system(size: 10)).foregroundStyle(.secondary); ProgressView(value: levelProgress).tint(theme.accent).frame(width: 180); Text("Base \(baseXP) • Goal +\(goalBonusXP) • Streak +\(streakBonusXP)").font(.system(size: 8, design: .monospaced)).foregroundStyle(theme.accent) }; Spacer() }.padding(16).background(card)
-            HStack { stat("🔥", "STREAK", "\(streak) day\(streak == 1 ? "" : "s")"); Divider(); stat("⏱", "TOTAL", DurationText.compact(store.totalDuration + store.elapsed(at: now))); Divider(); stat("⚡", "XP RATE", "100 / hour + bonus") }.padding(13).background(card)
+        VStack(spacing: S(12)) {
+            HStack(spacing: S(14)) { if mascotEnabled { MascotView(store: store, now: now, level: level) }; VStack(alignment: .leading, spacing: S(4)) { Text("LEVEL \(level)").font(.system(size: S(18), weight: .black)); Text("\(xp) XP • \(500 - xp % 500) XP to next level").font(.system(size: S(10))).foregroundStyle(.secondary); ProgressView(value: levelProgress).tint(theme.accent).frame(width: S(180)); Text("Base \(baseXP) • Goal +\(goalBonusXP) • Streak +\(streakBonusXP)").font(.system(size: S(8), design: .monospaced)).foregroundStyle(theme.accent) }; Spacer() }.padding(S(16)).background(card)
+            HStack { stat("🔥", "STREAK", "\(streak) day\(streak == 1 ? "" : "s")"); Divider(); stat("⏱", "TOTAL", DurationText.compact(store.totalDuration + store.elapsed(at: now))); Divider(); stat("⚡", "XP RATE", "100 / hour + bonus") }.padding(S(13)).background(card)
             goalBonusCard
             goalETA
         }
     }
 
     private var goalBonusCard: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("BONUS ENGINE").font(.system(size: 9, weight: .bold)).foregroundStyle(.secondary).tracking(1)
+        VStack(alignment: .leading, spacing: S(6)) {
+            Text("BONUS ENGINE").font(.system(size: S(9), weight: .bold)).foregroundStyle(.secondary).tracking(S(1))
             if dailyGoalHours <= 0 && monthlyGoalHours <= 0 {
-                Text("Set daily or monthly goals to earn bonus XP.").font(.system(size: 10)).foregroundStyle(.secondary)
+                Text("Set daily or monthly goals to earn bonus XP.").font(.system(size: S(10))).foregroundStyle(.secondary)
             } else {
                 Text("+\(goalBonusXP) XP from goals • \(completedGoalDays) daily • \(doubleGoalDays) double-goal • \(completedGoalMonths) monthly")
-                    .font(.system(size: 10, weight: .semibold, design: .monospaced)).foregroundStyle(theme.accent)
+                    .font(.system(size: S(10), weight: .semibold, design: .monospaced)).foregroundStyle(theme.accent)
                 Text("A completed day gives +100 XP; a 2× goal day gives an additional +250 XP.")
-                    .font(.system(size: 8)).foregroundStyle(.tertiary)
+                    .font(.system(size: S(8))).foregroundStyle(.tertiary)
             }
-        }.padding(12).background(card)
+        }.padding(S(12)).background(card)
     }
 
     private var records: some View {
         let longest = store.sessions.map(\.duration).max() ?? 0
         let bestDay = Dictionary(grouping: store.sessions) { Calendar.current.startOfDay(for: $0.start) }.mapValues { $0.reduce(0) { $0 + $1.duration } }.max { $0.value < $1.value }?.value ?? 0
-        return VStack(spacing: 9) { record("trophy.fill", "Longest session", DurationText.compact(longest)); record("calendar.badge.exclamationmark", "Best day", DurationText.compact(bestDay)); record("flame.fill", "Current streak", "\(streak) days"); record("flame.circle.fill", "Longest streak", "\(longestStreak) days"); record("target", "Goal days", "\(completedGoalDays)"); record("star.fill", "Total XP", "\(xp) XP") }
+        return VStack(spacing: S(9)) { record("trophy.fill", "Longest session", DurationText.compact(longest)); record("calendar.badge.exclamationmark", "Best day", DurationText.compact(bestDay)); record("flame.fill", "Current streak", "\(streak) days"); record("flame.circle.fill", "Longest streak", "\(longestStreak) days"); record("target", "Goal days", "\(completedGoalDays)"); record("star.fill", "Total XP", "\(xp) XP") }
     }
 
     private var badges: some View {
@@ -214,20 +215,20 @@ struct ProgressDashboardView: View {
             .init(id: "xp50", title: "XP architect", requirement: "Earn 50,000 XP", icon: "star.circle.fill", color: .yellow, unlocked: xp >= 50_000, progress: progressText(String(xp), "50,000 XP")),
             .init(id: "xp100", title: "XP legend", requirement: "Earn 100,000 XP", icon: "sparkles", color: .purple, unlocked: xp >= 100_000, progress: progressText(String(xp), "100,000 XP"))
         ]
-        return LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+        return LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: S(10)) {
             ForEach(earned) { badge in
                 Button { selectedBadge = badge } label: {
-                    VStack(spacing: 7) {
+                    VStack(spacing: S(7)) {
                     ZStack(alignment: .bottomTrailing) {
-                        Image(systemName: badge.icon).font(.system(size: 26, weight: .bold)).foregroundStyle(badge.unlocked ? badge.color : .secondary)
-                        if !badge.unlocked { Image(systemName: "lock.fill").font(.system(size: 9, weight: .bold)).foregroundStyle(.secondary).padding(2).background(.thinMaterial, in: Circle()) }
+                        Image(systemName: badge.icon).font(.system(size: S(26), weight: .bold)).foregroundStyle(badge.unlocked ? badge.color : .secondary)
+                        if !badge.unlocked { Image(systemName: "lock.fill").font(.system(size: S(9), weight: .bold)).foregroundStyle(.secondary).padding(S(2)).background(.thinMaterial, in: Circle()) }
                     }
-                    Text(badge.title).font(.system(size: 10, weight: .bold))
+                    Text(badge.title).font(.system(size: S(10), weight: .bold))
                     Text(badge.unlocked ? "Unlocked • \(badge.requirement)" : badge.requirement)
-                        .font(.system(size: 8)).foregroundStyle(badge.unlocked ? theme.accent : .secondary)
+                        .font(.system(size: S(8))).foregroundStyle(badge.unlocked ? theme.accent : .secondary)
                         .multilineTextAlignment(.center).lineLimit(2).minimumScaleFactor(0.78)
                     }
-                    .frame(maxWidth: .infinity, minHeight: 100).padding(8).background(card).opacity(badge.unlocked ? 1 : 0.65)
+                    .frame(maxWidth: .infinity, minHeight: S(100)).padding(S(8)).background(card).opacity(badge.unlocked ? 1 : 0.65)
                 }
                 .buttonStyle(.plain)
             }
@@ -248,14 +249,14 @@ struct ProgressDashboardView: View {
         let recent = store.sessions.filter { $0.start >= recentCutoff }.reduce(0) { $0 + $1.duration }
         let prior = store.sessions.filter { $0.start >= now.addingTimeInterval(-60 * 86_400) && $0.start < recentCutoff }.reduce(0) { $0 + $1.duration }
         let trend = prior > 0 ? (recent - prior) / prior : (recent > 0 ? 1 : 0)
-        return VStack(spacing: 9) {
+        return VStack(spacing: S(9)) {
             reportMetric("ACTIVE DAYS", "\(activeDays)")
             reportMetric("AVERAGE SESSION", DurationText.compact(sessionAverage))
             reportMetric("BEST WEEKDAY", bestWeekday)
             reportMetric("BEST START HOUR", bestHour)
             reportMetric("AVERAGE EARNINGS / HOUR", store.currencyCode == "USD" ? hourlyEarning.money(code: store.currencyCode) : hourlyEarning.money(code: store.currencyCode))
             reportMetric("LAST 30D TREND", String(format: "%+.0f%%", trend * 100))
-            Text("Reports are calculated from completed sessions and update after each clock-out.").font(.system(size: 9)).foregroundStyle(.tertiary).frame(maxWidth: .infinity, alignment: .leading).padding(10)
+            Text("Reports are calculated from completed sessions and update after each clock-out.").font(.system(size: S(9))).foregroundStyle(.tertiary).frame(maxWidth: .infinity, alignment: .leading).padding(S(10))
         }
     }
 
@@ -265,27 +266,27 @@ struct ProgressDashboardView: View {
         let previousStart = cal.date(byAdding: .day, value: -13, to: cal.startOfDay(for: now)) ?? now
         let previous = store.sessions.filter { $0.start >= previousStart && $0.start < start }.reduce(0) { $0 + $1.duration }
         let delta = previous > 0 ? (current - previous) / previous : 1
-        return VStack(spacing: 12) { reportMetric("THIS WEEK", DurationText.compact(current)); reportMetric("LAST WEEK", DurationText.compact(previous)); reportMetric("CHANGE", String(format: "%+.0f%%", delta * 100)); Text("Keep the streak alive and beat your previous week.").font(.system(size: 11)).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading).padding(12).background(card) }
+        return VStack(spacing: S(12)) { reportMetric("THIS WEEK", DurationText.compact(current)); reportMetric("LAST WEEK", DurationText.compact(previous)); reportMetric("CHANGE", String(format: "%+.0f%%", delta * 100)); Text("Keep the streak alive and beat your previous week.").font(.system(size: S(11))).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading).padding(S(12)).background(card) }
     }
 
     private var goalETA: some View {
         let today = store.todayDuration(at: now) / 3600
         let remaining = max(0, dailyGoalHours - today)
         let recent = store.sessions.filter { $0.start >= now.addingTimeInterval(-7 * 86_400) }.reduce(0) { $0 + $1.duration } / 3600 / 7
-        return VStack(alignment: .leading, spacing: 6) {
-            Text("TARGET ETA").font(.system(size: 9, weight: .bold)).foregroundStyle(.secondary).tracking(1)
-            if dailyGoalHours <= 0 && monthlyGoalHours <= 0 { Text("Set a daily or monthly goal in Settings.").font(.system(size: 11)).foregroundStyle(.secondary) }
-            else if dailyGoalHours > 0 && remaining <= 0 { Text("Daily goal reached 🎉").font(.system(size: 11, weight: .semibold)).foregroundStyle(theme.accent) }
+        return VStack(alignment: .leading, spacing: S(6)) {
+            Text("TARGET ETA").font(.system(size: S(9), weight: .bold)).foregroundStyle(.secondary).tracking(S(1))
+            if dailyGoalHours <= 0 && monthlyGoalHours <= 0 { Text("Set a daily or monthly goal in Settings.").font(.system(size: S(11))).foregroundStyle(.secondary) }
+            else if dailyGoalHours > 0 && remaining <= 0 { Text("Daily goal reached 🎉").font(.system(size: S(11), weight: .semibold)).foregroundStyle(theme.accent) }
             else if let running = store.running, !running.isPaused, dailyGoalHours > 0 {
-                Text("At the current pace, today’s goal lands around \(now.addingTimeInterval(remaining * 3600).formatted(date: .omitted, time: .shortened)).").font(.system(size: 11))
+                Text("At the current pace, today’s goal lands around \(now.addingTimeInterval(remaining * 3600).formatted(date: .omitted, time: .shortened)).").font(.system(size: S(11)))
             } else if dailyGoalHours > 0, recent > 0 {
-                Text("At your 7-day average, today’s goal is about \(Int(ceil(remaining / recent))) day(s) away.").font(.system(size: 11))
-            } else { Text("Start working to generate a live finish estimate.").font(.system(size: 11)).foregroundStyle(.secondary) }
-        }.padding(12).background(card)
+                Text("At your 7-day average, today’s goal is about \(Int(ceil(remaining / recent))) day(s) away.").font(.system(size: S(11)))
+            } else { Text("Start working to generate a live finish estimate.").font(.system(size: S(11))).foregroundStyle(.secondary) }
+        }.padding(S(12)).background(card)
     }
-    private func stat(_ icon: String, _ title: String, _ value: String) -> some View { VStack(spacing: 4) { Text(icon); Text(title).font(.system(size: 7, weight: .bold)).foregroundStyle(.secondary); Text(value).font(.system(size: 10, weight: .semibold, design: .monospaced)) }.frame(maxWidth: .infinity) }
-    private func record(_ icon: String, _ title: String, _ value: String) -> some View { HStack { Image(systemName: icon).foregroundStyle(theme.accent).frame(width: 22); Text(title).font(.system(size: 11, weight: .semibold)); Spacer(); Text(value).font(.system(size: 11, weight: .bold, design: .monospaced)) }.padding(13).background(card) }
-    private func reportMetric(_ title: String, _ value: String) -> some View { HStack { Text(title).font(.system(size: 9, weight: .bold)).foregroundStyle(.secondary).tracking(1); Spacer(); Text(value).font(.system(size: 16, weight: .bold, design: .rounded)) }.padding(14).background(card) }
+    private func stat(_ icon: String, _ title: String, _ value: String) -> some View { VStack(spacing: S(4)) { Text(icon); Text(title).font(.system(size: S(7), weight: .bold)).foregroundStyle(.secondary); Text(value).font(.system(size: S(10), weight: .semibold, design: .monospaced)) }.frame(maxWidth: .infinity) }
+    private func record(_ icon: String, _ title: String, _ value: String) -> some View { HStack { Image(systemName: icon).foregroundStyle(theme.accent).frame(width: S(22)); Text(title).font(.system(size: S(11), weight: .semibold)); Spacer(); Text(value).font(.system(size: S(11), weight: .bold, design: .monospaced)) }.padding(S(13)).background(card) }
+    private func reportMetric(_ title: String, _ value: String) -> some View { HStack { Text(title).font(.system(size: S(9), weight: .bold)).foregroundStyle(.secondary).tracking(S(1)); Spacer(); Text(value).font(.system(size: S(16), weight: .bold, design: .rounded)) }.padding(S(14)).background(card) }
     private func progressText(_ current: String, _ target: String) -> String { current + " / " + target }
     private var card: some ShapeStyle { .black.opacity(0.16) }
 }
@@ -295,32 +296,32 @@ private struct BadgeDetailView: View {
     let theme: ClockinPalette
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 10) {
+        VStack(alignment: .leading, spacing: S(10)) {
+            HStack(spacing: S(10)) {
                 Image(systemName: badge.icon)
-                    .font(.system(size: 25, weight: .bold))
+                    .font(.system(size: S(25), weight: .bold))
                     .foregroundStyle(badge.unlocked ? badge.color : .secondary)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(badge.title).font(.system(size: 14, weight: .black))
+                VStack(alignment: .leading, spacing: S(2)) {
+                    Text(badge.title).font(.system(size: S(14), weight: .black))
                     Text(badge.unlocked ? "UNLOCKED" : "LOCKED")
-                        .font(.system(size: 8, weight: .bold, design: .monospaced))
+                        .font(.system(size: S(8), weight: .bold, design: .monospaced))
                         .foregroundStyle(badge.unlocked ? theme.accent : .secondary)
                 }
             }
             Divider().opacity(0.2)
             Text(badge.unlocked ? "How you earned it" : "What's missing")
-                .font(.system(size: 9, weight: .bold)).foregroundStyle(.secondary).tracking(0.8)
+                .font(.system(size: S(9), weight: .bold)).foregroundStyle(.secondary).tracking(S(0.8))
             Text(badge.requirement)
-                .font(.system(size: 11, weight: .semibold))
+                .font(.system(size: S(11), weight: .semibold))
                 .fixedSize(horizontal: false, vertical: true)
             if !badge.progress.isEmpty {
                 Text("Current: \(badge.progress)")
-                    .font(.system(size: 10, weight: .medium, design: .monospaced))
+                    .font(.system(size: S(10), weight: .medium, design: .monospaced))
                     .foregroundStyle(theme.accent)
             }
         }
-        .padding(15)
-        .frame(width: 255, alignment: .leading)
+        .padding(S(15))
+        .frame(width: S(255), alignment: .leading)
         .background(theme.background)
         .fontDesign(theme.fontDesign)
         .preferredColorScheme(theme.colorScheme)
@@ -341,7 +342,7 @@ private struct MascotView: View {
         Group {
             ClockinMascotStage().environmentObject(store)
         }
-        .frame(width: 72, height: 72)
+        .frame(width: S(72), height: S(72))
             .shadow(color: .cyan.opacity(0.22), radius: 8)
     }
 }

@@ -2,6 +2,7 @@ import AppKit
 import SwiftUI
 
 struct PasteImportView: View {
+    @AppStorage(UIScale.key) private var uiScaleObserver = 1.0
     @EnvironmentObject private var store: ClockStore
     @Environment(\.dismiss) private var dismiss
     @State private var text = ""
@@ -14,15 +15,15 @@ struct PasteImportView: View {
     private var approvedSummary: TimeInterval? { PastedTextImporter.approvedSummaryDuration(in: text) }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: S(14)) {
             HStack {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("Paste timecards").font(.system(size: 18, weight: .bold, design: .rounded))
-                    Text("One task or the entire page works.").font(.system(size: 11)).foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: S(3)) {
+                    Text("Paste timecards").font(.system(size: S(18), weight: .bold, design: .rounded))
+                    Text("One task or the entire page works.").font(.system(size: S(11))).foregroundStyle(.secondary)
                 }
                 Spacer()
                 Button { dismiss() } label: {
-                    Image(systemName: "xmark").frame(width: 28, height: 28)
+                    Image(systemName: "xmark").frame(width: S(28), height: S(28))
                 }
                 .buttonStyle(.plain).foregroundStyle(.secondary).help("Close")
                 Button("Paste") {
@@ -31,29 +32,29 @@ struct PasteImportView: View {
             }
 
             TextEditor(text: $text)
-                .font(.system(size: 11, design: .monospaced))
+                .font(.system(size: S(11), design: .monospaced))
                 .scrollContentBackground(.hidden)
-                .padding(8)
-                .background(theme.surface, in: RoundedRectangle(cornerRadius: 10))
-                .overlay(RoundedRectangle(cornerRadius: 10).stroke(theme.surfaceStroke))
+                .padding(S(8))
+                .background(theme.surface, in: RoundedRectangle(cornerRadius: S(10)))
+                .overlay(RoundedRectangle(cornerRadius: S(10)).stroke(theme.surfaceStroke))
 
             HStack {
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: S(2)) {
                     Text("\(preview.count) entries recognized")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.system(size: S(12), weight: .semibold))
                     Text(preview.isEmpty && !text.isEmpty
                          ? "No complete date/start/end pattern found yet"
                          : DurationText.compact(previewDuration))
-                        .font(.system(size: 10)).foregroundStyle(.secondary)
+                        .font(.system(size: S(10))).foregroundStyle(.secondary)
                     if let approvedSummary {
                         Text("Page Approved: \(DurationText.compact(approvedSummary))")
-                            .font(.system(size: 10, weight: .semibold))
+                            .font(.system(size: S(10), weight: .semibold))
                         if abs(approvedSummary - previewDuration) > 60 {
                             Text("Copied rows are partial — totals do not match.")
-                                .font(.system(size: 9, weight: .bold)).foregroundStyle(.orange)
+                                .font(.system(size: S(9), weight: .bold)).foregroundStyle(.orange)
                         } else {
                             Text("Copied rows match the page Approved total.")
-                                .font(.system(size: 9, weight: .bold)).foregroundStyle(theme.accent)
+                                .font(.system(size: S(9), weight: .bold)).foregroundStyle(theme.accent)
                         }
                     }
                 }
@@ -68,8 +69,8 @@ struct PasteImportView: View {
                 .disabled(preview.isEmpty)
             }
         }
-        .padding(18)
-        .frame(width: 520, height: 430)
+        .padding(S(18))
+        .frame(width: S(520), height: S(430))
         .background(theme.background)
         .fontDesign(theme.fontDesign)
         .preferredColorScheme(theme.colorScheme)

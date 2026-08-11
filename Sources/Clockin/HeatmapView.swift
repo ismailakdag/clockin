@@ -8,6 +8,7 @@ private enum HeatmapRange: String, CaseIterable, Identifiable {
 }
 
 struct HeatmapView: View {
+    @AppStorage(UIScale.key) private var uiScaleObserver = 1.0
     private struct DayStats {
         var duration: TimeInterval = 0
         var earnings: Double = 0
@@ -146,16 +147,16 @@ struct HeatmapView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
+        VStack(spacing: S(0)) {
             header
             ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: S(16)) {
                     intro
                     summary
                     heatmap
                     legend
                 }
-                .padding(16)
+                .padding(S(16))
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -184,23 +185,23 @@ struct HeatmapView: View {
     private var header: some View {
         HStack {
             Button(action: onBack) {
-                Image(systemName: "chevron.left").frame(width: 26, height: 26)
+                Image(systemName: "chevron.left").frame(width: S(26), height: S(26))
             }.buttonStyle(.plain)
             Text("WORK HEATMAP")
-                .font(.system(size: 13, weight: .black, design: theme.fontDesign))
-                .tracking(1.2)
+                .font(.system(size: S(13), weight: .black, design: theme.fontDesign))
+                .tracking(S(1.2))
             Spacer()
             Image(systemName: "square.grid.3x3.fill").foregroundStyle(theme.accent)
         }
-        .padding(.horizontal, 15).frame(height: 50)
+        .padding(.horizontal, S(15)).frame(height: S(50))
         .background(.white.opacity(0.025))
         .overlay(alignment: .bottom) { Divider().opacity(0.25) }
     }
 
     private var intro: some View {
-        VStack(alignment: .leading, spacing: 5) {
+        VStack(alignment: .leading, spacing: S(5)) {
             HStack {
-                Text("\(periodLabel) RHYTHM").font(.system(size: 10, weight: .black)).foregroundStyle(theme.accent).tracking(1.1)
+                Text("\(periodLabel) RHYTHM").font(.system(size: S(10), weight: .black)).foregroundStyle(theme.accent).tracking(S(1.1))
                 Spacer()
                 Picker("Range", selection: $rangeRaw) {
                     ForEach(HeatmapRange.allCases) { range in
@@ -209,15 +210,15 @@ struct HeatmapView: View {
                 }
                 .pickerStyle(.segmented)
                 .labelsHidden()
-                .frame(width: 158)
+                .frame(width: S(158))
             }
             Text((selectedRange == .all ? "Each square is one day." : (selectedRange == .week ? "Each column is one week." : "Each column is one month.")) + " Scroll horizontally to pan.")
-                .font(.system(size: 11, weight: .medium)).foregroundStyle(.secondary)
+                .font(.system(size: S(11), weight: .medium)).foregroundStyle(.secondary)
         }
     }
 
     private var summary: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: S(8)) {
             stat(periodLabel, DurationText.compact(totalHours * 3600))
             stat("BEST DAY", bestDay.map { DurationText.compact($0.duration) } ?? "—")
             stat("ACTIVE DAYS", "\(visibleDays.filter { stats(for: $0).duration > 0 }.count)")
@@ -233,50 +234,50 @@ struct HeatmapView: View {
     }
 
     private func stat(_ label: String, _ value: String) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text(label).font(.system(size: 8, weight: .bold)).foregroundStyle(.secondary).tracking(0.7)
-            Text(value).font(.system(size: 13, weight: .bold, design: .monospaced)).foregroundStyle(theme.accent)
+        VStack(alignment: .leading, spacing: S(3)) {
+            Text(label).font(.system(size: S(8), weight: .bold)).foregroundStyle(.secondary).tracking(S(0.7))
+            Text(value).font(.system(size: S(13), weight: .bold, design: .monospaced)).foregroundStyle(theme.accent)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(9)
-        .background(.white.opacity(0.045), in: RoundedRectangle(cornerRadius: 9))
+        .padding(S(9))
+        .background(.white.opacity(0.045), in: RoundedRectangle(cornerRadius: S(9)))
     }
 
     @ViewBuilder private var heatmap: some View {
-        VStack(alignment: .leading, spacing: 9) {
+        VStack(alignment: .leading, spacing: S(9)) {
             if selectedRange == .all { dailyGrid } else { aggregateGrid }
             if let hoveredDate { hoverTooltip(for: hoveredDate) }
         }
-        .padding(12)
-        .background(.black.opacity(0.18), in: RoundedRectangle(cornerRadius: 12))
+        .padding(S(12))
+        .background(.black.opacity(0.18), in: RoundedRectangle(cornerRadius: S(12)))
     }
 
     private var dailyGrid: some View {
-        HStack(alignment: .top, spacing: 6) {
-            VStack(spacing: 3) {
-                Text("").frame(height: 17)
+        HStack(alignment: .top, spacing: S(6)) {
+            VStack(spacing: S(3)) {
+                Text("").frame(height: S(17))
                 ForEach(["M", "W", "F"], id: \.self) { day in
-                    Text(day).font(.system(size: 8, weight: .bold, design: .monospaced)).foregroundStyle(.tertiary).frame(height: 12)
-                    if day != "F" { Spacer().frame(height: 3) }
+                    Text(day).font(.system(size: S(8), weight: .bold, design: .monospaced)).foregroundStyle(.tertiary).frame(height: S(12))
+                    if day != "F" { Spacer().frame(height: S(3)) }
                 }
             }
             ScrollViewReader { proxy in
-                VStack(spacing: 5) {
+                VStack(spacing: S(5)) {
                     panControls(proxy: proxy, firstID: 0, lastID: max(0, weeks.count - 1))
                     ScrollView(.horizontal, showsIndicators: true) {
-                        HStack(alignment: .top, spacing: 3) {
+                        HStack(alignment: .top, spacing: S(3)) {
                             ForEach(Array(weeks.enumerated()), id: \.offset) { index, week in
-                                VStack(spacing: 3) {
+                                VStack(spacing: S(3)) {
                                     Text(monthLabel(for: index, week: week))
-                                        .font(.system(size: 8, weight: .medium))
+                                        .font(.system(size: S(8), weight: .medium))
                                         .foregroundStyle(.tertiary)
-                                        .frame(height: 17, alignment: .leading)
+                                        .frame(height: S(17), alignment: .leading)
                                     ForEach(Array(week.enumerated()), id: \.offset) { _, day in heatCell(day) }
                                 }
                                 .id(index)
                             }
                         }
-                        .padding(.bottom, 4)
+                        .padding(.bottom, S(4))
                     }
                 }
                 .id(rangeRaw)
@@ -287,16 +288,16 @@ struct HeatmapView: View {
 
     private var aggregateGrid: some View {
         ScrollViewReader { proxy in
-            VStack(spacing: 5) {
+            VStack(spacing: S(5)) {
                 if let first = aggregatePeriods.first, let last = aggregatePeriods.last {
                     panControls(proxy: proxy, firstID: first, lastID: last)
                 }
                 ScrollView(.horizontal, showsIndicators: true) {
-                    HStack(alignment: .bottom, spacing: 5) {
+                    HStack(alignment: .bottom, spacing: S(5)) {
                         ForEach(aggregatePeriods, id: \.self) { period in aggregateCell(period).id(period) }
                     }
-                    .frame(minHeight: 105, alignment: .bottom)
-                    .padding(.bottom, 4)
+                    .frame(minHeight: S(105), alignment: .bottom)
+                    .padding(.bottom, S(4))
                 }
             }
             .id(rangeRaw)
@@ -305,13 +306,13 @@ struct HeatmapView: View {
     }
 
     private func panControls<ID: Hashable>(proxy: ScrollViewProxy, firstID: ID, lastID: ID) -> some View {
-        HStack(spacing: 6) {
-            Text("PAN").font(.system(size: 7, weight: .bold)).foregroundStyle(.tertiary).tracking(0.8)
+        HStack(spacing: S(6)) {
+            Text("PAN").font(.system(size: S(7), weight: .bold)).foregroundStyle(.tertiary).tracking(S(0.8))
             Spacer()
             Button("Start") { proxy.scrollTo(firstID, anchor: .leading) }
-                .buttonStyle(.plain).font(.system(size: 8, weight: .semibold)).foregroundStyle(.secondary)
+                .buttonStyle(.plain).font(.system(size: S(8), weight: .semibold)).foregroundStyle(.secondary)
             Button("Today") { proxy.scrollTo(lastID, anchor: .trailing) }
-                .buttonStyle(.plain).font(.system(size: 8, weight: .bold)).foregroundStyle(theme.accent)
+                .buttonStyle(.plain).font(.system(size: S(8), weight: .bold)).foregroundStyle(theme.accent)
         }
     }
 
@@ -324,16 +325,16 @@ struct HeatmapView: View {
         case .month: title = period.formatted(.dateTime.month(.abbreviated).year(.twoDigits))
         case .all: title = ""
         }
-        return VStack(spacing: 4) {
-            Text(title).font(.system(size: 8, weight: .medium)).foregroundStyle(.tertiary).frame(height: 14)
-            RoundedRectangle(cornerRadius: 4)
+        return VStack(spacing: S(4)) {
+            Text(title).font(.system(size: S(8), weight: .medium)).foregroundStyle(.tertiary).frame(height: S(14))
+            RoundedRectangle(cornerRadius: S(4))
                 .fill(heatColor(hours: value.earnings, reference: maximum))
-                .frame(width: 28, height: 50)
-                .overlay(Text(DurationText.compact(value.duration)).font(.system(size: 7, weight: .bold, design: .monospaced)).foregroundStyle(.white.opacity(0.85)).rotationEffect(.degrees(-90)))
+                .frame(width: S(28), height: S(50))
+                .overlay(Text(DurationText.compact(value.duration)).font(.system(size: S(7), weight: .bold, design: .monospaced)).foregroundStyle(.white.opacity(0.85)).rotationEffect(.degrees(-90)))
             Text(value.earnings.money(code: store.currencyCode, maxFractionDigits: 0))
-                .font(.system(size: 7, weight: .semibold, design: .monospaced)).foregroundStyle(theme.accent)
+                .font(.system(size: S(7), weight: .semibold, design: .monospaced)).foregroundStyle(theme.accent)
         }
-        .frame(width: 34)
+        .frame(width: S(34))
         .contentShape(Rectangle())
         .onHover { inside in
             withAnimation(.easeOut(duration: 0.05)) {
@@ -348,12 +349,12 @@ struct HeatmapView: View {
         let isFuture = date > today
         return ZStack {
             Color.clear
-            RoundedRectangle(cornerRadius: 2)
+            RoundedRectangle(cornerRadius: S(2))
                 .fill(!isFuture ? heatColor(hours: hours) : .clear)
-                .frame(width: 11, height: 11)
-                .overlay(RoundedRectangle(cornerRadius: 2).stroke(.white.opacity(!isFuture ? 0.04 : 0.02)))
+                .frame(width: S(11), height: S(11))
+                .overlay(RoundedRectangle(cornerRadius: S(2)).stroke(.white.opacity(!isFuture ? 0.04 : 0.02)))
         }
-            .frame(width: 18, height: 18)
+            .frame(width: S(18), height: S(18))
             .contentShape(Rectangle())
             .onHover { inside in
                 withAnimation(.easeOut(duration: 0.05)) {
@@ -373,32 +374,32 @@ struct HeatmapView: View {
             periodTitle = "Week of \(date.formatted(.dateTime.month(.abbreviated).day())) – \(end.formatted(.dateTime.month(.abbreviated).day()))"
         case .month: periodTitle = date.formatted(.dateTime.month(.wide).year())
         }
-        return HStack(spacing: 8) {
+        return HStack(spacing: S(8)) {
             Image(systemName: "calendar").foregroundStyle(theme.accent)
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: S(2)) {
                 Text(periodTitle)
-                    .font(.system(size: 10, weight: .bold))
+                    .font(.system(size: S(10), weight: .bold))
                 Text("\(DurationText.compact(periodStats.duration)) • \(periodStats.earnings.money(code: store.currencyCode))")
-                    .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                    .font(.system(size: S(9), weight: .semibold, design: .monospaced))
                     .foregroundStyle(.secondary)
                 if store.currencyCode == "USD" {
                     if let rate = exchangeRates.rate(on: date) ?? exchangeRates.latestRate {
                         Text("≈ \((periodStats.earnings * rate).money(code: "TRY")) • 1 USD = \(String(format: "%.3f", rate)) TRY")
-                            .font(.system(size: 8, weight: .medium, design: .monospaced))
+                            .font(.system(size: S(8), weight: .medium, design: .monospaced))
                             .foregroundStyle(theme.accent)
                     } else {
                         Text("TRY rate is still loading…")
-                            .font(.system(size: 8, weight: .medium))
+                            .font(.system(size: S(8), weight: .medium))
                             .foregroundStyle(.tertiary)
                     }
                 }
             }
             Spacer()
         }
-        .padding(.horizontal, 9)
-        .padding(.vertical, 7)
+        .padding(.horizontal, S(9))
+        .padding(.vertical, S(7))
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 8))
+        .background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: S(8)))
     }
 
     private func monthLabel(for index: Int, week: [Date]) -> String {
@@ -414,14 +415,14 @@ struct HeatmapView: View {
     }
 
     private var legend: some View {
-        HStack(spacing: 5) {
-            Text(selectedRange == .all ? "Less hours" : "Less earnings").font(.system(size: 8)).foregroundStyle(.tertiary)
+        HStack(spacing: S(5)) {
+            Text(selectedRange == .all ? "Less hours" : "Less earnings").font(.system(size: S(8))).foregroundStyle(.tertiary)
             ForEach([0.0, 0.5, 2.0, 4.0, 8.0], id: \.self) { value in
-                RoundedRectangle(cornerRadius: 2).fill(heatColor(hours: value)).frame(width: 11, height: 11)
+                RoundedRectangle(cornerRadius: S(2)).fill(heatColor(hours: value)).frame(width: S(11), height: S(11))
             }
-            Text("More").font(.system(size: 8)).foregroundStyle(.tertiary)
+            Text("More").font(.system(size: S(8))).foregroundStyle(.tertiary)
             Spacer()
-            Text("Hover for hours + earnings").font(.system(size: 8)).foregroundStyle(.tertiary)
+            Text("Hover for hours + earnings").font(.system(size: S(8))).foregroundStyle(.tertiary)
         }
     }
 }

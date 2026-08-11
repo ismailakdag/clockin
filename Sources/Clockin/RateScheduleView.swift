@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct RateScheduleView: View {
+    @AppStorage(UIScale.key) private var uiScaleObserver = 1.0
     @EnvironmentObject private var store: ClockStore
     @Environment(\.dismiss) private var dismiss
     @AppStorage("Clockin.Theme") private var themeRaw = ClockinThemeChoice.carbon.rawValue
@@ -12,23 +13,23 @@ struct RateScheduleView: View {
     private var theme: ClockinPalette { ClockinThemeChoice.selected(themeRaw).palette }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: S(14)) {
             HStack {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("Hourly rate schedule").font(.system(size: 18, weight: .bold, design: theme.fontDesign))
+                VStack(alignment: .leading, spacing: S(3)) {
+                    Text("Hourly rate schedule").font(.system(size: S(18), weight: .bold, design: theme.fontDesign))
                     Text("Open-ended rules can be combined with custom start–end periods.")
-                        .font(.system(size: 10)).foregroundStyle(.secondary)
+                        .font(.system(size: S(10))).foregroundStyle(.secondary)
                 }
                 Spacer()
                 Button("Done") { dismiss() }.buttonStyle(ClockinAccentButtonStyle(palette: theme))
             }
 
             Text("A bounded period overrides the fallback rate only between its dates. Sessions keep their historical rate calculation.")
-                .font(.system(size: 9)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-                .padding(10).background(theme.surface, in: RoundedRectangle(cornerRadius: 9))
+                .font(.system(size: S(9))).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                .padding(S(10)).background(theme.surface, in: RoundedRectangle(cornerRadius: S(9)))
 
             ScrollView {
-                VStack(spacing: 8) {
+                VStack(spacing: S(8)) {
                     ForEach(store.rateRules) { rule in
                         RateRuleRow(rule: rule, canDelete: store.rateRules.count > 1)
                             .environmentObject(store)
@@ -37,18 +38,18 @@ struct RateScheduleView: View {
             }
 
             Divider().opacity(0.3)
-            Text("ADD RATE PERIOD").font(.system(size: 9, weight: .bold)).foregroundStyle(.secondary).tracking(1)
-            HStack(spacing: 7) {
+            Text("ADD RATE PERIOD").font(.system(size: S(9), weight: .bold)).foregroundStyle(.secondary).tracking(S(1))
+            HStack(spacing: S(7)) {
                 DatePicker("From", selection: $newDate, displayedComponents: .date)
-                    .labelsHidden().controlSize(.small).font(.system(size: 9, design: .monospaced)).frame(width: 92)
+                    .labelsHidden().controlSize(.small).font(.system(size: S(9), design: .monospaced)).frame(width: S(92))
                 Toggle("Until", isOn: $newHasEnd).toggleStyle(.checkbox).controlSize(.small)
                 if newHasEnd {
                     DatePicker("", selection: $newEndDate, in: newDate..., displayedComponents: .date)
-                        .labelsHidden().controlSize(.small).font(.system(size: 9, design: .monospaced)).frame(width: 92)
+                        .labelsHidden().controlSize(.small).font(.system(size: S(9), design: .monospaced)).frame(width: S(92))
                 }
                 TextField("Hourly rate", text: $newRateText)
-                    .textFieldStyle(.plain).font(.system(size: 11, design: .monospaced)).padding(7).frame(width: 85)
-                    .background(theme.surface, in: RoundedRectangle(cornerRadius: 8))
+                    .textFieldStyle(.plain).font(.system(size: S(11), design: .monospaced)).padding(S(7)).frame(width: S(85))
+                    .background(theme.surface, in: RoundedRectangle(cornerRadius: S(8)))
                 Button("Add") {
                     let normalized = newRateText.replacingOccurrences(of: ",", with: ".")
                     guard let value = Double(normalized), value >= 0 else { return }
@@ -58,8 +59,8 @@ struct RateScheduleView: View {
                 .buttonStyle(ClockinAccentButtonStyle(palette: theme))
             }
         }
-        .padding(18)
-        .frame(width: 560, height: 520)
+        .padding(S(18))
+        .frame(width: S(560), height: S(520))
         .background(theme.background)
         .fontDesign(theme.fontDesign)
         .preferredColorScheme(theme.colorScheme)
@@ -88,26 +89,26 @@ private struct RateRuleRow: View {
     }
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: S(8)) {
             Image(systemName: "calendar.badge.clock").foregroundStyle(.secondary)
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 5) {
-                    Text("FROM").font(.system(size: 7, weight: .bold)).foregroundStyle(.tertiary)
+            VStack(alignment: .leading, spacing: S(4)) {
+                HStack(spacing: S(5)) {
+                    Text("FROM").font(.system(size: S(7), weight: .bold)).foregroundStyle(.tertiary)
                     DatePicker("", selection: $date, displayedComponents: .date)
-                        .labelsHidden().controlSize(.small).font(.system(size: 9, design: .monospaced)).frame(width: 92)
+                        .labelsHidden().controlSize(.small).font(.system(size: S(9), design: .monospaced)).frame(width: S(92))
                         .onChange(of: date) { _, newDate in commit(date: newDate) }
                     Toggle("Until", isOn: $hasEnd).toggleStyle(.checkbox).controlSize(.small)
                         .onChange(of: hasEnd) { _, _ in commit(date: date) }
                     if hasEnd {
                         DatePicker("", selection: $endDate, in: date..., displayedComponents: .date)
-                            .labelsHidden().controlSize(.small).font(.system(size: 9, design: .monospaced)).frame(width: 92)
+                            .labelsHidden().controlSize(.small).font(.system(size: S(9), design: .monospaced)).frame(width: S(92))
                             .onChange(of: endDate) { _, _ in commit(date: date) }
                     }
                 }
             }
             Spacer(minLength: 4)
             TextField("Rate", text: $rateText)
-                .textFieldStyle(.plain).font(.system(size: 11, design: .monospaced)).multilineTextAlignment(.trailing).frame(width: 65)
+                .textFieldStyle(.plain).font(.system(size: S(11), design: .monospaced)).multilineTextAlignment(.trailing).frame(width: S(65))
                 .onSubmit { commit(date: date) }
                 .onChange(of: rateText) { _, newText in
                     let normalized = newText.replacingOccurrences(of: ",", with: ".")
@@ -116,14 +117,14 @@ private struct RateRuleRow: View {
                           abs(value - stored.hourlyRate) > 0.000_001 else { return }
                     store.updateRateRule(id: rule.id, effectiveFrom: date, effectiveUntil: hasEnd ? endDate : nil, hourlyRate: value)
                 }
-            Text("/ hr").font(.system(size: 10)).foregroundStyle(.secondary)
+            Text("/ hr").font(.system(size: S(10))).foregroundStyle(.secondary)
             Button { store.deleteRateRule(id: rule.id) } label: {
                 Image(systemName: "trash").foregroundStyle(canDelete ? .secondary : .tertiary)
             }
             .buttonStyle(.plain).disabled(!canDelete)
         }
-        .padding(11)
-        .background(theme.surface, in: RoundedRectangle(cornerRadius: 10))
+        .padding(S(11))
+        .background(theme.surface, in: RoundedRectangle(cornerRadius: S(10)))
     }
 
     private func commit(date: Date) {

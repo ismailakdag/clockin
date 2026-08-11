@@ -19,6 +19,7 @@ private struct DailyEarning: Identifiable {
 }
 
 struct HistoryView: View {
+    @AppStorage(UIScale.key) private var uiScaleObserver = 1.0
     @EnvironmentObject private var store: ClockStore
     @EnvironmentObject private var exchangeRates: ExchangeRateStore
     @State private var range: HistoryRange = .month
@@ -33,10 +34,10 @@ struct HistoryView: View {
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
-            VStack(spacing: 0) {
+            VStack(spacing: S(0)) {
                 header
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 14) {
+                    VStack(alignment: .leading, spacing: S(14)) {
                         summary(at: context.date)
                     Picker("Range", selection: $range) {
                         ForEach(HistoryRange.allCases) { Text($0.rawValue).tag($0) }
@@ -45,18 +46,18 @@ struct HistoryView: View {
                     chartCard(at: context.date)
                     HStack {
                         Text("ALL SESSIONS • \(filteredSessions.count)")
-                            .font(.system(size: 9, weight: .bold)).foregroundStyle(.secondary).tracking(1.2)
+                            .font(.system(size: S(9), weight: .bold)).foregroundStyle(.secondary).tracking(S(1.2))
                         Spacer()
                         if filteredSessions.count > 30 {
                             Button(showAllSessions ? "Show recent" : "Show all") { showAllSessions.toggle() }
-                                .buttonStyle(.plain).font(.system(size: 9, weight: .bold)).foregroundStyle(theme.accent)
+                                .buttonStyle(.plain).font(.system(size: S(9), weight: .bold)).foregroundStyle(theme.accent)
                         }
                     }
-                    LazyVStack(spacing: 8) {
+                    LazyVStack(spacing: S(8)) {
                         ForEach(visibleSessions) { session in historyRow(session) }
                     }
                     }
-                    .padding(16)
+                    .padding(S(16))
                 }
             }
         }
@@ -77,18 +78,18 @@ struct HistoryView: View {
 
     private var header: some View {
         HStack {
-            Button(action: onBack) { Image(systemName: "chevron.left").frame(width: 26, height: 26) }
+            Button(action: onBack) { Image(systemName: "chevron.left").frame(width: S(26), height: S(26)) }
                 .buttonStyle(.plain)
-            Text("EARNINGS HISTORY").font(.system(size: 13, weight: .black, design: .rounded)).tracking(1.3)
+            Text("EARNINGS HISTORY").font(.system(size: S(13), weight: .black, design: .rounded)).tracking(S(1.3))
             Spacer()
             Button(showTRY ? "TRY" : "USD") { showTRY.toggle() }
                 .buttonStyle(.plain)
-                .font(.system(size: 10, weight: .bold, design: .rounded))
+                .font(.system(size: S(10), weight: .bold, design: .rounded))
                 .foregroundStyle(theme.accent)
-                .padding(.horizontal, 9).padding(.vertical, 5)
+                .padding(.horizontal, S(9)).padding(.vertical, S(5))
                 .background(theme.accent.opacity(0.1), in: Capsule())
         }
-        .padding(.horizontal, 15).frame(height: 50)
+        .padding(.horizontal, S(15)).frame(height: S(50))
         .background(.white.opacity(0.025))
         .overlay(alignment: .bottom) { Divider().opacity(0.25) }
     }
@@ -96,25 +97,25 @@ struct HistoryView: View {
     private func summary(at date: Date) -> some View {
         let totals = scopedTotals(at: date)
         return HStack {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("TOTAL EARNED").font(.system(size: 9, weight: .bold)).foregroundStyle(.secondary).tracking(1)
+            VStack(alignment: .leading, spacing: S(4)) {
+                Text("TOTAL EARNED").font(.system(size: S(9), weight: .bold)).foregroundStyle(.secondary).tracking(S(1))
                 Text(totals.earnings.money(code: store.currencyCode))
-                    .font(.system(size: 25, weight: .bold, design: .rounded))
+                    .font(.system(size: S(25), weight: .bold, design: .rounded))
                 if store.currencyCode == "USD", let rate = exchangeRates.latestRate {
                     Text("\(range.rawValue) • \(totals.includesActive ? "includes active" : "completed") • ≈ \((totals.earnings * rate).money(code: "TRY"))")
-                        .font(.system(size: 11)).foregroundStyle(theme.accent)
+                        .font(.system(size: S(11))).foregroundStyle(theme.accent)
                 } else {
                     Text("\(range.rawValue) • \(totals.includesActive ? "includes active" : "completed")")
-                        .font(.system(size: 11)).foregroundStyle(theme.accent)
+                        .font(.system(size: S(11))).foregroundStyle(theme.accent)
                 }
             }
             Spacer()
-            VStack(alignment: .trailing, spacing: 4) {
-                Text(DurationText.compact(totals.duration)).font(.system(size: 15, weight: .semibold, design: .rounded))
-                Text("\(filteredSessions.count) sessions").font(.system(size: 10)).foregroundStyle(.secondary)
+            VStack(alignment: .trailing, spacing: S(4)) {
+                Text(DurationText.compact(totals.duration)).font(.system(size: S(15), weight: .semibold, design: .rounded))
+                Text("\(filteredSessions.count) sessions").font(.system(size: S(10))).foregroundStyle(.secondary)
             }
         }
-        .padding(15).background(card)
+        .padding(S(15)).background(card)
     }
 
     private func scopedTotals(at date: Date) -> (duration: TimeInterval, earnings: Double, includesActive: Bool) {
@@ -136,12 +137,12 @@ struct HistoryView: View {
 
     private func chartCard(at date: Date) -> some View {
         let chartPoints = points(at: date)
-        return VStack(alignment: .leading, spacing: 10) {
+        return VStack(alignment: .leading, spacing: S(10)) {
             HStack {
-                Text("DAILY EARNINGS").font(.system(size: 9, weight: .bold)).foregroundStyle(.secondary).tracking(1)
+                Text("DAILY EARNINGS").font(.system(size: S(9), weight: .bold)).foregroundStyle(.secondary).tracking(S(1))
                 Spacer()
                 Text(showTRY ? "Historical daily TRY" : "USD")
-                    .font(.system(size: 9)).foregroundStyle(.tertiary)
+                    .font(.system(size: S(9))).foregroundStyle(.tertiary)
             }
             Group {
                 if let point = hoveredPoint(in: chartPoints) {
@@ -150,15 +151,15 @@ struct HistoryView: View {
                     HStack {
                         Image(systemName: "cursorarrow.motionlines").foregroundStyle(.secondary)
                         Text("Hover a bar for hours, USD, TRY and daily rate")
-                            .font(.system(size: 9)).foregroundStyle(.secondary)
+                            .font(.system(size: S(9))).foregroundStyle(.secondary)
                     }
                 }
             }
-            .frame(maxWidth: .infinity, minHeight: 42, maxHeight: 42, alignment: .leading)
-            .padding(.horizontal, 9)
-            .background(.black.opacity(0.14), in: RoundedRectangle(cornerRadius: 9))
+            .frame(maxWidth: .infinity, minHeight: S(42), maxHeight: S(42), alignment: .leading)
+            .padding(.horizontal, S(9))
+            .background(.black.opacity(0.14), in: RoundedRectangle(cornerRadius: S(9)))
             if chartPoints.isEmpty {
-                Text("No earnings in this period.").font(.system(size: 11)).foregroundStyle(.secondary).frame(height: 120)
+                Text("No earnings in this period.").font(.system(size: S(11))).foregroundStyle(.secondary).frame(height: S(120))
             } else {
                 ScrollView(.horizontal, showsIndicators: false) {
                     Chart(chartPoints) { point in
@@ -169,7 +170,7 @@ struct HistoryView: View {
                         )
                         .interpolationMethod(.catmullRom)
                         .foregroundStyle(theme.accent)
-                        .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round))
+                        .lineStyle(StrokeStyle(lineWidth: S(2.5), lineCap: .round, lineJoin: .round))
                         AreaMark(
                             x: .value("Date", point.date),
                             y: .value("Earnings", value)
@@ -188,7 +189,7 @@ struct HistoryView: View {
                             AxisValueLabel {
                                 if let date = value.as(Date.self) {
                                     Text(date, format: .dateTime.day().month(.abbreviated))
-                                        .font(.system(size: 8, weight: .medium, design: .rounded))
+                                        .font(.system(size: S(8), weight: .medium, design: .rounded))
                                         .lineLimit(1).minimumScaleFactor(0.7)
                                 }
                             }
@@ -204,7 +205,7 @@ struct HistoryView: View {
                         }
                     }
                     .chartYScale(domain: 0...chartMaximum)
-                    .chartPlotStyle { plot in plot.padding(.top, 10) }
+                    .chartPlotStyle { plot in plot.padding(.top, S(10)) }
                     .chartOverlay { proxy in
                         GeometryReader { geometry in
                             Rectangle().fill(.clear).contentShape(Rectangle())
@@ -223,12 +224,12 @@ struct HistoryView: View {
                                 }
                         }
                     }
-                    .frame(width: max(390, CGFloat(chartPoints.count) * 30), height: 180)
+                    .frame(width: max(390, CGFloat(chartPoints.count) * 30), height: S(180))
                 }
                 averagesStrip(chartPoints)
             }
         }
-        .padding(14).background(card)
+        .padding(S(14)).background(card)
     }
 
     private func averagesStrip(_ values: [DailyEarning]) -> some View {
@@ -237,15 +238,15 @@ struct HistoryView: View {
         let activeDays = values.filter { $0.duration > 0 }.count
         let daily = totalHours / calendarDays
         let activeDayAverage = totalHours / Double(max(activeDays, 1))
-        return VStack(alignment: .leading, spacing: 5) {
+        return VStack(alignment: .leading, spacing: S(5)) {
             Text("AVERAGES • CALENDAR DAYS (\(Int(calendarDays)))")
-                .font(.system(size: 7, weight: .bold)).foregroundStyle(.tertiary).tracking(0.7)
-            HStack(spacing: 7) {
+                .font(.system(size: S(7), weight: .bold)).foregroundStyle(.tertiary).tracking(S(0.7))
+            HStack(spacing: S(7)) {
             averageChip("DAILY AVG", hours: daily)
             averageChip("WEEKLY AVG", hours: daily * 7)
             averageChip("MONTHLY AVG", hours: daily * 30.44)
             }
-            HStack(spacing: 7) {
+            HStack(spacing: S(7)) {
                 metricChip("ACTIVE DAYS", value: "\(activeDays)")
                 averageChip("ACTIVE-DAY AVG", hours: activeDayAverage)
             }
@@ -263,73 +264,73 @@ struct HistoryView: View {
 
     private func averageChip(_ label: String, hours: Double) -> some View {
         let minutes = max(0, Int((hours * 60).rounded()))
-        return VStack(alignment: .leading, spacing: 2) {
-            Text(label).font(.system(size: 7, weight: .bold)).foregroundStyle(.secondary)
-            Text("\(minutes / 60)h \(minutes % 60)m").font(.system(size: 9, weight: .semibold, design: .monospaced))
+        return VStack(alignment: .leading, spacing: S(2)) {
+            Text(label).font(.system(size: S(7), weight: .bold)).foregroundStyle(.secondary)
+            Text("\(minutes / 60)h \(minutes % 60)m").font(.system(size: S(9), weight: .semibold, design: .monospaced))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.vertical, 6).padding(.horizontal, 7)
-        .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 7))
+        .padding(.vertical, S(6)).padding(.horizontal, S(7))
+        .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: S(7)))
     }
 
     private func metricChip(_ label: String, value: String) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(label).font(.system(size: 7, weight: .bold)).foregroundStyle(.secondary)
-            Text(value).font(.system(size: 9, weight: .semibold, design: .monospaced))
+        VStack(alignment: .leading, spacing: S(2)) {
+            Text(label).font(.system(size: S(7), weight: .bold)).foregroundStyle(.secondary)
+            Text(value).font(.system(size: S(9), weight: .semibold, design: .monospaced))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.vertical, 6).padding(.horizontal, 7)
-        .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 7))
+        .padding(.vertical, S(6)).padding(.horizontal, S(7))
+        .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: S(7)))
     }
 
     private func hoverSummary(_ point: DailyEarning) -> some View {
-        HStack(spacing: 10) {
-            VStack(alignment: .leading, spacing: 2) {
+        HStack(spacing: S(10)) {
+            VStack(alignment: .leading, spacing: S(2)) {
             Text(point.date.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day()))
-                .font(.system(size: 9, weight: .bold))
+                .font(.system(size: S(9), weight: .bold))
                 Text("\(DurationText.compact(point.duration)) worked")
-                    .font(.system(size: 8)).foregroundStyle(.secondary)
+                    .font(.system(size: S(8))).foregroundStyle(.secondary)
             }
             Spacer(minLength: 4)
-            VStack(alignment: .trailing, spacing: 2) {
-                Text(point.usd.money(code: "USD")).font(.system(size: 9, weight: .semibold))
+            VStack(alignment: .trailing, spacing: S(2)) {
+                Text(point.usd.money(code: "USD")).font(.system(size: S(9), weight: .semibold))
             if let value = point.tryValue, point.usd > 0 {
                     Text("≈ \(value.money(code: "TRY")) • rate \(String(format: "%.3f", value / point.usd))")
-                        .font(.system(size: 8, design: .monospaced)).foregroundStyle(theme.accent)
+                        .font(.system(size: S(8), design: .monospaced)).foregroundStyle(theme.accent)
                 }
             }
         }
     }
 
     private func historyRow(_ session: WorkSession) -> some View {
-        HStack(spacing: 11) {
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 6) {
+        HStack(spacing: S(11)) {
+            VStack(alignment: .leading, spacing: S(4)) {
+                HStack(spacing: S(6)) {
                     Text(session.start.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day()))
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.system(size: S(12), weight: .semibold))
                     if let source = session.matchedExternalSource {
                         Label("Matched \(source)", systemImage: "checkmark.seal.fill")
-                            .font(.system(size: 8, weight: .bold)).foregroundStyle(theme.secondary)
+                            .font(.system(size: S(8), weight: .bold)).foregroundStyle(theme.secondary)
                     }
                 }
                 Text("\(session.start.formatted(date: .omitted, time: .shortened)) – \(session.end.formatted(date: .omitted, time: .shortened))  •  \(session.note.isEmpty ? session.source : session.note)")
-                    .font(.system(size: 10)).foregroundStyle(.secondary).lineLimit(1)
+                    .font(.system(size: S(10))).foregroundStyle(.secondary).lineLimit(1)
             }
             Spacer()
-            VStack(alignment: .trailing, spacing: 3) {
-                Text(store.earnings(for: session).money(code: store.currencyCode)).font(.system(size: 11, weight: .semibold))
+            VStack(alignment: .trailing, spacing: S(3)) {
+                Text(store.earnings(for: session).money(code: store.currencyCode)).font(.system(size: S(11), weight: .semibold))
                 if store.currencyCode == "USD", let rate = exchangeRates.rate(on: session.start) {
-                    Text((store.earnings(for: session) * rate).money(code: "TRY")).font(.system(size: 9)).foregroundStyle(theme.accent)
+                    Text((store.earnings(for: session) * rate).money(code: "TRY")).font(.system(size: S(9))).foregroundStyle(theme.accent)
                 } else {
-                    Text(DurationText.compact(session.duration)).font(.system(size: 9)).foregroundStyle(.secondary)
+                    Text(DurationText.compact(session.duration)).font(.system(size: S(9))).foregroundStyle(.secondary)
                 }
             }
             Button { pendingDelete = session } label: {
-                Image(systemName: "trash").font(.system(size: 10)).foregroundStyle(.secondary)
+                Image(systemName: "trash").font(.system(size: S(10))).foregroundStyle(.secondary)
             }
             .buttonStyle(.plain)
         }
-        .padding(12).background(card)
+        .padding(S(12)).background(card)
     }
 
     private var filteredSessions: [WorkSession] {
@@ -375,8 +376,8 @@ struct HistoryView: View {
     }
 
     private var card: some View {
-        RoundedRectangle(cornerRadius: 15, style: .continuous)
+        RoundedRectangle(cornerRadius: S(15), style: .continuous)
             .fill(.white.opacity(0.045))
-            .overlay(RoundedRectangle(cornerRadius: 15).stroke(.white.opacity(0.07)))
+            .overlay(RoundedRectangle(cornerRadius: S(15)).stroke(.white.opacity(0.07)))
     }
 }

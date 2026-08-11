@@ -2,6 +2,7 @@ import AppKit
 import SwiftUI
 
 struct MainView: View {
+    @AppStorage(UIScale.key) private var uiScaleObserver = 1.0
     @EnvironmentObject private var store: ClockStore
     @EnvironmentObject private var exchangeRates: ExchangeRateStore
     @State private var now = Date()
@@ -82,10 +83,10 @@ struct MainView: View {
             } else if showProgress {
                 ProgressDashboardView { showProgress = false }
             } else {
-                VStack(spacing: 0) {
+                VStack(spacing: S(0)) {
                     header
                     ScrollView {
-                        VStack(spacing: 14) {
+                        VStack(spacing: S(14)) {
                             timerCard
                             if mascotEnabled { mascotCard }
                             todayCard
@@ -94,12 +95,15 @@ struct MainView: View {
                             recentSection
                             footer
                         }
-                        .padding(16)
+                        .padding(S(16))
                     }
                 }
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        // Pencerenin kok gorunumu. En kucuk olcu bildirilmezse NSHostingView
+        // ideal boyutu sifir sanip pencereyi cokertiyor.
+        .frame(minWidth: S(UIScale.base.width), maxWidth: .infinity,
+               minHeight: S(UIScale.base.height), maxHeight: .infinity)
         .background(theme.background)
         .fontDesign(theme.fontDesign)
         .preferredColorScheme(theme.colorScheme)
@@ -147,51 +151,51 @@ struct MainView: View {
         // Tek kez hesaplanip iki yerde kullanilir (LV rozeti ve help metni).
         let stats = progressStats
         return HStack {
-            HStack(spacing: 9) {
+            HStack(spacing: S(9)) {
                 Image(systemName: "timer")
-                    .font(.system(size: 16, weight: .bold))
+                    .font(.system(size: S(16), weight: .bold))
                     .foregroundStyle(theme.accent)
                 Text("CLOCKIN")
-                    .font(.system(size: 14, weight: .black, design: theme.fontDesign))
-                    .tracking(1.8)
+                    .font(.system(size: S(14), weight: .black, design: theme.fontDesign))
+                    .tracking(S(1.8))
             }
             Spacer()
-            HStack(spacing: 2) {
+            HStack(spacing: S(2)) {
                 headerIcon("chart.bar.xaxis", help: "Earnings history") { showHistory = true }
                 headerIcon("square.grid.3x3.fill", help: "Work heatmap") { showHeatmap = true }
                 headerIcon("questionmark.circle", help: "How to use Clockin") { showGuide = true }
             }
-            .padding(3)
-            .background(theme.surface, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
-            HStack(spacing: 2) {
+            .padding(S(3))
+            .background(theme.surface, in: RoundedRectangle(cornerRadius: S(9), style: .continuous))
+            HStack(spacing: S(2)) {
                 Button { showProgress = true } label: {
                     Label("LV \(stats.level)", systemImage: "trophy.fill")
-                        .font(.system(size: 9, weight: .bold, design: .monospaced))
-                        .frame(width: 52, height: 28)
+                        .font(.system(size: S(9), weight: .bold, design: .monospaced))
+                        .frame(width: S(52), height: S(28))
                 }
                 .buttonStyle(.plain).foregroundStyle(theme.accent)
                 .help("Progress • \(stats.xp) XP • streaks • mascot • records")
                 headerIcon("gearshape.fill", help: "Settings") { showSettings = true }
                 Button { store.setPinned(!store.pinVisible) } label: {
                     Image(systemName: store.pinVisible ? "pin.fill" : "pin")
-                        .frame(width: 28, height: 28)
+                        .frame(width: S(28), height: S(28))
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(store.pinVisible ? theme.accent : .secondary)
                 .help(store.pinVisible ? "Hide floating timer" : "Pin timer to desktop")
             }
-            .padding(3)
-            .background(theme.surface, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+            .padding(S(3))
+            .background(theme.surface, in: RoundedRectangle(cornerRadius: S(9), style: .continuous))
         }
-        .padding(.horizontal, 18)
-        .frame(height: 50)
+        .padding(.horizontal, S(18))
+        .frame(height: S(50))
         .background(.white.opacity(0.025))
         .overlay(alignment: .bottom) { Divider().opacity(0.25) }
     }
 
     private func headerIcon(_ systemName: String, color: Color = .secondary, help: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Image(systemName: systemName).frame(width: 28, height: 28)
+            Image(systemName: systemName).frame(width: S(28), height: S(28))
         }
         .buttonStyle(.plain)
         .foregroundStyle(color)
@@ -199,32 +203,32 @@ struct MainView: View {
     }
 
     private var timerCard: some View {
-        VStack(spacing: 17) {
-            HStack(spacing: 7) {
+        VStack(spacing: S(17)) {
+            HStack(spacing: S(7)) {
                 Circle()
                     .fill(statusColor)
-                    .frame(width: 7, height: 7)
+                    .frame(width: S(7), height: S(7))
                     .shadow(color: statusColor.opacity(store.running?.isPaused == false ? 0.8 : 0), radius: 5)
                 Text(statusText)
-                    .font(.system(size: 10, weight: .bold, design: theme.fontDesign))
+                    .font(.system(size: S(10), weight: .bold, design: theme.fontDesign))
                     .foregroundStyle(.secondary)
-                    .tracking(1.3)
+                    .tracking(S(1.3))
             }
 
             Text(DurationText.clock(store.elapsed(at: now)))
-                .font(.system(size: 48, weight: .medium, design: theme.fontDesign))
+                .font(.system(size: S(48), weight: .medium, design: theme.fontDesign))
                 .monospacedDigit()
                 .tracking(-2)
                 .contentTransition(.numericText())
 
             Text(store.currentEarnings(at: now).money(code: store.currencyCode))
-                .font(.system(size: 18, weight: .semibold, design: theme.fontDesign))
+                .font(.system(size: S(18), weight: .semibold, design: theme.fontDesign))
                 .foregroundStyle(theme.accent)
                 .contentTransition(.numericText())
 
             if store.currencyCode == "USD", let usdTry = exchangeRates.latestRate {
                 Text("≈ \((store.currentEarnings(at: now) * usdTry).money(code: "TRY"))")
-                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                    .font(.system(size: S(11), weight: .medium, design: .rounded))
                     .foregroundStyle(.secondary)
             }
 
@@ -232,7 +236,7 @@ struct MainView: View {
 
             controls
         }
-        .padding(20)
+        .padding(S(20))
         .frame(maxWidth: .infinity)
         .background(cardBackground)
     }
@@ -243,29 +247,29 @@ struct MainView: View {
         let milestone = max(10, ceil(max(current, 0.01) / 10) * 10)
         let progress = current.truncatingRemainder(dividingBy: 10) / 10
         let isEarning = store.running?.isPaused == false
-        return VStack(spacing: 8) {
-            HStack(spacing: 9) {
+        return VStack(spacing: S(8)) {
+            HStack(spacing: S(9)) {
                 Image(systemName: isEarning ? "flame.fill" : "sparkles")
                     .foregroundStyle(isEarning ? .orange : theme.accent)
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: S(2)) {
                     Text(isEarning ? "MONEY MOMENTUM" : "YOUR EARNING POWER")
-                        .font(.system(size: 8, weight: .black, design: .rounded)).foregroundStyle(.secondary).tracking(1)
-                    HStack(spacing: 5) {
+                        .font(.system(size: S(8), weight: .black, design: .rounded)).foregroundStyle(.secondary).tracking(S(1))
+                    HStack(spacing: S(5)) {
                         Text("+\(perSecond.money(code: store.currencyCode, maxFractionDigits: 4))/sec")
                         if store.currencyCode == "USD", let usdTry = exchangeRates.latestRate {
                             Text("• +\((perSecond * usdTry).money(code: "TRY", maxFractionDigits: 4))/sec")
                         }
                     }
-                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                    .font(.system(size: S(10), weight: .semibold, design: .monospaced))
                     .foregroundStyle(isEarning ? theme.accent : .secondary)
                 }
                 Spacer()
                 if store.running != nil {
-                    VStack(alignment: .trailing, spacing: 1) {
+                    VStack(alignment: .trailing, spacing: S(1)) {
                         Text("NEXT \(milestone.money(code: store.currencyCode))")
-                            .font(.system(size: 8, weight: .bold)).foregroundStyle(.secondary)
+                            .font(.system(size: S(8), weight: .bold)).foregroundStyle(.secondary)
                         Text("\(max(0, milestone - current).money(code: store.currencyCode)) to go")
-                            .font(.system(size: 9, weight: .semibold))
+                            .font(.system(size: S(9), weight: .semibold))
                     }
                 }
             }
@@ -275,14 +279,14 @@ struct MainView: View {
                     .scaleEffect(y: 0.65)
             }
         }
-        .padding(10)
-        .background(.black.opacity(0.18), in: RoundedRectangle(cornerRadius: 10))
+        .padding(S(10))
+        .background(.black.opacity(0.18), in: RoundedRectangle(cornerRadius: S(10)))
     }
 
     @ViewBuilder private var controls: some View {
         if let running = store.running {
-            VStack(spacing: 9) {
-                HStack(spacing: 10) {
+            VStack(spacing: S(9)) {
+                HStack(spacing: S(10)) {
                     Button {
                         running.isPaused ? store.resume() : store.pause()
                     } label: {
@@ -301,24 +305,24 @@ struct MainView: View {
                 }
                 Button { confirmCancel = true } label: {
                     Label("Cancel session", systemImage: "xmark")
-                        .font(.system(size: 10, weight: .medium))
+                        .font(.system(size: S(10), weight: .medium))
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(.secondary)
             }
         } else {
-            VStack(spacing: 9) {
+            VStack(spacing: S(9)) {
                 Button {
                     store.clockIn()
                 } label: {
                     Label("Clock in", systemImage: "play.fill")
-                        .font(.system(size: 14, weight: .bold, design: .rounded))
+                        .font(.system(size: S(14), weight: .bold, design: .rounded))
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(PrimaryButtonStyle(accent: theme.accent))
                 Button { showManualStart = true } label: {
                     Label("Start with elapsed time", systemImage: "clock.arrow.circlepath")
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.system(size: S(10), weight: .semibold))
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(.secondary)
@@ -327,34 +331,34 @@ struct MainView: View {
     }
 
     private var todayCard: some View {
-        HStack(spacing: 0) {
+        HStack(spacing: S(0)) {
             metric(title: "TODAY", value: DurationText.compact(store.todayDuration(at: now)), icon: "clock")
                 .frame(maxWidth: .infinity, alignment: .leading)
-            Divider().frame(height: 35).opacity(0.25)
+            Divider().frame(height: S(35)).opacity(0.25)
             todayEarnedMetric
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(.vertical, 14)
+        .padding(.vertical, S(14))
         .background(cardBackground)
     }
 
     private var todayEarnedMetric: some View {
         let earned = store.todayEarnings(at: now)
-        return HStack(spacing: 10) {
+        return HStack(spacing: S(10)) {
             Image(systemName: "chart.line.uptrend.xyaxis")
                 .foregroundStyle(theme.accent.opacity(0.8))
-                .frame(width: 20)
-            VStack(alignment: .leading, spacing: 3) {
-                Text("EARNED").font(.system(size: 9, weight: .bold)).foregroundStyle(.secondary).tracking(1)
-                Text(earned.money(code: store.currencyCode)).font(.system(size: 13, weight: .semibold, design: .rounded))
+                .frame(width: S(20))
+            VStack(alignment: .leading, spacing: S(3)) {
+                Text("EARNED").font(.system(size: S(9), weight: .bold)).foregroundStyle(.secondary).tracking(S(1))
+                Text(earned.money(code: store.currencyCode)).font(.system(size: S(13), weight: .semibold, design: .rounded))
                 if store.currencyCode == "USD" {
                     if let rate = exchangeRates.latestRate {
                         Text("≈ " + (earned * rate).money(code: "TRY"))
-                            .font(.system(size: 9, weight: .medium, design: .rounded))
+                            .font(.system(size: S(9), weight: .medium, design: .rounded))
                             .foregroundStyle(theme.accent)
                     } else {
                         Text("TRY rate unavailable")
-                            .font(.system(size: 8, weight: .medium))
+                            .font(.system(size: S(8), weight: .medium))
                             .foregroundStyle(.orange)
                     }
                 }
@@ -363,43 +367,43 @@ struct MainView: View {
     }
 
     private var mascotCard: some View {
-        return HStack(spacing: 12) {
-            ClockinMascotStage().environmentObject(store).frame(width: 62, height: 62)
-            VStack(alignment: .leading, spacing: 4) {
-                Text("FOCUS COMPANION").font(.system(size: 8, weight: .black)).foregroundStyle(.secondary).tracking(1)
+        return HStack(spacing: S(12)) {
+            ClockinMascotStage().environmentObject(store).frame(width: S(62), height: S(62))
+            VStack(alignment: .leading, spacing: S(4)) {
+                Text("FOCUS COMPANION").font(.system(size: S(8), weight: .black)).foregroundStyle(.secondary).tracking(S(1))
                 Text(store.running?.isPaused == true ? "Taking a reset break" : (store.running == nil ? "Ready when you are" : "You are doing great — keep going!"))
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.system(size: S(11), weight: .semibold))
                 Text("Open Progress with the XP button for streaks and levels")
-                    .font(.system(size: 8)).foregroundStyle(.tertiary)
+                    .font(.system(size: S(8))).foregroundStyle(.tertiary)
             }
             Spacer()
         }
-        .padding(10).background(cardBackground)
+        .padding(S(10)).background(cardBackground)
     }
 
     private var exchangeCard: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: S(10)) {
             Image(systemName: "dollarsign.arrow.circlepath")
                 .foregroundStyle(theme.secondary)
-                .frame(width: 28, height: 28)
-                .background(theme.secondary.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
-            VStack(alignment: .leading, spacing: 3) {
-                Text("USD / TRY").font(.system(size: 9, weight: .bold)).foregroundStyle(.secondary).tracking(1)
+                .frame(width: S(28), height: S(28))
+                .background(theme.secondary.opacity(0.1), in: RoundedRectangle(cornerRadius: S(8)))
+            VStack(alignment: .leading, spacing: S(3)) {
+                Text("USD / TRY").font(.system(size: S(9), weight: .bold)).foregroundStyle(.secondary).tracking(S(1))
                 if let rate = exchangeRates.latestRate {
-                    Text(String(format: "1 USD = %.3f TRY", rate)).font(.system(size: 13, weight: .semibold, design: .rounded))
-                    Text(rateStatusText).font(.system(size: 9, weight: .medium)).foregroundStyle(rateStatusColor)
+                    Text(String(format: "1 USD = %.3f TRY", rate)).font(.system(size: S(13), weight: .semibold, design: .rounded))
+                    Text(rateStatusText).font(.system(size: S(9), weight: .medium)).foregroundStyle(rateStatusColor)
                 } else {
                     Text(exchangeRates.isLoading ? "Fetching live rate…" : "RATE UNAVAILABLE")
-                        .font(.system(size: 11, weight: .bold))
+                        .font(.system(size: S(11), weight: .bold))
                         .foregroundStyle(exchangeRates.isLoading ? Color.secondary : Color.red)
                 }
             }
             Spacer()
             if let day = exchangeRates.latestDate {
-                Text(day).font(.system(size: 9, design: .monospaced)).foregroundStyle(.tertiary)
+                Text(day).font(.system(size: S(9), design: .monospaced)).foregroundStyle(.tertiary)
             }
         }
-        .padding(12)
+        .padding(S(12))
         .background(cardBackground)
     }
 
@@ -407,31 +411,31 @@ struct MainView: View {
         let daily = store.todayDuration(at: now) / 3600
         let monthly = store.monthDuration(at: now) / 3600
         let hasGoals = dailyGoalHours > 0 || monthlyGoalHours > 0
-        return VStack(alignment: .leading, spacing: 10) {
+        return VStack(alignment: .leading, spacing: S(10)) {
             HStack {
-                Label("GOALS", systemImage: "target").font(.system(size: 9, weight: .bold)).foregroundStyle(.secondary).tracking(1)
+                Label("GOALS", systemImage: "target").font(.system(size: S(9), weight: .bold)).foregroundStyle(.secondary).tracking(S(1))
                 Spacer()
-                if !hasGoals { Text("Set in Settings").font(.system(size: 9)).foregroundStyle(.tertiary) }
+                if !hasGoals { Text("Set in Settings").font(.system(size: S(9))).foregroundStyle(.tertiary) }
             }
             if dailyGoalHours > 0 { goalRow("Today", value: daily, goal: dailyGoalHours) }
             if monthlyGoalHours > 0 { goalRow("This month", value: monthly, goal: monthlyGoalHours) }
         }
-        .padding(12)
+        .padding(S(12))
         .background(cardBackground)
     }
 
     private func goalRow(_ title: String, value: Double, goal: Double) -> some View {
         let progress = min(max(value / goal, 0), 1)
-        return VStack(alignment: .leading, spacing: 4) {
+        return VStack(alignment: .leading, spacing: S(4)) {
             HStack {
-                Text(title).font(.system(size: 10, weight: .semibold))
+                Text(title).font(.system(size: S(10), weight: .semibold))
                 Spacer()
-                Text(hoursText(value)).font(.system(size: 10, weight: .bold, design: .monospaced))
-                Text("/ \(hoursText(goal))").font(.system(size: 9)).foregroundStyle(.secondary)
+                Text(hoursText(value)).font(.system(size: S(10), weight: .bold, design: .monospaced))
+                Text("/ \(hoursText(goal))").font(.system(size: S(9))).foregroundStyle(.secondary)
             }
             ProgressView(value: progress).tint(progress >= 1 ? .green : theme.accent).scaleEffect(y: 0.7)
             Text(progress >= 1 ? "Goal reached" : "\(hoursText(max(0, goal - value))) remaining")
-                .font(.system(size: 8, weight: .medium)).foregroundStyle(progress >= 1 ? .green : .secondary)
+                .font(.system(size: S(8), weight: .medium)).foregroundStyle(progress >= 1 ? .green : .secondary)
         }
     }
 
@@ -455,39 +459,39 @@ struct MainView: View {
     }
 
     private func metric(title: String, value: String, icon: String) -> some View {
-        HStack(spacing: 10) {
-            Image(systemName: icon).foregroundStyle(theme.accent.opacity(0.8)).frame(width: 20)
-            VStack(alignment: .leading, spacing: 3) {
-                Text(title).font(.system(size: 9, weight: .bold)).foregroundStyle(.secondary).tracking(1)
-                Text(value).font(.system(size: 14, weight: .semibold, design: .rounded)).lineLimit(1)
+        HStack(spacing: S(10)) {
+            Image(systemName: icon).foregroundStyle(theme.accent.opacity(0.8)).frame(width: S(20))
+            VStack(alignment: .leading, spacing: S(3)) {
+                Text(title).font(.system(size: S(9), weight: .bold)).foregroundStyle(.secondary).tracking(S(1))
+                Text(value).font(.system(size: S(14), weight: .semibold, design: .rounded)).lineLimit(1)
             }
             Spacer()
         }
-        .padding(.horizontal, 14)
+        .padding(.horizontal, S(14))
     }
 
     private var recentSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: S(10)) {
             HStack {
                 sectionTitle("RECENT SESSIONS")
                 Spacer()
                 if !store.sessions.isEmpty {
                     Button("View all") { showHistory = true }
-                        .buttonStyle(.plain).font(.system(size: 10, weight: .semibold)).foregroundStyle(theme.accent)
+                        .buttonStyle(.plain).font(.system(size: S(10), weight: .semibold)).foregroundStyle(theme.accent)
                 }
             }
             if store.sessions.isEmpty {
                 Text("Clock in or import a CSV to see your history.")
-                    .font(.system(size: 12))
+                    .font(.system(size: S(12)))
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(14)
+                    .padding(S(14))
                     .background(cardBackground)
             } else {
-                VStack(spacing: 0) {
+                VStack(spacing: S(0)) {
                     ForEach(Array(store.sessions.prefix(4).enumerated()), id: \.element.id) { index, session in
                         sessionRow(session)
-                        if index < min(3, store.sessions.count - 1) { Divider().opacity(0.2).padding(.leading, 44) }
+                        if index < min(3, store.sessions.count - 1) { Divider().opacity(0.2).padding(.leading, S(44)) }
                     }
                 }
                 .background(cardBackground)
@@ -496,41 +500,41 @@ struct MainView: View {
     }
 
     private func sessionRow(_ session: WorkSession) -> some View {
-        HStack(spacing: 11) {
+        HStack(spacing: S(11)) {
             Image(systemName: session.source == "Clockin" ? "bolt.fill" : "arrow.down.doc.fill")
-                .font(.system(size: 11))
+                .font(.system(size: S(11)))
                 .foregroundStyle(session.source == "Clockin" ? theme.accent : theme.secondary)
-                .frame(width: 28, height: 28)
-                .background(.white.opacity(0.055), in: RoundedRectangle(cornerRadius: 8))
-            VStack(alignment: .leading, spacing: 3) {
+                .frame(width: S(28), height: S(28))
+                .background(.white.opacity(0.055), in: RoundedRectangle(cornerRadius: S(8)))
+            VStack(alignment: .leading, spacing: S(3)) {
                 Text(session.start.formatted(.dateTime.month(.abbreviated).day().hour().minute()))
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.system(size: S(12), weight: .medium))
                 Text(session.note.isEmpty ? session.source : session.note)
-                    .font(.system(size: 10))
+                    .font(.system(size: S(10)))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
             Spacer()
-            VStack(alignment: .trailing, spacing: 3) {
-                Text(DurationText.compact(session.duration)).font(.system(size: 12, weight: .semibold, design: .rounded))
-                Text(store.earnings(for: session).money(code: store.currencyCode)).font(.system(size: 10)).foregroundStyle(theme.accent)
+            VStack(alignment: .trailing, spacing: S(3)) {
+                Text(DurationText.compact(session.duration)).font(.system(size: S(12), weight: .semibold, design: .rounded))
+                Text(store.earnings(for: session).money(code: store.currencyCode)).font(.system(size: S(10))).foregroundStyle(theme.accent)
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
+        .padding(.horizontal, S(12))
+        .padding(.vertical, S(10))
     }
 
     private var settingsSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: S(10)) {
             sectionTitle("PAY & DATA")
-            HStack(spacing: 10) {
+            HStack(spacing: S(10)) {
                 HStack {
                     Text("Rate").foregroundStyle(.secondary)
                     Spacer()
                     TextField("0", text: $rateText)
                         .textFieldStyle(.plain)
                         .multilineTextAlignment(.trailing)
-                        .frame(width: 72)
+                        .frame(width: S(72))
                         .onSubmit(commitRate)
                         .onChange(of: rateText) { _, newText in
                             let normalized = newText.replacingOccurrences(of: ",", with: ".")
@@ -540,7 +544,7 @@ struct MainView: View {
                         }
                     Text("/ hr").foregroundStyle(.tertiary)
                 }
-                .padding(11)
+                .padding(S(11))
                 .background(cardBackground)
 
                 Picker("", selection: Binding(
@@ -550,27 +554,27 @@ struct MainView: View {
                     ForEach(["USD", "EUR", "GBP", "TRY"], id: \.self) { Text($0).tag($0) }
                 }
                 .labelsHidden()
-                .frame(width: 82)
+                .frame(width: S(82))
             }
 
             HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("RATE SCHEDULE").font(.system(size: 9, weight: .bold)).foregroundStyle(.secondary).tracking(1)
+                VStack(alignment: .leading, spacing: S(2)) {
+                    Text("RATE SCHEDULE").font(.system(size: S(9), weight: .bold)).foregroundStyle(.secondary).tracking(S(1))
                     if let date = store.currentRateEffectiveFrom {
                         Text("Current rate applies from \(date.formatted(.dateTime.month(.abbreviated).day().year()))")
-                            .font(.system(size: 9)).foregroundStyle(.secondary)
+                            .font(.system(size: S(9))).foregroundStyle(.secondary)
                     }
                 }
                 Spacer()
                 Button("Manage") { showRateSchedule = true }
-                    .buttonStyle(.plain).font(.system(size: 10, weight: .bold)).foregroundStyle(theme.accent)
+                    .buttonStyle(.plain).font(.system(size: S(10), weight: .bold)).foregroundStyle(theme.accent)
             }
-            .padding(10)
+            .padding(S(10))
             .background(cardBackground)
 
             HStack {
                 Label("Theme", systemImage: "paintpalette.fill")
-                    .font(.system(size: 11, weight: .medium)).foregroundStyle(.secondary)
+                    .font(.system(size: S(11), weight: .medium)).foregroundStyle(.secondary)
                 Spacer()
                 Picker("Theme", selection: $themeRaw) {
                     ForEach(ClockinThemeChoice.allCases) { choice in
@@ -578,12 +582,12 @@ struct MainView: View {
                     }
                 }
                 .labelsHidden()
-                .frame(width: 135)
+                .frame(width: S(135))
             }
-            .padding(10)
+            .padding(S(10))
             .background(cardBackground)
 
-            HStack(spacing: 9) {
+            HStack(spacing: S(9)) {
                 Image(systemName: "waveform").foregroundStyle(theme.secondary)
                 Picker("Chime sound", selection: $chimeSound) {
                     ForEach(FocusChimeController.availableSounds, id: \.self) { sound in
@@ -591,47 +595,47 @@ struct MainView: View {
                     }
                 }
                 .labelsHidden()
-                .frame(width: 105)
+                .frame(width: S(105))
                 Slider(value: $chimeVolume, in: 0.1...1.0)
                     .tint(theme.accent)
                 Text("\(Int(chimeVolume * 100))%")
-                    .font(.system(size: 9, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(.secondary).frame(width: 34, alignment: .trailing)
+                    .font(.system(size: S(9), weight: .semibold, design: .monospaced))
+                    .foregroundStyle(.secondary).frame(width: S(34), alignment: .trailing)
                 Button { FocusChimeController.shared.playPreview() } label: {
                     Image(systemName: "speaker.wave.3.fill").foregroundStyle(theme.accent)
                 }
                 .buttonStyle(.plain).help("Play selected sound")
             }
-            .padding(10)
+            .padding(S(10))
             .background(cardBackground)
 
             HStack {
                 Label("Pinned widget", systemImage: "pin.fill")
-                    .font(.system(size: 11, weight: .medium)).foregroundStyle(.secondary)
+                    .font(.system(size: S(11), weight: .medium)).foregroundStyle(.secondary)
                 Spacer()
                 Picker("Pinned widget", selection: $pinnedMode) {
                     Text("Compact").tag("Compact")
                     Text("Money").tag("Money")
                 }
                 .labelsHidden()
-                .frame(width: 105)
+                .frame(width: S(105))
                 .onChange(of: pinnedMode) { _, newMode in
                     PinnedWindowController.shared.applyPreset(newMode)
                 }
             }
-            .padding(10)
+            .padding(S(10))
             .background(cardBackground)
 
-            HStack(spacing: 10) {
+            HStack(spacing: S(10)) {
                 Image(systemName: chimeEnabled ? "speaker.wave.2.fill" : "speaker.slash.fill")
                     .foregroundStyle(chimeEnabled ? theme.accent : .secondary)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("10-minute focus beep").font(.system(size: 11, weight: .semibold))
+                VStack(alignment: .leading, spacing: S(2)) {
+                    Text("10-minute focus beep").font(.system(size: S(11), weight: .semibold))
                     if let remaining = FocusChimeController.shared.remaining(store: store, at: now) {
-                        Text("Next in \(DurationText.compact(remaining))").font(.system(size: 9)).foregroundStyle(.secondary)
+                        Text("Next in \(DurationText.compact(remaining))").font(.system(size: S(9))).foregroundStyle(.secondary)
                     } else {
                         Text(chimeEnabled ? "Starts while the timer is running" : "Optional \(chimeSound) sound at \(Int(chimeVolume * 100))%")
-                            .font(.system(size: 9)).foregroundStyle(.secondary)
+                            .font(.system(size: S(9))).foregroundStyle(.secondary)
                     }
                 }
                 Spacer()
@@ -642,7 +646,7 @@ struct MainView: View {
                 Toggle("", isOn: $chimeEnabled).labelsHidden().toggleStyle(.switch)
                     .onChange(of: chimeEnabled) { _, _ in FocusChimeController.shared.settingChanged() }
             }
-            .padding(10)
+            .padding(S(10))
             .background(cardBackground)
 
             Button(action: chooseCSV) {
@@ -658,7 +662,7 @@ struct MainView: View {
             .buttonStyle(SecondaryButtonStyle())
 
             if let message = store.statusMessage {
-                Text(message).font(.system(size: 10)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                Text(message).font(.system(size: S(10))).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
         }
     }
@@ -666,25 +670,25 @@ struct MainView: View {
     private var footer: some View {
         HStack {
             Text("ALL  \(DurationText.compact(store.allDuration(at: now)))  •  \(store.allEarnings(at: now).money(code: store.currencyCode))")
-                .font(.system(size: 9, weight: .bold, design: .rounded))
+                .font(.system(size: S(9), weight: .bold, design: .rounded))
                 .foregroundStyle(.tertiary)
             Spacer()
             Button("Quit") { NSApplication.shared.terminate(nil) }
                 .buttonStyle(.plain)
-                .font(.system(size: 10))
+                .font(.system(size: S(10)))
                 .foregroundStyle(.secondary)
         }
-        .padding(.top, 2)
+        .padding(.top, S(2))
     }
 
     private func sectionTitle(_ text: String) -> some View {
-        Text(text).font(.system(size: 9, weight: .bold)).foregroundStyle(.secondary).tracking(1.2).padding(.leading, 2)
+        Text(text).font(.system(size: S(9), weight: .bold)).foregroundStyle(.secondary).tracking(S(1.2)).padding(.leading, S(2))
     }
 
     private var cardBackground: some View {
-        RoundedRectangle(cornerRadius: 15, style: .continuous)
+        RoundedRectangle(cornerRadius: S(15), style: .continuous)
             .fill(theme.surface)
-            .overlay(RoundedRectangle(cornerRadius: 15).stroke(theme.surfaceStroke))
+            .overlay(RoundedRectangle(cornerRadius: S(15)).stroke(theme.surfaceStroke))
     }
 
     private var statusColor: Color {
@@ -730,23 +734,23 @@ private struct PrimaryButtonStyle: ButtonStyle {
     let accent: Color
 
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label.padding(.vertical, 12).foregroundStyle(.black)
-            .background(accent.opacity(configuration.isPressed ? 0.75 : 1), in: RoundedRectangle(cornerRadius: 11))
+        configuration.label.padding(.vertical, S(12)).foregroundStyle(.black)
+            .background(accent.opacity(configuration.isPressed ? 0.75 : 1), in: RoundedRectangle(cornerRadius: S(11)))
     }
 }
 
 private struct SecondaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label.font(.system(size: 12, weight: .semibold)).padding(.vertical, 10)
-            .background(.white.opacity(configuration.isPressed ? 0.1 : 0.06), in: RoundedRectangle(cornerRadius: 10))
-            .overlay(RoundedRectangle(cornerRadius: 10).stroke(.white.opacity(0.08)))
+        configuration.label.font(.system(size: S(12), weight: .semibold)).padding(.vertical, S(10))
+            .background(.white.opacity(configuration.isPressed ? 0.1 : 0.06), in: RoundedRectangle(cornerRadius: S(10)))
+            .overlay(RoundedRectangle(cornerRadius: S(10)).stroke(.white.opacity(0.08)))
     }
 }
 
 private struct DangerButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label.font(.system(size: 12, weight: .semibold)).padding(.vertical, 10)
+        configuration.label.font(.system(size: S(12), weight: .semibold)).padding(.vertical, S(10))
             .foregroundStyle(.red.opacity(0.9))
-            .background(.red.opacity(configuration.isPressed ? 0.18 : 0.1), in: RoundedRectangle(cornerRadius: 10))
+            .background(.red.opacity(configuration.isPressed ? 0.18 : 0.1), in: RoundedRectangle(cornerRadius: S(10)))
     }
 }
