@@ -4,6 +4,8 @@ struct ProgressDashboardView: View {
     @EnvironmentObject private var store: ClockStore
     @AppStorage("Clockin.Theme") private var themeRaw = ClockinThemeChoice.carbon.rawValue
     @AppStorage("Clockin.MascotEnabled") private var mascotEnabled = true
+    @AppStorage("Clockin.GoalDailyHours") private var dailyGoalHours = 0.0
+    @AppStorage("Clockin.GoalMonthlyHours") private var monthlyGoalHours = 0.0
     @State private var tab = 0
     @State private var now = Date()
     let onBack: () -> Void
@@ -28,8 +30,8 @@ struct ProgressDashboardView: View {
         VStack(spacing: 0) {
             HStack { Button(action: onBack) { Image(systemName: "chevron.left").frame(width: 26, height: 26) }.buttonStyle(.plain); Text("PROGRESS").font(.system(size: 13, weight: .black)).tracking(1.3); Spacer() }
                 .padding(.horizontal, 15).frame(height: 50).overlay(alignment: .bottom) { Divider().opacity(0.25) }
-            Picker("", selection: $tab) { Text("Overview").tag(0); Text("Badges").tag(1); Text("Records").tag(2); Text("Reports").tag(3) }.pickerStyle(.segmented).padding(16)
-            ScrollView { Group { if tab == 0 { overview } else if tab == 1 { badges } else if tab == 2 { records } else { reports } }.padding(.horizontal, 16).padding(.bottom, 16) }
+            Picker("", selection: $tab) { Text("Overview").tag(0); Text("Badges").tag(1); Text("Records").tag(2); Text("Weekly").tag(3); Text("Reports").tag(4) }.pickerStyle(.segmented).padding(16)
+            ScrollView { Group { if tab == 0 { overview } else if tab == 1 { badges } else if tab == 2 { records } else if tab == 3 { weekly } else { reports } }.padding(.horizontal, 16).padding(.bottom, 16) }
         }
         .fontDesign(theme.fontDesign).onReceive(timer) { now = $0 }
     }
@@ -80,11 +82,19 @@ struct ProgressDashboardView: View {
         let bestWeekday = weekdayTotals.max { $0.value < $1.value }.map { cal.weekdaySymbols[$0.key - 1] } ?? "—"
         let hourTotals = Dictionary(grouping: store.sessions) { cal.component(.hour, from: $0.start) }.mapValues { $0.reduce(0) { $0 + $1.duration } }
         let bestHour = hourTotals.max { $0.value < $1.value }.map { String(format: "%02d:00", $0.key) } ?? "—"
+        let totalDuration = store.totalDuration + store.elapsed(at: now)
+        let hourlyEarning = totalDuration > 0 ? store.allEarnings(at: now) / totalDuration * 3600 : 0
+        let recentCutoff = now.addingTimeInterval(-30 * 86_400)
+        let recent = store.sessions.filter { $0.start >= recentCutoff }.reduce(0) { $0 + $1.duration }
+        let prior = store.sessions.filter { $0.start >= now.addingTimeInterval(-60 * 86_400) && $0.start < recentCutoff }.reduce(0) { $0 + $1.duration }
+        let trend = prior > 0 ? (recent - prior) / prior : (recent > 0 ? 1 : 0)
         return VStack(spacing: 9) {
             reportMetric("ACTIVE DAYS", "\(activeDays)")
             reportMetric("AVERAGE SESSION", DurationText.compact(sessionAverage))
             reportMetric("BEST WEEKDAY", bestWeekday)
             reportMetric("BEST START HOUR", bestHour)
+            reportMetric("AVERAGE EARNINGS / HOUR", store.currencyCode == "USD" ? hourlyEarning.money(code: store.currencyCode) : hourlyEarning.money(code: store.currencyCode))
+            reportMetric("LAST 30D TREND", String(format: "%+.0f%%", trend * 100))
             Text("Reports are calculated from completed sessions and update after each clock-out.").font(.system(size: 9)).foregroundStyle(.tertiary).frame(maxWidth: .infinity, alignment: .leading).padding(10)
         }
     }
@@ -99,7 +109,19 @@ struct ProgressDashboardView: View {
     }
 
     private var goalETA: some View {
-        VStack(alignment: .leading, spacing: 6) { Text("TARGET ETA").font(.system(size: 9, weight: .bold)).foregroundStyle(.secondary).tracking(1); if let running = store.running, !running.isPaused { Text("Current session is active • every minute moves you closer.").font(.system(size: 11)) } else { Text("Start a session to see a live target finish time.").font(.system(size: 11)).foregroundStyle(.secondary) } }.padding(12).background(card)
+        let today = store.todayDuration(at: now) / 3600
+        let remaining = max(0, dailyGoalHours - today)
+        let recent = store.sessions.filter { $0.start >= now.addingTimeInterval(-7 * 86_400) }.reduce(0) { $0 + $1.duration } / 3600 / 7
+        return VStack(alignment: .leading, spacing: 6) {
+            Text("TARGET ETA").font(.system(size: 9, weight: .bold)).foregroundStyle(.secondary).tracking(1)
+            if dailyGoalHours <= 0 && monthlyGoalHours <= 0 { Text("Set a daily or monthly goal in Settings.").font(.system(size: 11)).foregroundStyle(.secondary) }
+            else if dailyGoalHours > 0 && remaining <= 0 { Text("Daily goal reached 🎉").font(.system(size: 11, weight: .semibold)).foregroundStyle(theme.accent) }
+            else if let running = store.running, !running.isPaused, dailyGoalHours > 0 {
+                Text("At the current pace, today’s goal lands around \(now.addingTimeInterval(remaining * 3600).formatted(date: .omitted, time: .shortened)).").font(.system(size: 11))
+            } else if dailyGoalHours > 0, recent > 0 {
+                Text("At your 7-day average, today’s goal is about \(Int(ceil(remaining / recent))) day(s) away.").font(.system(size: 11))
+            } else { Text("Start working to generate a live finish estimate.").font(.system(size: 11)).foregroundStyle(.secondary) }
+        }.padding(12).background(card)
     }
     private func stat(_ icon: String, _ title: String, _ value: String) -> some View { VStack(spacing: 4) { Text(icon); Text(title).font(.system(size: 7, weight: .bold)).foregroundStyle(.secondary); Text(value).font(.system(size: 10, weight: .semibold, design: .monospaced)) }.frame(maxWidth: .infinity) }
     private func record(_ icon: String, _ title: String, _ value: String) -> some View { HStack { Image(systemName: icon).foregroundStyle(theme.accent).frame(width: 22); Text(title).font(.system(size: 11, weight: .semibold)); Spacer(); Text(value).font(.system(size: 11, weight: .bold, design: .monospaced)) }.padding(13).background(card) }
