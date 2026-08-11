@@ -82,8 +82,24 @@ struct ClockinApp: App {
             }
             Button("Quit Clockin") { NSApp.terminate(nil) }
         } label: {
-            Image(systemName: store.running?.isPaused == true ? "pause.circle.fill" : (store.running == nil ? "timer" : "timer.circle.fill"))
+            TimelineView(.periodic(from: .now, by: 1)) { context in
+                HStack(spacing: 4) {
+                    Image(systemName: store.running?.isPaused == true ? "pause.circle.fill" : (store.running == nil ? "timer" : "timer.circle.fill"))
+                    if minimalMode {
+                        Text(menuBarStatus(at: context.date))
+                            .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                            .lineLimit(1)
+                    }
+                }
+            }
         }
         .menuBarExtraStyle(.menu)
+    }
+
+    private func menuBarStatus(at date: Date) -> String {
+        if store.running != nil {
+            return DurationText.clock(store.elapsed(at: date)) + "  " + store.currentEarnings(at: date).money(code: store.currencyCode)
+        }
+        return "Today " + store.todayEarnings(at: date).money(code: store.currencyCode)
     }
 }
