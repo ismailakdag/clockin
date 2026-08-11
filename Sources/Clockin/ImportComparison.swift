@@ -10,7 +10,7 @@ enum ImportMatchKind: String, Identifiable {
     var title: String {
         switch self {
         case .new: return "NEW"
-        case .matched: return "MATCHED"
+        case .matched: return "CORRECTS"
         case .duplicate: return "SKIP"
         }
     }

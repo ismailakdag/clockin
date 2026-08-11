@@ -28,7 +28,7 @@ struct ImportComparisonView: View {
 
             HStack(spacing: 8) {
                 summaryCard("NEW", summary.newItems.count, color: theme.accent)
-                summaryCard("MATCHED", summary.matchedItems.count, color: .blue)
+                summaryCard("CORRECTS", summary.matchedItems.count, color: .blue)
                 summaryCard("SKIP", summary.duplicateItems.count, color: .orange)
             }
 

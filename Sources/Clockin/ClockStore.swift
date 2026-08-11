@@ -328,6 +328,7 @@ final class ClockStore: ObservableObject {
         var fresh: [WorkSession] = []
         var freshKeys = Set<String>()
         var matched = 0
+        var corrected = 0
         // Anahtarlar bir kez cikarilir. Onceden her ice aktarilan kayit icin
         // butun oturumlar taranip her karsilastirmada yeni string uretiliyordu.
         var indexByKey: [String: Int] = [:]
@@ -349,8 +350,14 @@ final class ClockStore: ObservableObject {
                 continue
             }
             if session.source != "Clockin", let index = findClockinMatch(for: session) {
+                // Dis kayit dogruluk kaynagidir. Sayacin yaklasik degerleri
+                // resmi olanlarla degistirilir; kayit cogaltilmaz.
+                if data.sessions[index].note.isEmpty { data.sessions[index].note = session.note }
+                data.sessions[index].start = session.start
+                data.sessions[index].end = session.end
+                data.sessions[index].duration = session.duration
                 data.sessions[index].matchedExternalSource = session.source
-                matched += 1
+                corrected += 1
             } else {
                 fresh.append(session)
                 freshKeys.insert(key)
@@ -358,24 +365,40 @@ final class ClockStore: ObservableObject {
         }
         data.sessions.append(contentsOf: fresh)
         save()
-        if fresh.isEmpty, matched == 0 {
+        if fresh.isEmpty, matched == 0, corrected == 0 {
             statusMessage = "All entries were already imported."
         } else {
-            let importedText = "Imported \(fresh.count)"
-            let matchedText = matched > 0 ? ", matched \(matched) with Clockin" : ""
-            statusMessage = importedText + matchedText + "."
+            var parts = ["Imported \(fresh.count)"]
+            if corrected > 0 { parts.append("corrected \(corrected) Clockin \(corrected == 1 ? "entry" : "entries")") }
+            if matched > 0 { parts.append("matched \(matched)") }
+            statusMessage = parts.joined(separator: ", ") + "."
         }
     }
 
+    /// Iki kaydin ayni isi tarif ettigini kabul etmek icin gereken en az
+    /// ortusme orani (kisa olanin yuzdesi).
+    private static let matchOverlapRatio = 0.5
+
+    /// Bir dis kayda karsilik gelen sayac kaydini bulur.
+    ///
+    /// Eskiden baslangic/bitis 90 saniye, sure 120 saniye icinde olmak
+    /// zorundaydi. Elle baslatilip durdurulan bir sayac icin bu esik
+    /// gercekci degil: birkac dakikalik kayma eslesmeyi kirar ve ayni is
+    /// iki kez kaydedilir. Bunun yerine zaman ortusmesine bakilir; boylece
+    /// durdurmayi unutup uzayan seanslar da dogru kayitla eslesir.
+    ///
+    /// Ilk uyan degil, en cok ortusen kayit secilir.
     private func findClockinMatch(for external: WorkSession) -> Int? {
-        data.sessions.firstIndex { local in
-            guard local.source == "Clockin", local.matchedExternalSource == nil else { return false }
-            let sameDay = calendar.isDate(local.start, inSameDayAs: external.start)
-            let startClose = abs(local.start.timeIntervalSince(external.start)) <= 90
-            let endClose = abs(local.end.timeIntervalSince(external.end)) <= 90
-            let durationClose = abs(local.duration - external.duration) <= 120
-            return sameDay && startClose && endClose && durationClose
+        var best: (index: Int, overlap: TimeInterval)?
+        for (index, local) in data.sessions.enumerated() {
+            guard local.source == "Clockin", local.matchedExternalSource == nil,
+                  calendar.isDate(local.start, inSameDayAs: external.start) else { continue }
+            let overlap = min(local.end, external.end).timeIntervalSince(max(local.start, external.start))
+            let shorter = min(local.duration, external.duration)
+            guard overlap > 0, shorter > 0, overlap >= shorter * Self.matchOverlapRatio else { continue }
+            if best == nil || overlap > best!.overlap { best = (index, overlap) }
         }
+        return best?.index
     }
 
     func todayDuration(at date: Date = .now) -> TimeInterval {
