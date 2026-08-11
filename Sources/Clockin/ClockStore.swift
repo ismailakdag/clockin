@@ -3,12 +3,29 @@ import Foundation
 
 @MainActor
 final class ClockStore: ObservableObject {
-    @Published private(set) var data: ClockinData
+    @Published private(set) var data: ClockinData {
+        didSet {
+            cachedSessions = nil
+            cachedRateRules = nil
+        }
+    }
     @Published var statusMessage: String?
 
     private let fileURL: URL
     private let calendar = Calendar.autoupdatingCurrent
     private let backupDirectory: URL
+
+    /// Siralanmis kopyalar. `data` her degistiginde bosaltilir; boylece
+    /// her okumada yeniden siralama yapilmaz.
+    private var cachedSessions: [WorkSession]?
+    private var cachedRateRules: [RateRule]?
+    /// Yedek dizinini her sorguda taramamak icin.
+    private var cachedBackupStats: (latest: Date?, count: Int)?
+    private var lastAutomaticBackup: Date?
+
+    /// Iki otomatik yedek arasindaki en kisa sure. Her kayitta yedek
+    /// alindiginda 30 dosyalik gecmis birkac saati anca kapsiyordu.
+    private static let automaticBackupInterval: TimeInterval = 86_400
 
     init(fileURL: URL? = nil) {
         self.fileURL = fileURL ?? Self.defaultFileURL
@@ -33,33 +50,56 @@ final class ClockStore: ObservableObject {
         return base.appending(path: "Clockin", directoryHint: .isDirectory).appending(path: "clockin.json")
     }
 
-    var latestBackupDate: Date? {
+    var latestBackupDate: Date? { backupStats().latest }
+    var backupCount: Int { backupStats().count }
+
+    /// Dizin taramasi tek sefere iner; sonuc bir yedek olusturulana veya
+    /// geri yuklenene kadar gecerli kalir.
+    private func backupStats() -> (latest: Date?, count: Int) {
+        if let cached = cachedBackupStats { return cached }
         let files = (try? FileManager.default.contentsOfDirectory(
             at: backupDirectory,
             includingPropertiesForKeys: [.contentModificationDateKey],
             options: [.skipsHiddenFiles]
         )) ?? []
-        return files.compactMap { try? $0.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate }.max()
-    }
-
-    var backupCount: Int {
-        ((try? FileManager.default.contentsOfDirectory(at: backupDirectory, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles])) ?? []).count
+        let latest = files.compactMap { try? $0.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate }.max()
+        let stats = (latest: latest, count: files.count)
+        cachedBackupStats = stats
+        return stats
     }
 
     var running: RunningSession? { data.running }
-    var sessions: [WorkSession] { data.sessions.sorted { $0.start > $1.start } }
     var hourlyRate: Double { data.hourlyRate }
     var currencyCode: String { data.currencyCode }
     var pinVisible: Bool { data.pinVisible }
-    var rateRules: [RateRule] { (data.rateRules ?? []).sorted { $0.effectiveFrom < $1.effectiveFrom } }
+
+    var sessions: [WorkSession] {
+        if let cached = cachedSessions { return cached }
+        let sorted = data.sessions.sorted { $0.start > $1.start }
+        cachedSessions = sorted
+        return sorted
+    }
+
+    var rateRules: [RateRule] {
+        if let cached = cachedRateRules { return cached }
+        let sorted = (data.rateRules ?? []).sorted { $0.effectiveFrom < $1.effectiveFrom }
+        cachedRateRules = sorted
+        return sorted
+    }
     var currentRateEffectiveFrom: Date? { rateRules.filter { $0.applies(to: Date(), calendar: calendar) }.max { $0.effectiveFrom < $1.effectiveFrom }?.effectiveFrom }
 
     func elapsed(at date: Date = .now) -> TimeInterval { data.running?.elapsed(at: date) ?? 0 }
     func currentEarnings(at date: Date = .now) -> Double { elapsed(at: date) / 3600 * effectiveRate(at: date, fallback: hourlyRate) }
 
+    /// Her oturum icin cagrilir; ara dizi ayirmamak icin tek gecisde tarar.
+    /// `max(by:)` gibi esitlikte ilk kurali korur.
     func effectiveRate(at date: Date, fallback: Double) -> Double {
-        rateRules.filter { $0.applies(to: date, calendar: calendar) }
-            .max { $0.effectiveFrom < $1.effectiveFrom }?.hourlyRate ?? fallback
+        var best: RateRule?
+        for rule in rateRules where rule.applies(to: date, calendar: calendar) {
+            if let current = best, rule.effectiveFrom <= current.effectiveFrom { continue }
+            best = rule
+        }
+        return best?.hourlyRate ?? fallback
     }
 
     func earnings(for session: WorkSession) -> Double {
@@ -262,9 +302,10 @@ final class ClockStore: ObservableObject {
 
     func compareImportedSessions(_ imported: [WorkSession]) -> ImportComparisonSummary {
         var seenKeys = Set<String>()
+        let existingKeys = Set(data.sessions.map(Self.deduplicationKey))
         let items = imported.map { session -> ImportComparisonItem in
             let key = Self.deduplicationKey(session)
-            if data.sessions.contains(where: { Self.deduplicationKey($0) == key }) || seenKeys.contains(key) {
+            if existingKeys.contains(key) || seenKeys.contains(key) {
                 return ImportComparisonItem(session: session, kind: .duplicate)
             }
             seenKeys.insert(key)
@@ -285,10 +326,18 @@ final class ClockStore: ObservableObject {
 
     func importSessions(_ imported: [WorkSession]) {
         var fresh: [WorkSession] = []
+        var freshKeys = Set<String>()
         var matched = 0
+        // Anahtarlar bir kez cikarilir. Onceden her ice aktarilan kayit icin
+        // butun oturumlar taranip her karsilastirmada yeni string uretiliyordu.
+        var indexByKey: [String: Int] = [:]
+        for (index, session) in data.sessions.enumerated() {
+            let key = Self.deduplicationKey(session)
+            if indexByKey[key] == nil { indexByKey[key] = index }
+        }
         for session in imported {
             let key = Self.deduplicationKey(session)
-            if let duplicateIndex = data.sessions.firstIndex(where: { Self.deduplicationKey($0) == key }) {
+            if let duplicateIndex = indexByKey[key] {
                 if session.source != "Clockin", data.sessions[duplicateIndex].source == "Clockin",
                    data.sessions[duplicateIndex].matchedExternalSource == nil {
                     data.sessions[duplicateIndex].matchedExternalSource = session.source
@@ -296,7 +345,7 @@ final class ClockStore: ObservableObject {
                 }
                 continue
             }
-            if fresh.contains(where: { Self.deduplicationKey($0) == key }) {
+            if freshKeys.contains(key) {
                 continue
             }
             if session.source != "Clockin", let index = findClockinMatch(for: session) {
@@ -304,6 +353,7 @@ final class ClockStore: ObservableObject {
                 matched += 1
             } else {
                 fresh.append(session)
+                freshKeys.insert(key)
             }
         }
         data.sessions.append(contentsOf: fresh)
@@ -386,9 +436,13 @@ final class ClockStore: ObservableObject {
 
     private func createAutomaticBackupIfNeeded() {
         guard FileManager.default.fileExists(atPath: fileURL.path) else { return }
+        let now = Date()
+        // Ilk cagrida diskteki en yeni yedegi referans al, sonra bellekten yurut.
+        if lastAutomaticBackup == nil { lastAutomaticBackup = latestBackupDate }
+        if let last = lastAutomaticBackup, now.timeIntervalSince(last) < Self.automaticBackupInterval { return }
         do {
             try FileManager.default.createDirectory(at: backupDirectory, withIntermediateDirectories: true)
-            let stamp = Int(Date().timeIntervalSince1970 * 1000)
+            let stamp = Int(now.timeIntervalSince1970 * 1000)
             let destination = backupDirectory.appending(path: "clockin-\(stamp)-\(UUID().uuidString).json")
             try FileManager.default.copyItem(at: fileURL, to: destination)
             let backups = try FileManager.default.contentsOfDirectory(at: backupDirectory, includingPropertiesForKeys: [.contentModificationDateKey], options: [.skipsHiddenFiles])
@@ -398,6 +452,8 @@ final class ClockStore: ObservableObject {
                     return left > right
                 }
             for old in backups.dropFirst(30) { try? FileManager.default.removeItem(at: old) }
+            lastAutomaticBackup = now
+            cachedBackupStats = nil
         } catch {
             // A failed backup must never block the primary save.
         }
