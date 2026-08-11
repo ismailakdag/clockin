@@ -1,5 +1,12 @@
 import SwiftUI
 
+private enum HeatmapRange: String, CaseIterable, Identifiable {
+    case week = "Week"
+    case month = "Month"
+    case all = "All"
+    var id: String { rawValue }
+}
+
 struct HeatmapView: View {
     private struct DayStats {
         var duration: TimeInterval = 0
@@ -9,6 +16,7 @@ struct HeatmapView: View {
     @EnvironmentObject private var store: ClockStore
     @EnvironmentObject private var exchangeRates: ExchangeRateStore
     @AppStorage("Clockin.Theme") private var themeRaw = ClockinThemeChoice.carbon.rawValue
+    @AppStorage("Clockin.HeatmapRange") private var rangeRaw = HeatmapRange.all.rawValue
     @State private var now = Date()
     @State private var hoveredDate: Date?
     @State private var cachedStats: [Date: DayStats] = [:]
@@ -21,19 +29,52 @@ struct HeatmapView: View {
     }()
     private let timer = Timer.publish(every: 20, on: .main, in: .common).autoconnect()
     private var theme: ClockinPalette { ClockinThemeChoice.selected(themeRaw).palette }
+    private var selectedRange: HeatmapRange { HeatmapRange(rawValue: rangeRaw) ?? .all }
 
-    private var weeks: [[Date]] {
-        let today = calendar.startOfDay(for: now)
-        let weekday = calendar.component(.weekday, from: today)
+    private var today: Date { calendar.startOfDay(for: now) }
+
+    private func weekStart(for date: Date) -> Date {
+        let day = calendar.startOfDay(for: date)
+        let weekday = calendar.component(.weekday, from: day)
         let offset = (weekday - calendar.firstWeekday + 7) % 7
-        let currentWeek = calendar.date(byAdding: .day, value: -offset, to: today) ?? today
-        return (0..<26).compactMap { index in
-            guard let start = calendar.date(byAdding: .weekOfYear, value: index - 25, to: currentWeek) else { return nil }
-            return (0..<7).compactMap { calendar.date(byAdding: .day, value: $0, to: start) }
+        return calendar.date(byAdding: .day, value: -offset, to: day) ?? day
+    }
+
+    private var selectedBounds: (start: Date, end: Date) {
+        switch selectedRange {
+        case .week:
+            let start = weekStart(for: today)
+            return (start, calendar.date(byAdding: .day, value: 6, to: start) ?? start)
+        case .month:
+            let start = calendar.dateInterval(of: .month, for: today)?.start ?? today
+            let end = calendar.date(byAdding: .day, value: -1, to: calendar.date(byAdding: .month, value: 1, to: start) ?? today) ?? today
+            return (start, end)
+        case .all:
+            let earliest = store.sessions.map(\.start).min() ?? store.running?.start ?? today
+            return (calendar.startOfDay(for: earliest), today)
         }
     }
 
-    private var visibleDays: [Date] { weeks.flatMap { $0 }.filter { $0 <= calendar.startOfDay(for: now) } }
+    private var weeks: [[Date]] {
+        let bounds = selectedBounds
+        let first = weekStart(for: bounds.start)
+        let last = weekStart(for: bounds.end)
+        var starts: [Date] = []
+        var cursor = first
+        while cursor <= last {
+            starts.append(cursor)
+            guard let next = calendar.date(byAdding: .weekOfYear, value: 1, to: cursor) else { break }
+            cursor = next
+        }
+        return starts.map { start in
+            (0..<7).compactMap { calendar.date(byAdding: .day, value: $0, to: start) }
+        }
+    }
+
+    private var visibleDays: [Date] {
+        let bounds = selectedBounds
+        return weeks.flatMap { $0 }.filter { $0 >= bounds.start && $0 <= bounds.end && $0 <= today }
+    }
     private func makeDailyStats(at date: Date) -> [Date: DayStats] {
         var result: [Date: DayStats] = [:]
         for session in store.sessions {
@@ -108,17 +149,36 @@ struct HeatmapView: View {
 
     private var intro: some View {
         VStack(alignment: .leading, spacing: 5) {
-            Text("26 WEEK RHYTHM").font(.system(size: 10, weight: .black)).foregroundStyle(theme.accent).tracking(1.1)
-            Text("Each square is one day. Brighter means more focused time.")
+            HStack {
+                Text("\(periodLabel) RHYTHM").font(.system(size: 10, weight: .black)).foregroundStyle(theme.accent).tracking(1.1)
+                Spacer()
+                Picker("Range", selection: $rangeRaw) {
+                    ForEach(HeatmapRange.allCases) { range in
+                        Text(range.rawValue).tag(range.rawValue)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .frame(width: 158)
+            }
+            Text("Each square is one day. Scroll or drag horizontally to pan through the range.")
                 .font(.system(size: 11, weight: .medium)).foregroundStyle(.secondary)
         }
     }
 
     private var summary: some View {
         HStack(spacing: 8) {
-            stat("6 MONTHS", DurationText.compact(totalHours * 3600))
+            stat(periodLabel, DurationText.compact(totalHours * 3600))
             stat("BEST DAY", bestDay.map { DurationText.compact($0.duration) } ?? "—")
             stat("ACTIVE DAYS", "\(visibleDays.filter { stats(for: $0).duration > 0 }.count)")
+        }
+    }
+
+    private var periodLabel: String {
+        switch selectedRange {
+        case .week: return "THIS WEEK"
+        case .month: return today.formatted(.dateTime.month(.abbreviated)).uppercased()
+        case .all: return "ALL TIME"
         }
     }
 
@@ -142,26 +202,37 @@ struct HeatmapView: View {
                         if day != "F" { Spacer().frame(height: 3) }
                     }
                 }
-                ScrollView(.horizontal, showsIndicators: false) {
-                    ScrollViewReader { proxy in
-                        HStack(alignment: .top, spacing: 3) {
-                            ForEach(Array(weeks.enumerated()), id: \.offset) { index, week in
-                                VStack(spacing: 3) {
-                                    Text(monthLabel(for: index, week: week))
-                                        .font(.system(size: 8, weight: .medium))
-                                        .foregroundStyle(.tertiary)
-                                        .frame(height: 17, alignment: .leading)
-                                    ForEach(Array(week.enumerated()), id: \.offset) { _, day in
-                                        heatCell(day)
+                ScrollViewReader { proxy in
+                    VStack(spacing: 5) {
+                        HStack(spacing: 6) {
+                            Text("PAN").font(.system(size: 7, weight: .bold)).foregroundStyle(.tertiary).tracking(0.8)
+                            Spacer()
+                            Button("Start") { proxy.scrollTo(0, anchor: .leading) }
+                                .buttonStyle(.plain).font(.system(size: 8, weight: .semibold)).foregroundStyle(.secondary)
+                            Button("Today") { proxy.scrollTo(max(0, weeks.count - 1), anchor: .trailing) }
+                                .buttonStyle(.plain).font(.system(size: 8, weight: .bold)).foregroundStyle(theme.accent)
+                        }
+                        ScrollView(.horizontal, showsIndicators: true) {
+                            HStack(alignment: .top, spacing: 3) {
+                                ForEach(Array(weeks.enumerated()), id: \.offset) { index, week in
+                                    VStack(spacing: 3) {
+                                        Text(monthLabel(for: index, week: week))
+                                            .font(.system(size: 8, weight: .medium))
+                                            .foregroundStyle(.tertiary)
+                                            .frame(height: 17, alignment: .leading)
+                                        ForEach(Array(week.enumerated()), id: \.offset) { _, day in
+                                            heatCell(day)
+                                        }
                                     }
+                                    .id(index)
                                 }
-                                .id(index)
                             }
+                            .padding(.bottom, 4)
                         }
-                        .padding(.bottom, 4)
-                        .onAppear {
-                            proxy.scrollTo(weeks.count - 1, anchor: .trailing)
-                        }
+                    }
+                    .id(rangeRaw)
+                    .onAppear {
+                        proxy.scrollTo(max(0, weeks.count - 1), anchor: .trailing)
                     }
                 }
             }
@@ -173,19 +244,21 @@ struct HeatmapView: View {
 
     private func heatCell(_ date: Date) -> some View {
         let hours = stats(for: date).duration / 3600
-        let isFuture = date > calendar.startOfDay(for: now)
+        let bounds = selectedBounds
+        let isInRange = date >= bounds.start && date <= bounds.end
+        let isFuture = date > today
         return ZStack {
             Color.clear
             RoundedRectangle(cornerRadius: 2)
-                .fill(isFuture ? .clear : heatColor(hours: hours))
+                .fill(isInRange && !isFuture ? heatColor(hours: hours) : .clear)
                 .frame(width: 11, height: 11)
-                .overlay(RoundedRectangle(cornerRadius: 2).stroke(.white.opacity(isFuture ? 0.025 : 0.04)))
+                .overlay(RoundedRectangle(cornerRadius: 2).stroke(.white.opacity(isInRange && !isFuture ? 0.04 : 0.02)))
         }
             .frame(width: 18, height: 18)
             .contentShape(Rectangle())
             .onHover { inside in
                 withAnimation(.easeOut(duration: 0.05)) {
-                    if inside { hoveredDate = date }
+                    if inside && isInRange { hoveredDate = date }
                     else if hoveredDate == date { hoveredDate = nil }
                 }
             }
