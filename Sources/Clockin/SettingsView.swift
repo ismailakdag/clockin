@@ -14,6 +14,10 @@ struct SettingsView: View {
     @AppStorage("Clockin.MascotEnabled") private var mascotEnabled = true
     @AppStorage("Clockin.MascotDefault") private var mascotDefault = "Auto"
     @AppStorage("Clockin.MinimalMode") private var minimalMode = false
+    @AppStorage("Clockin.MinimalShowHours") private var minimalShowHours = true
+    @AppStorage("Clockin.MinimalShowEarnings") private var minimalShowEarnings = true
+    @AppStorage("Clockin.MinimalShowTRY") private var minimalShowTRY = true
+    @AppStorage("Clockin.MinimalShowGoal") private var minimalShowGoal = false
     @AppStorage("Clockin.GoalDailyHours") private var dailyGoalHours = 0.0
     @AppStorage("Clockin.GoalMonthlyHours") private var monthlyGoalHours = 0.0
     @State private var dailyGoalText = ""
@@ -131,15 +135,48 @@ struct SettingsView: View {
                     .labelsHidden().toggleStyle(.switch)
                     .onChange(of: minimalMode) { _, value in
                         if value {
-                            NSApp.setActivationPolicy(.accessory)
-                            store.setPinned(false)
-                            MainWindowController.shared.hide()
+                            UserDefaults.standard.set(store.pinVisible, forKey: "Clockin.PinVisibleBeforeMinimal")
                         } else {
+                            let shouldRestorePin = UserDefaults.standard.object(forKey: "Clockin.PinVisibleBeforeMinimal") as? Bool ?? true
+                            UserDefaults.standard.removeObject(forKey: "Clockin.PinVisibleBeforeMinimal")
                             NSApp.setActivationPolicy(.regular)
                             MainWindowController.shared.show(store: store, exchangeRates: exchangeRates)
+                            store.setPinned(shouldRestorePin)
                         }
-                    }
+                }
             }.padding(10).background(card)
+            if minimalMode {
+                HStack {
+                    Text("Minimal mode is configured. Apply it when you are ready to hide this window.")
+                        .font(.system(size: 8)).foregroundStyle(.tertiary)
+                    Spacer()
+                    Button("Apply & hide") {
+                        NSApp.setActivationPolicy(.accessory)
+                        store.setPinned(false)
+                        MainWindowController.shared.hide()
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(theme.accent)
+                }
+                .padding(.horizontal, 10)
+            }
+            VStack(alignment: .leading, spacing: 8) {
+                Label("Minimal status fields", systemImage: "text.badge.checkmark")
+                    .foregroundStyle(.secondary)
+                Text("Choose what appears beside the menu-bar icon while minimal mode is active.")
+                    .font(.system(size: 8)).foregroundStyle(.tertiary)
+                HStack(spacing: 12) {
+                    Toggle("Hours", isOn: $minimalShowHours)
+                    Toggle("Earnings", isOn: $minimalShowEarnings)
+                }
+                HStack(spacing: 12) {
+                    Toggle("TL equivalent", isOn: $minimalShowTRY)
+                    Toggle("Goal %", isOn: $minimalShowGoal)
+                }
+            }
+            .font(.system(size: 9, weight: .medium))
+            .toggleStyle(.checkbox)
+            .padding(10).background(card)
             HStack {
                 Label("Pinned widget", systemImage: "pin.fill").foregroundStyle(.secondary)
                 Spacer()
