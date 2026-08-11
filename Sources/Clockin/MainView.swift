@@ -99,7 +99,7 @@ struct MainView: View {
                 }
             }
         }
-        .frame(width: 390, height: 650)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(theme.background)
         .fontDesign(theme.fontDesign)
         .preferredColorScheme(theme.colorScheme)

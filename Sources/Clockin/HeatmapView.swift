@@ -158,7 +158,7 @@ struct HeatmapView: View {
                 .padding(16)
             }
         }
-        .frame(width: 390, height: 650)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(theme.background)
         .fontDesign(theme.fontDesign)
         .preferredColorScheme(theme.colorScheme)

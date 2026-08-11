@@ -6,6 +6,7 @@ struct SettingsView: View {
     @EnvironmentObject private var store: ClockStore
     @EnvironmentObject private var exchangeRates: ExchangeRateStore
     @AppStorage("Clockin.Theme") private var themeRaw = ClockinThemeChoice.carbon.rawValue
+    @AppStorage(UIScale.key) private var uiScale = 1.0
     @AppStorage("Clockin.PinnedMode") private var pinnedMode = "Money"
     @AppStorage("Clockin.ChimeEnabled") private var chimeEnabled = false
     @AppStorage("Clockin.ChimeSound") private var chimeSound = "Glass"
@@ -122,6 +123,20 @@ struct SettingsView: View {
                 Picker("", selection: $themeRaw) {
                     ForEach(ClockinThemeChoice.allCases) { Text($0.rawValue).tag($0.rawValue) }
                 }.labelsHidden().frame(width: 140)
+            }.padding(10).background(card)
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Label("Interface size", systemImage: "textformat.size")
+                        .foregroundStyle(.secondary)
+                    Text("Scales the whole window. Drag its edges for more room.")
+                        .font(.system(size: 8)).foregroundStyle(.tertiary)
+                }
+                Spacer()
+                Picker("", selection: $uiScale) {
+                    ForEach(UIScale.options, id: \.value) { Text($0.label).tag($0.value) }
+                }
+                .labelsHidden().frame(width: 140)
+                .onChange(of: uiScale) { _, _ in MainWindowController.shared.applyScale() }
             }.padding(10).background(card)
             HStack {
                 VStack(alignment: .leading, spacing: 2) {

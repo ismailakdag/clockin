@@ -202,7 +202,7 @@ struct ShareStatsView: View {
             .padding(.horizontal, 16).padding(.bottom, 8)
             if let status { Text(status).font(.system(size: 9)).foregroundStyle(.secondary).padding(.bottom, 7) }
         }
-        .frame(width: 390, height: 650)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(theme.background)
         .fontDesign(theme.fontDesign)
         .preferredColorScheme(theme.colorScheme)
