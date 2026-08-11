@@ -8,6 +8,7 @@ struct ProgressDashboardView: View {
     @AppStorage("Clockin.GoalMonthlyHours") private var monthlyGoalHours = 0.0
     @State private var tab = 0
     @State private var now = Date()
+    @State private var showShareStats = false
     let onBack: () -> Void
     private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
     private var theme: ClockinPalette { ClockinThemeChoice.selected(themeRaw).palette }
@@ -77,12 +78,15 @@ struct ProgressDashboardView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack { Button(action: onBack) { Image(systemName: "chevron.left").frame(width: 26, height: 26) }.buttonStyle(.plain); Text("PROGRESS").font(.system(size: 13, weight: .black)).tracking(1.3); Spacer() }
+            HStack { Button(action: onBack) { Image(systemName: "chevron.left").frame(width: 26, height: 26) }.buttonStyle(.plain); Text("PROGRESS").font(.system(size: 13, weight: .black)).tracking(1.3); Spacer(); Button { showShareStats = true } label: { Image(systemName: "square.and.arrow.up").frame(width: 28, height: 28) }.buttonStyle(.plain).foregroundStyle(theme.accent).help("Share stats") }
                 .padding(.horizontal, 15).frame(height: 50).overlay(alignment: .bottom) { Divider().opacity(0.25) }
             Picker("", selection: $tab) { Text("Overview").tag(0); Text("Badges").tag(1); Text("Records").tag(2); Text("Weekly").tag(3); Text("Reports").tag(4) }.pickerStyle(.segmented).padding(16)
             ScrollView { Group { if tab == 0 { overview } else if tab == 1 { badges } else if tab == 2 { records } else if tab == 3 { weekly } else { reports } }.padding(.horizontal, 16).padding(.bottom, 16) }
         }
         .fontDesign(theme.fontDesign).onReceive(timer) { now = $0 }
+        .sheet(isPresented: $showShareStats) {
+            ShareStatsView().environmentObject(store).environmentObject(AppDependencies.shared.exchangeRates)
+        }
     }
 
     private var overview: some View {
