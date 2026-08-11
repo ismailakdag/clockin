@@ -25,6 +25,7 @@ final class ClockStore: ObservableObject {
             data.rateRules = [RateRule(effectiveFrom: july2026, hourlyRate: data.hourlyRate)]
         }
         if needsRateMigration { save() }
+        else { createAutomaticBackupIfNeeded() }
     }
 
     static var defaultFileURL: URL {
