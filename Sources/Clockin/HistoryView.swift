@@ -234,7 +234,9 @@ struct HistoryView: View {
     private func averagesStrip(_ values: [DailyEarning]) -> some View {
         let totalHours = values.reduce(0) { $0 + $1.duration } / 3600
         let calendarDays = selectedCalendarDays(at: .now)
+        let activeDays = values.filter { $0.duration > 0 }.count
         let daily = totalHours / calendarDays
+        let activeDayAverage = totalHours / Double(max(activeDays, 1))
         return VStack(alignment: .leading, spacing: 5) {
             Text("AVERAGES • CALENDAR DAYS (\(Int(calendarDays)))")
                 .font(.system(size: 7, weight: .bold)).foregroundStyle(.tertiary).tracking(0.7)
@@ -242,6 +244,10 @@ struct HistoryView: View {
             averageChip("DAILY AVG", hours: daily)
             averageChip("WEEKLY AVG", hours: daily * 7)
             averageChip("MONTHLY AVG", hours: daily * 30.44)
+            }
+            HStack(spacing: 7) {
+                metricChip("ACTIVE DAYS", value: "\(activeDays)")
+                averageChip("ACTIVE-DAY AVG", hours: activeDayAverage)
             }
         }
     }
@@ -260,6 +266,16 @@ struct HistoryView: View {
         return VStack(alignment: .leading, spacing: 2) {
             Text(label).font(.system(size: 7, weight: .bold)).foregroundStyle(.secondary)
             Text("\(minutes / 60)h \(minutes % 60)m").font(.system(size: 9, weight: .semibold, design: .monospaced))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.vertical, 6).padding(.horizontal, 7)
+        .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 7))
+    }
+
+    private func metricChip(_ label: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(label).font(.system(size: 7, weight: .bold)).foregroundStyle(.secondary)
+            Text(value).font(.system(size: 9, weight: .semibold, design: .monospaced))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.vertical, 6).padding(.horizontal, 7)
