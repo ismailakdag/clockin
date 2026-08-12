@@ -27,6 +27,8 @@ struct HistoryView: View {
     @State private var pendingDelete: WorkSession?
     @State private var hoveredDate: Date?
     @State private var showAllSessions = false
+    @AppStorage("Clockin.HistoryGroupByDay") private var groupByDay = true
+    @State private var expandedDays: Set<Date> = []
     @AppStorage("Clockin.Theme") private var themeRaw = ClockinThemeChoice.carbon.rawValue
     let onBack: () -> Void
     private var theme: ClockinPalette { ClockinThemeChoice.selected(themeRaw).palette }
@@ -45,16 +47,25 @@ struct HistoryView: View {
                     .pickerStyle(.segmented)
                     chartCard(at: context.date)
                     HStack {
-                        Text("ALL SESSIONS • \(filteredSessions.count)")
+                        Text(groupByDay
+                             ? "BY DAY • \(filteredDays.count)"
+                             : "ALL SESSIONS • \(filteredSessions.count)")
                             .font(.system(size: S(9), weight: .bold)).foregroundStyle(.secondary).tracking(S(1.2))
                         Spacer()
-                        if filteredSessions.count > 30 {
+                        Button(groupByDay ? "Sessions" : "By day") { groupByDay.toggle() }
+                            .buttonStyle(.plain).font(.system(size: S(9), weight: .bold)).foregroundStyle(theme.accent)
+                        if (groupByDay ? filteredDays.count : filteredSessions.count) > 30 {
                             Button(showAllSessions ? "Show recent" : "Show all") { showAllSessions.toggle() }
                                 .buttonStyle(.plain).font(.system(size: S(9), weight: .bold)).foregroundStyle(theme.accent)
+                                .padding(.leading, S(10))
                         }
                     }
                     LazyVStack(spacing: S(8)) {
-                        ForEach(visibleSessions) { session in historyRow(session) }
+                        if groupByDay {
+                            ForEach(visibleDays) { day in dayRow(day) }
+                        } else {
+                            ForEach(visibleSessions) { session in historyRow(session) }
+                        }
                     }
                     }
                     .padding(S(16))
@@ -302,6 +313,40 @@ struct HistoryView: View {
         }
     }
 
+    private func dayRow(_ day: DaySessions) -> some View {
+        let expanded = expandedDays.contains(day.day)
+        let earnings = day.sessions.reduce(0) { $0 + store.earnings(for: $1) }
+        return VStack(alignment: .leading, spacing: S(8)) {
+            HStack(spacing: S(11)) {
+                Image(systemName: expanded ? "chevron.down" : "chevron.right")
+                    .font(.system(size: S(9), weight: .bold)).foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: S(4)) {
+                    Text(day.day.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day()))
+                        .font(.system(size: S(12), weight: .semibold))
+                    Text("\(day.sessions.count) \(day.sessions.count == 1 ? "session" : "sessions")  •  \(day.first.formatted(date: .omitted, time: .shortened)) – \(day.last.formatted(date: .omitted, time: .shortened))")
+                        .font(.system(size: S(10))).foregroundStyle(.secondary).lineLimit(1)
+                }
+                Spacer()
+                VStack(alignment: .trailing, spacing: S(3)) {
+                    Text(earnings.money(code: store.currencyCode)).font(.system(size: S(11), weight: .semibold))
+                    Text(DurationText.compact(day.duration)).font(.system(size: S(9))).foregroundStyle(.secondary)
+                }
+            }
+            .contentShape(Rectangle())
+            .onTapGesture {
+                if expanded { expandedDays.remove(day.day) } else { expandedDays.insert(day.day) }
+            }
+
+            if expanded {
+                VStack(spacing: S(6)) {
+                    ForEach(day.sessions) { session in historyRow(session) }
+                }
+                .padding(.leading, S(18))
+            }
+        }
+        .padding(S(12)).background(card)
+    }
+
     private func historyRow(_ session: WorkSession) -> some View {
         HStack(spacing: S(11)) {
             VStack(alignment: .leading, spacing: S(4)) {
@@ -340,6 +385,32 @@ struct HistoryView: View {
 
     private var visibleSessions: [WorkSession] {
         showAllSessions ? filteredSessions : Array(filteredSessions.prefix(30))
+    }
+
+    /// Bir gunun oturumlari. Kayitlar birlestirilmez; yalnizca gosterim
+    /// icin toplanir, boylece CSV eslestirmesi ve tek tek silme bozulmaz.
+    struct DaySessions: Identifiable {
+        let day: Date
+        let sessions: [WorkSession]
+        var id: Date { day }
+        var duration: TimeInterval { sessions.reduce(0) { $0 + $1.duration } }
+        var first: Date { sessions.map(\.start).min() ?? day }
+        var last: Date { sessions.map(\.end).max() ?? day }
+    }
+
+    private var filteredDays: [DaySessions] {
+        let calendar = Calendar.autoupdatingCurrent
+        var grouped: [Date: [WorkSession]] = [:]
+        for session in filteredSessions {
+            grouped[calendar.startOfDay(for: session.start), default: []].append(session)
+        }
+        return grouped
+            .map { DaySessions(day: $0.key, sessions: $0.value.sorted { $0.start < $1.start }) }
+            .sorted { $0.day > $1.day }
+    }
+
+    private var visibleDays: [DaySessions] {
+        showAllSessions ? filteredDays : Array(filteredDays.prefix(30))
     }
 
     private func points(at date: Date) -> [DailyEarning] {
