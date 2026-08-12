@@ -18,7 +18,7 @@ struct ImportComparisonView: View {
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Compare before import")
                         .font(.system(size: 18, weight: .bold, design: .rounded))
-                    Text("\(sourceTitle) • Clockin will skip exact duplicates and link close matches.")
+                    Text("\(sourceTitle) • The newest external record is authoritative; updates replace older local values.")
                         .font(.system(size: 10)).foregroundStyle(.secondary)
                 }
                 Spacer()
@@ -28,7 +28,7 @@ struct ImportComparisonView: View {
 
             HStack(spacing: 8) {
                 summaryCard("NEW", summary.newItems.count, color: theme.accent)
-                summaryCard("CORRECTS", summary.matchedItems.count, color: .blue)
+                summaryCard("UPDATES", summary.matchedItems.count, color: .blue)
                 summaryCard("SKIP", summary.duplicateItems.count, color: .orange)
             }
 
@@ -57,7 +57,7 @@ struct ImportComparisonView: View {
             HStack {
                 Button("Cancel") { dismiss() }.buttonStyle(.bordered)
                 Spacer()
-                Button("Import \(summary.newItems.count + summary.matchedItems.count) entries") {
+                Button("Apply \(summary.newItems.count) new + \(summary.matchedItems.count) updates") {
                     store.importSessions(sessions)
                     onImported()
                     dismiss()
@@ -96,10 +96,16 @@ struct ImportComparisonView: View {
                 .frame(width: 112, alignment: .leading)
             Text("\(item.session.start.formatted(.dateTime.hour().minute()))–\(item.session.end.formatted(.dateTime.hour().minute()))")
                 .font(.system(size: 9, design: .monospaced))
-            Spacer()
-            Text(DurationText.compact(item.session.duration))
-                .font(.system(size: 9, weight: .semibold, design: .monospaced))
-                .foregroundStyle(.secondary)
+            VStack(alignment: .trailing, spacing: 2) {
+                Text(DurationText.compact(item.session.duration))
+                    .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(.secondary)
+                if let old = item.localMatch {
+                    Text("was \(DurationText.compact(old.duration))")
+                        .font(.system(size: 7, design: .monospaced))
+                        .foregroundStyle(.blue.opacity(0.8))
+                }
+            }
         }
         .padding(.horizontal, 9).padding(.vertical, 7)
         .background(theme.surface, in: RoundedRectangle(cornerRadius: 7))

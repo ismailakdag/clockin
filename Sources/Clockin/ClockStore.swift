@@ -302,6 +302,7 @@ final class ClockStore: ObservableObject {
 
     func compareImportedSessions(_ imported: [WorkSession]) -> ImportComparisonSummary {
         var seenKeys = Set<String>()
+        var claimedMatches = Set<Int>()
         let existingKeys = Set(data.sessions.map(Self.deduplicationKey))
         let items = imported.map { session -> ImportComparisonItem in
             let key = Self.deduplicationKey(session)
@@ -309,7 +310,8 @@ final class ClockStore: ObservableObject {
                 return ImportComparisonItem(session: session, kind: .duplicate)
             }
             seenKeys.insert(key)
-            if session.source != "Clockin", let index = findClockinMatch(for: session) {
+            if session.source != "Clockin", let index = findClockinMatch(for: session), !claimedMatches.contains(index) {
+                claimedMatches.insert(index)
                 return ImportComparisonItem(session: session, kind: .matched, localMatch: data.sessions[index])
             }
             return ImportComparisonItem(session: session, kind: .new)
@@ -327,6 +329,7 @@ final class ClockStore: ObservableObject {
     func importSessions(_ imported: [WorkSession]) {
         var fresh: [WorkSession] = []
         var freshKeys = Set<String>()
+        var claimedMatches = Set<Int>()
         var matched = 0
         var corrected = 0
         // Anahtarlar bir kez cikarilir. Onceden her ice aktarilan kayit icin
@@ -350,6 +353,10 @@ final class ClockStore: ObservableObject {
                 continue
             }
             if session.source != "Clockin", let index = findClockinMatch(for: session) {
+                guard !claimedMatches.contains(index) else {
+                    continue
+                }
+                claimedMatches.insert(index)
                 // Dis kayit dogruluk kaynagidir. Sayacin yaklasik degerleri
                 // resmi olanlarla degistirilir; kayit cogaltilmaz.
                 if data.sessions[index].note.isEmpty { data.sessions[index].note = session.note }
@@ -359,7 +366,11 @@ final class ClockStore: ObservableObject {
                 data.sessions[index].matchedExternalSource = session.source
                 corrected += 1
             } else {
-                fresh.append(session)
+                var authoritative = session
+                // Imported records stay linked so a later CSV can update the
+                // same row instead of appending a second copy.
+                authoritative.matchedExternalSource = session.source
+                fresh.append(authoritative)
                 freshKeys.insert(key)
             }
         }
@@ -391,7 +402,7 @@ final class ClockStore: ObservableObject {
     private func findClockinMatch(for external: WorkSession) -> Int? {
         var best: (index: Int, overlap: TimeInterval)?
         for (index, local) in data.sessions.enumerated() {
-            guard local.source == "Clockin", local.matchedExternalSource == nil,
+            guard (local.source == "Clockin" || local.matchedExternalSource != nil),
                   calendar.isDate(local.start, inSameDayAs: external.start) else { continue }
             let overlap = min(local.end, external.end).timeIntervalSince(max(local.start, external.start))
             let shorter = min(local.duration, external.duration)
