@@ -37,6 +37,7 @@ final class PinnedWindowController: NSObject, NSWindowDelegate {
         case "Compact": return NSSize(width: 246, height: 72)
         case "Goal": return NSSize(width: 300, height: 116)
         case "All": return NSSize(width: 370, height: 230)
+        case "Total": return NSSize(width: 340, height: 156)
         default: return NSSize(width: 320, height: 112)
         }
     }
@@ -62,7 +63,7 @@ final class PinnedWindowController: NSObject, NSWindowDelegate {
 
     private func makePanel(store: ClockStore) -> NSPanel {
         let savedMode = UserDefaults.standard.string(forKey: "Clockin.PinnedMode") ?? "Money"
-        let initialSize = savedMode == "Compact" ? NSSize(width: 246, height: 72) : (savedMode == "Goal" ? NSSize(width: 300, height: 116) : (savedMode == "All" ? NSSize(width: 370, height: 190) : NSSize(width: 320, height: 112)))
+        let initialSize = savedMode == "Compact" ? NSSize(width: 246, height: 72) : (savedMode == "Goal" ? NSSize(width: 300, height: 116) : (savedMode == "All" ? NSSize(width: 370, height: 230) : (savedMode == "Total" ? NSSize(width: 340, height: 156) : NSSize(width: 320, height: 112))))
         let panel = NSPanel(
             contentRect: NSRect(origin: .zero, size: initialSize),
             styleMask: [.borderless, .nonactivatingPanel, .resizable],
@@ -115,7 +116,7 @@ struct PinnedTimerView: View {
 
     var body: some View {
         Group {
-            if mode == "Compact" { compactContent } else if mode == "Goal" { goalContent } else if mode == "All" { allContent } else { moneyContent }
+            if mode == "Compact" { compactContent } else if mode == "Goal" { goalContent } else if mode == "All" { allContent } else if mode == "Total" { totalContent } else { moneyContent }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
@@ -253,6 +254,49 @@ struct PinnedTimerView: View {
             }
         }
         .padding(15)
+    }
+
+    private var totalContent: some View {
+        let active = store.running?.isPaused == false
+        let current = store.currentEarnings(at: now)
+        let total = store.allEarnings(at: now)
+        let totalDuration = store.allDuration(at: now)
+        let today = store.todayEarnings(at: now)
+        let rate = exchangeRates.latestRate
+        return VStack(alignment: .leading, spacing: 9) {
+            HStack(spacing: 6) {
+                Circle().fill(active ? theme.accent : (store.running == nil ? .secondary : .orange)).frame(width: 7, height: 7)
+                Text(active ? "TOTAL IS MOVING" : "ALL-TIME TOTAL")
+                    .font(.system(size: 8, weight: .black, design: .rounded)).foregroundStyle(.secondary).tracking(1)
+                Spacer()
+                Text(DurationText.clock(store.elapsed(at: now))).font(.system(size: 13, design: .monospaced))
+            }
+            HStack(alignment: .firstTextBaseline) {
+                Text(total.money(code: store.currencyCode))
+                    .font(.system(size: 24, weight: .bold, design: .rounded)).foregroundStyle(theme.accent)
+                Spacer()
+                if store.currencyCode == "USD", let rate {
+                    Text("≈ \((total * rate).money(code: "TRY"))")
+                        .font(.system(size: 13, weight: .semibold)).foregroundStyle(.white)
+                }
+            }
+            HStack(spacing: 6) {
+                totalChip("TOTAL", DurationText.compact(totalDuration))
+                totalChip("TODAY", today.money(code: store.currencyCode))
+                totalChip("NOW", current.money(code: store.currencyCode))
+            }
+        }
+        .padding(14)
+    }
+
+    private func totalChip(_ label: String, _ value: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(label).font(.system(size: 7, weight: .bold)).foregroundStyle(.secondary)
+            Text(value).font(.system(size: 9, weight: .semibold, design: .monospaced)).lineLimit(1).minimumScaleFactor(0.75)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.vertical, 5).padding(.horizontal, 6)
+        .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 6))
     }
 
     private func goalGauge(_ label: String, value: Double, goal: Double) -> some View {

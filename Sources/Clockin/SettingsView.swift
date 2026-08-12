@@ -181,7 +181,7 @@ struct SettingsView: View {
                 Label("Pinned widget", systemImage: "pin.fill").foregroundStyle(.secondary)
                 Spacer()
                 Picker("", selection: $pinnedMode) {
-                    Text("Compact").tag("Compact"); Text("Money").tag("Money"); Text("Goal").tag("Goal"); Text("All").tag("All")
+                    Text("Compact").tag("Compact"); Text("Money").tag("Money"); Text("Goal").tag("Goal"); Text("All").tag("All"); Text("Total").tag("Total")
                 }.labelsHidden().frame(width: 110)
                     .onChange(of: pinnedMode) { _, value in PinnedWindowController.shared.applyPreset(value) }
                 Toggle("", isOn: Binding(

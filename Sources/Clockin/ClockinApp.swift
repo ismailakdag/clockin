@@ -49,12 +49,14 @@ struct ClockinApp: App {
     @NSApplicationDelegateAdaptor(ClockinAppDelegate.self) private var appDelegate
     @StateObject private var store: ClockStore
     @StateObject private var exchangeRates: ExchangeRateStore
+    @StateObject private var radio: RadioController
     @AppStorage("Clockin.MinimalMode") private var minimalMode = false
 
     init() {
         let dependencies = AppDependencies.shared
         _store = StateObject(wrappedValue: dependencies.store)
         _exchangeRates = StateObject(wrappedValue: dependencies.exchangeRates)
+        _radio = StateObject(wrappedValue: RadioController.shared)
     }
 
     var body: some Scene {
@@ -78,6 +80,10 @@ struct ClockinApp: App {
             if store.running != nil {
                 Button("Clock out") { _ = store.clockOut() }
                 Button("Cancel session", role: .destructive) { store.cancelRunning() }
+            }
+            if radio.isPlaying {
+                Divider()
+                Button("Stop focus radio") { radio.stop() }
             }
             Divider()
             if !minimalMode {
