@@ -31,6 +31,8 @@ struct SettingsView: View {
     @State private var showCSVComparison = false
     @State private var csvPreviewSessions: [WorkSession] = []
     @State private var confirmRestore = false
+    @StateObject private var updates = UpdateChecker.shared
+    @AppStorage("Clockin.AutoCheckUpdates") private var autoCheckUpdates = true
     let onBack: () -> Void
 
     private var theme: ClockinPalette { ClockinThemeChoice.selected(themeRaw).palette }
@@ -47,6 +49,7 @@ struct SettingsView: View {
                     section("KEYBOARD SHORTCUTS", content: shortcutsSection)
                     section("FOCUS RADIO", content: radioSection)
                     section("DATA", content: dataSection)
+                    section("UPDATES", content: updatesSection)
                     Text("Settings are saved automatically.")
                         .font(.system(size: S(9))).foregroundStyle(.tertiary).frame(maxWidth: .infinity)
                 }
@@ -58,6 +61,10 @@ struct SettingsView: View {
             rateText = String(format: "%.2f", store.hourlyRate)
             dailyGoalText = dailyGoalHours > 0 ? String(format: "%.2f", dailyGoalHours) : ""
             monthlyGoalText = monthlyGoalHours > 0 ? String(format: "%.2f", monthlyGoalHours) : ""
+        }
+        .task {
+            guard autoCheckUpdates else { return }
+            await updates.checkIfDue()
         }
         .sheet(isPresented: $showRateSchedule) { RateScheduleView().environmentObject(store) }
         .sheet(isPresented: $showPasteImporter) { PasteImportView().environmentObject(store) }
@@ -112,6 +119,73 @@ struct SettingsView: View {
                 Spacer()
                 Button("Manage") { showRateSchedule = true }.buttonStyle(.plain).foregroundStyle(theme.accent)
             }.padding(S(10)).background(card)
+        }
+    }
+
+    private var updatesSection: some View {
+        VStack(spacing: S(9)) {
+            HStack {
+                VStack(alignment: .leading, spacing: S(2)) {
+                    Label("Version", systemImage: "shippingbox.fill").foregroundStyle(.secondary)
+                    Text(updateStatusText)
+                        .font(.system(size: S(9))).foregroundStyle(.tertiary)
+                }
+                Spacer()
+                if case .checking = updates.state {
+                    ProgressView().controlSize(.small)
+                } else {
+                    Button("Check now") { Task { await updates.check() } }
+                        .buttonStyle(.plain).foregroundStyle(theme.accent)
+                        .font(.system(size: S(10), weight: .bold))
+                }
+            }
+            .padding(S(10)).background(card)
+
+            if case .behind(let count) = updates.state {
+                HStack {
+                    VStack(alignment: .leading, spacing: S(2)) {
+                        Text("\(count) new \(count == 1 ? "commit" : "commits") available")
+                            .font(.system(size: S(11), weight: .semibold)).foregroundStyle(theme.accent)
+                        Text(updates.updateScriptPath == nil
+                             ? "Run the update script to rebuild."
+                             : "Rebuilds and reinstalls, then reopens Clockin.")
+                            .font(.system(size: S(9))).foregroundStyle(.tertiary)
+                    }
+                    Spacer()
+                    if updates.updateScriptPath != nil {
+                        Button("Update now") { _ = updates.runUpdateScript() }
+                            .buttonStyle(.borderedProminent).tint(theme.accent).foregroundStyle(.black)
+                    }
+                }
+                .padding(S(10)).background(card)
+            }
+
+            HStack {
+                VStack(alignment: .leading, spacing: S(2)) {
+                    Label("Check automatically", systemImage: "arrow.clockwise")
+                        .foregroundStyle(.secondary)
+                    Text("Asks GitHub at most once every six hours.")
+                        .font(.system(size: S(8))).foregroundStyle(.tertiary)
+                }
+                Spacer()
+                Toggle("", isOn: $autoCheckUpdates).labelsHidden().toggleStyle(.switch)
+            }
+            .padding(S(10)).background(card)
+        }
+    }
+
+    private var updateStatusText: String {
+        switch updates.state {
+        case .unknown:
+            return "This build carries no commit stamp."
+        case .checking:
+            return "Checking…"
+        case .upToDate:
+            return "Up to date • \(updates.shortCommit ?? "?")"
+        case .behind(let count):
+            return "\(count) behind • built at \(updates.shortCommit ?? "?")"
+        case .failed(let message):
+            return "Check failed — \(message)"
         }
     }
 
