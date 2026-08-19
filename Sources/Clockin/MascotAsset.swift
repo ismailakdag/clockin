@@ -3,13 +3,14 @@ import SwiftUI
 import Combine
 
 struct ClockinMascotImage: View {
+    @AppStorage(UIScale.key) private var uiScaleObserver = 1.0
     let asset: String
     var body: some View {
         Group {
             if let url = Bundle.module.url(forResource: asset, withExtension: "png"), let image = NSImage(contentsOf: url) {
                 Image(nsImage: image).resizable().interpolation(.none).scaledToFit()
             } else {
-                Image(systemName: "sparkles").resizable().scaledToFit().padding(18).foregroundStyle(.cyan)
+                Image(systemName: "sparkles").resizable().scaledToFit().padding(S(18)).foregroundStyle(.cyan)
             }
         }
     }
@@ -30,11 +31,11 @@ struct ClockinMascotEffects: View {
     var body: some View {
         ZStack {
             switch effect {
-            case 0: Text("$  $  $").font(.system(size: 10, weight: .black, design: .rounded)).foregroundStyle(.green).offset(x: 13, y: animate ? 27 : -24).opacity(animate ? 0 : 1)
-            case 1: Text("✦  ✧  ✦").font(.system(size: 12, weight: .bold)).foregroundStyle(.orange).scaleEffect(animate ? 1.25 : 0.7).opacity(animate ? 0.2 : 1)
-            case 2: Text("♪  ♫  ♪").font(.system(size: 12, weight: .bold)).foregroundStyle(.cyan).offset(x: animate ? 18 : -8, y: animate ? -20 : 8).opacity(animate ? 0 : 1)
-            case 3: Text("✹  ✹").font(.system(size: 11, weight: .bold)).foregroundStyle(.yellow).rotationEffect(.degrees(animate ? 35 : -15)).opacity(animate ? 0.2 : 1)
-            default: Text("+XP").font(.system(size: 10, weight: .black, design: .monospaced)).foregroundStyle(.green).offset(y: animate ? -25 : 2).opacity(animate ? 0 : 1)
+            case 0: Text("$  $  $").font(.system(size: S(10), weight: .black, design: .rounded)).foregroundStyle(.green).offset(x: 13, y: animate ? 27 : -24).opacity(animate ? 0 : 1)
+            case 1: Text("✦  ✧  ✦").font(.system(size: S(12), weight: .bold)).foregroundStyle(.orange).scaleEffect(animate ? 1.25 : 0.7).opacity(animate ? 0.2 : 1)
+            case 2: Text("♪  ♫  ♪").font(.system(size: S(12), weight: .bold)).foregroundStyle(.cyan).offset(x: animate ? 18 : -8, y: animate ? -20 : 8).opacity(animate ? 0 : 1)
+            case 3: Text("✹  ✹").font(.system(size: S(11), weight: .bold)).foregroundStyle(.yellow).rotationEffect(.degrees(animate ? 35 : -15)).opacity(animate ? 0.2 : 1)
+            default: Text("+XP").font(.system(size: S(10), weight: .black, design: .monospaced)).foregroundStyle(.green).offset(y: animate ? -25 : 2).opacity(animate ? 0 : 1)
             }
         }
         .animation(.easeOut(duration: 1.6), value: animate)

@@ -9,11 +9,26 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         window?.orderOut(nil)
     }
 
+    /// Oran degistiginde cagrilir. En kucuk icerik boyutu yeniden hesaplanir
+    /// ve pencere bunun altinda kaldiysa buyutulur; kullanicinin elle
+    /// ayarladigi daha genis boyut korunur.
+    func applyScale() {
+        guard let window else { return }
+        let minimum = UIScale.minimumContentSize(for: UIScale.current)
+        window.contentMinSize = minimum
+        let current = window.contentRect(forFrameRect: window.frame).size
+        let target = NSSize(width: max(current.width, minimum.width),
+                            height: max(current.height, minimum.height))
+        guard target != current else { return }
+        window.setContentSize(target)
+    }
+
     func show(store: ClockStore, exchangeRates: ExchangeRateStore) {
         if window == nil {
+            let minimum = UIScale.minimumContentSize(for: UIScale.current)
             let window = NSWindow(
-                contentRect: NSRect(x: 0, y: 0, width: 390, height: 650),
-                styleMask: [.titled, .closable, .miniaturizable, .fullSizeContentView],
+                contentRect: NSRect(origin: .zero, size: minimum),
+                styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
                 backing: .buffered,
                 defer: false
             )
@@ -23,14 +38,24 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             window.isMovableByWindowBackground = true
             window.isReleasedWhenClosed = false
             window.backgroundColor = NSColor(red: 0.055, green: 0.065, blue: 0.08, alpha: 1)
-            window.contentMinSize = NSSize(width: 390, height: 650)
-            window.contentMaxSize = NSSize(width: 390, height: 650)
+            // En kucuk boyut orana gore belirlenir; ustunde serbest buyur.
+            window.contentMinSize = minimum
+            window.setFrameAutosaveName("ClockinMainWindow")
             window.delegate = self
             window.contentView = NSHostingView(rootView:
                 MainView()
                     .environmentObject(store)
                     .environmentObject(exchangeRates)
             )
+            // Elle ayarlanan boyutu geri getir, ama oranin gerektirdigi en
+            // kucuk boyutun altina dusmesine izin verme.
+            window.setFrameUsingName("ClockinMainWindow")
+            let restored = window.contentRect(forFrameRect: window.frame).size
+            if restored.width < minimum.width || restored.height < minimum.height {
+                window.setContentSize(NSSize(width: max(restored.width, minimum.width),
+                                             height: max(restored.height, minimum.height)))
+            }
+
             // Always start a fresh launch on the primary display. A previous
             // autosaved frame can belong to a disconnected/virtual display.
             let screen = NSScreen.screens.first ?? NSScreen.main
