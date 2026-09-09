@@ -54,10 +54,10 @@ struct ShareStatsView: View {
     private var theme: ClockinPalette { ClockinThemeChoice.selected(themeRaw).palette }
 
     private var dailyDurations: [Date: TimeInterval] {
-        let calendar = Calendar.current
-        var values: [Date: TimeInterval] = [:]
-        for session in store.sessions { values[calendar.startOfDay(for: session.start), default: 0] += session.duration }
-        if let running = store.running { values[calendar.startOfDay(for: running.start), default: 0] += running.elapsed(at: now) }
+        var values = store.dailyDurations
+        if let running = store.running {
+            values[Calendar.current.startOfDay(for: running.start), default: 0] += running.elapsed(at: now)
+        }
         return values
     }
 
@@ -205,6 +205,7 @@ struct ShareStatsView: View {
         }
         // Sheet olarak sunuluyor: kendi olcusunu bildirmeli.
         .frame(width: S(UIScale.base.width), height: S(UIScale.base.height))
+        .scrollBounceBehavior(.basedOnSize)
         .background(theme.background)
         .fontDesign(theme.fontDesign)
         .preferredColorScheme(theme.colorScheme)

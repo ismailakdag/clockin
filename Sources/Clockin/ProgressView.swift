@@ -36,14 +36,9 @@ struct ProgressDashboardView: View {
 
     private var totalHours: Double { (store.totalDuration + store.elapsed(at: now)) / 3600 }
     private var dailyDurations: [Date: TimeInterval] {
-        let calendar = Calendar.current
-        var values: [Date: TimeInterval] = [:]
-        for session in store.sessions {
-            let day = calendar.startOfDay(for: session.start)
-            values[day, default: 0] += session.duration
-        }
+        var values = store.dailyDurations
         if let running = store.running {
-            values[calendar.startOfDay(for: running.start), default: 0] += running.elapsed(at: now)
+            values[Calendar.current.startOfDay(for: running.start), default: 0] += running.elapsed(at: now)
         }
         return values
     }

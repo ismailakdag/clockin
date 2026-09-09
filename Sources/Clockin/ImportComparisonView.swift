@@ -84,6 +84,7 @@ struct ImportComparisonView: View {
         }
         .padding(S(18))
         .frame(width: S(560), height: S(560))
+        .scrollBounceBehavior(.basedOnSize)
         .background(theme.background)
         .fontDesign(theme.fontDesign)
         .preferredColorScheme(theme.colorScheme)

@@ -9,6 +9,7 @@ final class ClockStore: ObservableObject {
             cachedRateRules = nil
             cachedTotals = nil
             cachedByDay = nil
+            cachedDailyDurations = nil
         }
     }
     @Published var statusMessage: String?
@@ -29,6 +30,7 @@ final class ClockStore: ObservableObject {
     /// `isDate(_:inSameDayAs:)` ile suzmek gerekiyordu; takvim
     /// karsilastirmasi pahalidir ve oturum basina bir kez kosuyordu.
     private var cachedByDay: [Date: (duration: TimeInterval, earnings: Double)]?
+    private var cachedDailyDurations: [Date: TimeInterval]?
     /// Yedek dizinini her sorguda taramamak icin.
     private var cachedBackupStats: (latest: Date?, count: Int)?
     private var lastAutomaticBackup: Date?
@@ -440,6 +442,19 @@ final class ClockStore: ObservableObject {
             result[day] = (old.duration + session.duration, old.earnings + earnings(for: session))
         }
         cachedByDay = result
+        return result
+    }
+
+    /// Gun -> tamamlanmis sure. Calisan seans dahil degildir; onu ekleyecek
+    /// olan cagiran taraftir, cunku degeri her saniye degisir.
+    ///
+    /// Ekranlar bunu kendileri kuruyordu ve tek bir yenilemede yirmiden fazla
+    /// kez; her seferinde butun oturumlar taranip her biri icin takvim islemi
+    /// yapiliyordu.
+    var dailyDurations: [Date: TimeInterval] {
+        if let cached = cachedDailyDurations { return cached }
+        let result = totalsByDay().mapValues(\.duration)
+        cachedDailyDurations = result
         return result
     }
 

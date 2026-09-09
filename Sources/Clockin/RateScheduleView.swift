@@ -61,6 +61,7 @@ struct RateScheduleView: View {
         }
         .padding(S(18))
         .frame(width: S(560), height: S(520))
+        .scrollBounceBehavior(.basedOnSize)
         .background(theme.background)
         .fontDesign(theme.fontDesign)
         .preferredColorScheme(theme.colorScheme)

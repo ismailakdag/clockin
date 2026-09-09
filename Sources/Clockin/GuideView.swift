@@ -40,6 +40,7 @@ struct GuideView: View {
             }
         }
         .frame(width: S(590), height: S(670))
+        .scrollBounceBehavior(.basedOnSize)
         .background(theme.background)
         .fontDesign(theme.fontDesign)
         .preferredColorScheme(theme.colorScheme)

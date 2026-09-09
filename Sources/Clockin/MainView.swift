@@ -38,8 +38,7 @@ struct MainView: View {
     /// yeniden tariyordu ve header bunu saniyede 14 kez tetikliyordu.
     private var progressStats: ProgressStats {
         let calendar = Calendar.current
-        var daily: [Date: TimeInterval] = [:]
-        for session in store.sessions { daily[calendar.startOfDay(for: session.start), default: 0] += session.duration }
+        var daily = store.dailyDurations
         if let running = store.running { daily[calendar.startOfDay(for: running.start), default: 0] += running.elapsed(at: now) }
 
         let days = daily.keys.sorted()
@@ -113,6 +112,10 @@ struct MainView: View {
         // ideal boyutu sifir sanip pencereyi cokertiyor.
         .frame(minWidth: S(UIScale.base.width), maxWidth: .infinity,
                minHeight: S(UIScale.base.height), maxHeight: .infinity)
+        // Icerik zaten sigiyorsa kaydirma esnemesin. Sabit duran bir
+        // ekranin lastik gibi geri gelmesi bozukluk hissi veriyordu.
+        // Bu degistirici alttaki kaydirma gorunumlerine yayilir.
+        .scrollBounceBehavior(.basedOnSize)
         .background(theme.background)
         .fontDesign(theme.fontDesign)
         .preferredColorScheme(theme.colorScheme)
