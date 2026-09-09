@@ -104,7 +104,7 @@ struct ImportComparisonView: View {
             }
             Spacer()
             Button { dismiss() } label: { Image(systemName: "xmark").frame(width: S(28), height: S(28)) }
-                .buttonStyle(.plain).foregroundStyle(.secondary)
+                .buttonStyle(.hitTarget).foregroundStyle(.secondary)
         }
     }
 
@@ -121,7 +121,7 @@ struct ImportComparisonView: View {
                         ? []
                         : Set(actionable.map(\.id))
                 }
-                .buttonStyle(.plain).foregroundStyle(theme.accent)
+                .buttonStyle(.hitTarget).foregroundStyle(theme.accent)
                 .font(.system(size: S(10), weight: .bold))
                 .padding(.leading, S(8))
             }
@@ -141,7 +141,7 @@ struct ImportComparisonView: View {
             .foregroundStyle(.secondary)
             .padding(.horizontal, S(9)).padding(.vertical, S(7))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.hitTarget)
     }
 
     private var footer: some View {

@@ -25,7 +25,7 @@ struct PasteImportView: View {
                 Button { dismiss() } label: {
                     Image(systemName: "xmark").frame(width: S(28), height: S(28))
                 }
-                .buttonStyle(.plain).foregroundStyle(.secondary).help("Close")
+                .buttonStyle(.hitTarget).foregroundStyle(.secondary).help("Close")
                 Button("Paste") {
                     text = NSPasteboard.general.string(forType: .string) ?? ""
                 }

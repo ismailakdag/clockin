@@ -18,7 +18,7 @@ struct GuideView: View {
                 }
                 Spacer()
                 Button { dismiss() } label: { Image(systemName: "xmark").frame(width: S(28), height: S(28)) }
-                    .buttonStyle(.plain).foregroundStyle(.secondary)
+                    .buttonStyle(.hitTarget).foregroundStyle(.secondary)
             }
             .padding(.horizontal, S(16)).frame(height: S(58))
             .overlay(alignment: .bottom) { Divider().opacity(0.25) }

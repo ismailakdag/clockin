@@ -159,7 +159,7 @@ struct ShareStatsView: View {
                         .font(.system(size: S(9))).foregroundStyle(.secondary)
                 }
                 Spacer()
-                Button(action: { dismiss() }) { Image(systemName: "xmark").frame(width: S(26), height: S(26)) }.buttonStyle(.plain)
+                Button(action: { dismiss() }) { Image(systemName: "xmark").frame(width: S(26), height: S(26)) }.buttonStyle(.hitTarget)
             }
             .padding(.horizontal, S(15)).frame(height: S(54))
             .overlay(alignment: .bottom) { Divider().opacity(0.25) }
@@ -172,11 +172,11 @@ struct ShareStatsView: View {
 
             HStack(spacing: S(12)) {
                 Button { page = max(0, page - 1) } label: { Image(systemName: "chevron.left") }
-                    .buttonStyle(.plain).disabled(page == 0)
+                    .buttonStyle(.hitTarget).disabled(page == 0)
                 Text("PAGE \(page + 1) / 3 • \(["OVERVIEW", "RHYTHM", "MILESTONES"][page])")
                     .font(.system(size: S(9), weight: .bold, design: .monospaced)).foregroundStyle(theme.accent)
                 Button { page = min(2, page + 1) } label: { Image(systemName: "chevron.right") }
-                    .buttonStyle(.plain).disabled(page == 2)
+                    .buttonStyle(.hitTarget).disabled(page == 2)
             }
             .padding(.top, S(9))
 

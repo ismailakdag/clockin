@@ -186,7 +186,7 @@ struct HeatmapView: View {
         HStack {
             Button(action: onBack) {
                 Image(systemName: "chevron.left").frame(width: S(26), height: S(26))
-            }.buttonStyle(.plain)
+            }.buttonStyle(.hitTarget)
             Text("WORK HEATMAP")
                 .font(.system(size: S(13), weight: .black, design: theme.fontDesign))
                 .tracking(S(1.2))
@@ -310,9 +310,9 @@ struct HeatmapView: View {
             Text("PAN").font(.system(size: S(7), weight: .bold)).foregroundStyle(.tertiary).tracking(S(0.8))
             Spacer()
             Button("Start") { proxy.scrollTo(firstID, anchor: .leading) }
-                .buttonStyle(.plain).font(.system(size: S(8), weight: .semibold)).foregroundStyle(.secondary)
+                .buttonStyle(.hitTarget).font(.system(size: S(8), weight: .semibold)).foregroundStyle(.secondary)
             Button("Today") { proxy.scrollTo(lastID, anchor: .trailing) }
-                .buttonStyle(.plain).font(.system(size: S(8), weight: .bold)).foregroundStyle(theme.accent)
+                .buttonStyle(.hitTarget).font(.system(size: S(8), weight: .bold)).foregroundStyle(theme.accent)
         }
     }
 

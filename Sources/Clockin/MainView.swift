@@ -173,14 +173,14 @@ struct MainView: View {
                         .font(.system(size: S(9), weight: .bold, design: .monospaced))
                         .frame(width: S(52), height: S(28))
                 }
-                .buttonStyle(.plain).foregroundStyle(theme.accent)
+                .buttonStyle(.hitTarget).foregroundStyle(theme.accent)
                 .help("Progress • \(stats.xp) XP • streaks • mascot • records")
                 headerIcon("gearshape.fill", help: "Settings") { showSettings = true }
                 Button { store.setPinned(!store.pinVisible) } label: {
                     Image(systemName: store.pinVisible ? "pin.fill" : "pin")
                         .frame(width: S(28), height: S(28))
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.hitTarget)
                 .foregroundStyle(store.pinVisible ? theme.accent : .secondary)
                 .help(store.pinVisible ? "Hide floating timer" : "Pin timer to desktop")
             }
@@ -197,7 +197,7 @@ struct MainView: View {
         Button(action: action) {
             Image(systemName: systemName).frame(width: S(28), height: S(28))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.hitTarget)
         .foregroundStyle(color)
         .help(help)
     }
@@ -307,7 +307,7 @@ struct MainView: View {
                     Label("Cancel session", systemImage: "xmark")
                         .font(.system(size: S(10), weight: .medium))
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.hitTarget)
                 .foregroundStyle(.secondary)
             }
         } else {
@@ -324,7 +324,7 @@ struct MainView: View {
                     Label("Start with elapsed time", systemImage: "clock.arrow.circlepath")
                         .font(.system(size: S(10), weight: .semibold))
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.hitTarget)
                 .foregroundStyle(.secondary)
             }
         }
@@ -477,7 +477,7 @@ struct MainView: View {
                 Spacer()
                 if !store.sessions.isEmpty {
                     Button("View all") { showHistory = true }
-                        .buttonStyle(.plain).font(.system(size: S(10), weight: .semibold)).foregroundStyle(theme.accent)
+                        .buttonStyle(.hitTarget).font(.system(size: S(10), weight: .semibold)).foregroundStyle(theme.accent)
                 }
             }
             if store.sessions.isEmpty {
@@ -567,7 +567,7 @@ struct MainView: View {
                 }
                 Spacer()
                 Button("Manage") { showRateSchedule = true }
-                    .buttonStyle(.plain).font(.system(size: S(10), weight: .bold)).foregroundStyle(theme.accent)
+                    .buttonStyle(.hitTarget).font(.system(size: S(10), weight: .bold)).foregroundStyle(theme.accent)
             }
             .padding(S(10))
             .background(cardBackground)
@@ -604,7 +604,7 @@ struct MainView: View {
                 Button { FocusChimeController.shared.playPreview() } label: {
                     Image(systemName: "speaker.wave.3.fill").foregroundStyle(theme.accent)
                 }
-                .buttonStyle(.plain).help("Play selected sound")
+                .buttonStyle(.hitTarget).help("Play selected sound")
             }
             .padding(S(10))
             .background(cardBackground)
@@ -642,7 +642,7 @@ struct MainView: View {
                 Button { FocusChimeController.shared.playPreview() } label: {
                     Image(systemName: "play.circle").foregroundStyle(.secondary)
                 }
-                .buttonStyle(.plain).help("Test sound")
+                .buttonStyle(.hitTarget).help("Test sound")
                 Toggle("", isOn: $chimeEnabled).labelsHidden().toggleStyle(.switch)
                     .onChange(of: chimeEnabled) { _, _ in FocusChimeController.shared.settingChanged() }
             }
@@ -674,7 +674,7 @@ struct MainView: View {
                 .foregroundStyle(.tertiary)
             Spacer()
             Button("Quit") { NSApplication.shared.terminate(nil) }
-                .buttonStyle(.plain)
+                .buttonStyle(.hitTarget)
                 .font(.system(size: S(10)))
                 .foregroundStyle(.secondary)
         }

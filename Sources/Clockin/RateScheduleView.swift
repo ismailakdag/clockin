@@ -121,7 +121,7 @@ private struct RateRuleRow: View {
             Button { store.deleteRateRule(id: rule.id) } label: {
                 Image(systemName: "trash").foregroundStyle(canDelete ? .secondary : .tertiary)
             }
-            .buttonStyle(.plain).disabled(!canDelete)
+            .buttonStyle(.hitTarget).disabled(!canDelete)
         }
         .padding(S(11))
         .background(theme.surface, in: RoundedRectangle(cornerRadius: S(10)))

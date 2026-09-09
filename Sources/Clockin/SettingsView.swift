@@ -84,7 +84,7 @@ struct SettingsView: View {
 
     private var header: some View {
         HStack {
-            Button(action: onBack) { Image(systemName: "chevron.left").frame(width: S(26), height: S(26)) }.buttonStyle(.plain)
+            Button(action: onBack) { Image(systemName: "chevron.left").frame(width: S(26), height: S(26)) }.buttonStyle(.hitTarget)
             Text("SETTINGS").font(.system(size: S(13), weight: .black, design: theme.fontDesign)).tracking(S(1.3))
             Spacer()
         }
@@ -117,7 +117,7 @@ struct SettingsView: View {
                         .font(.system(size: S(9))).foregroundStyle(.secondary)
                 }
                 Spacer()
-                Button("Manage") { showRateSchedule = true }.buttonStyle(.plain).foregroundStyle(theme.accent)
+                Button("Manage") { showRateSchedule = true }.buttonStyle(.hitTarget).foregroundStyle(theme.accent)
             }.padding(S(10)).background(card)
         }
     }
@@ -135,7 +135,7 @@ struct SettingsView: View {
                     ProgressView().controlSize(.small)
                 } else {
                     Button("Check now") { Task { await updates.check() } }
-                        .buttonStyle(.plain).foregroundStyle(theme.accent)
+                        .buttonStyle(.hitTarget).foregroundStyle(theme.accent)
                         .font(.system(size: S(10), weight: .bold))
                 }
             }
@@ -244,7 +244,7 @@ struct SettingsView: View {
                         store.setPinned(false)
                         MainWindowController.shared.hide()
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.hitTarget)
                     .foregroundStyle(theme.accent)
                 }
                 .padding(.horizontal, S(10))
@@ -348,7 +348,7 @@ struct SettingsView: View {
                 Slider(value: $chimeVolume, in: 0.1...1).tint(theme.accent)
                 Text("\(Int(chimeVolume * 100))%").font(.system(size: S(9), design: .monospaced)).frame(width: S(34))
                 Button { FocusChimeController.shared.playPreview() } label: { Image(systemName: "play.circle.fill") }
-                    .buttonStyle(.plain).foregroundStyle(theme.accent).help("Test sound")
+                    .buttonStyle(.hitTarget).foregroundStyle(theme.accent).help("Test sound")
             }.padding(S(10)).background(card)
         }
     }
@@ -375,7 +375,7 @@ struct SettingsView: View {
                 }
                 Spacer()
                 Button("Restore latest") { confirmRestore = true }
-                    .buttonStyle(.plain).foregroundStyle(theme.accent)
+                    .buttonStyle(.hitTarget).foregroundStyle(theme.accent)
                     .disabled(store.latestBackupDate == nil)
             }.padding(S(10)).background(card)
             if let message = store.statusMessage { Text(message).font(.system(size: S(9))).foregroundStyle(.secondary) }

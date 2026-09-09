@@ -249,7 +249,7 @@ struct PinnedTimerView: View {
                 Image(systemName: radio.isPlaying ? "music.note.list" : "music.note").foregroundStyle(radio.isPlaying ? theme.accent : .secondary)
                 Text(radio.isPlaying ? "FOCUS RADIO ON" : "FOCUS RADIO OFF").font(.system(size: 8, weight: .bold, design: .monospaced))
                 Spacer()
-                Button { if radio.isPlaying { radio.stop() } else { radio.play(station: radio.stations[0]) } } label: { Image(systemName: radio.isPlaying ? "stop.fill" : "play.fill") }.buttonStyle(.plain)
+                Button { if radio.isPlaying { radio.stop() } else { radio.play(station: radio.stations[0]) } } label: { Image(systemName: radio.isPlaying ? "stop.fill" : "play.fill") }.buttonStyle(.hitTarget)
                 Slider(value: $radio.volume, in: 0...1).frame(width: 65).tint(theme.accent)
             }
         }

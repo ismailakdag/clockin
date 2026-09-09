@@ -42,7 +42,7 @@ struct ManualStartView: View {
                         .font(.system(size: S(10))).foregroundStyle(.secondary)
                 }
                 Spacer()
-                Button("Cancel") { dismiss() }.buttonStyle(.plain).foregroundStyle(.secondary)
+                Button("Cancel") { dismiss() }.buttonStyle(.hitTarget).foregroundStyle(.secondary)
                 Button("Start") {
                     store.clockIn(elapsed: elapsed, note: note)
                     dismiss()
