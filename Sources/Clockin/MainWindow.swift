@@ -35,7 +35,10 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             window.title = "Clockin"
             window.titlebarAppearsTransparent = true
             window.titleVisibility = .hidden
-            window.isMovableByWindowBackground = true
+            // Normal bir pencere gibi yalnizca baslik seridinden surukleensin.
+            // Acikken govdenin herhangi bir yerinden tutmak pencereyi
+            // kaydiriyordu ve isabet etmeyen tiklamalar surukleme sayiliyordu.
+            window.isMovableByWindowBackground = false
             window.isReleasedWhenClosed = false
             window.backgroundColor = NSColor(red: 0.055, green: 0.065, blue: 0.08, alpha: 1)
             // En kucuk boyut orana gore belirlenir; ustunde serbest buyur.
