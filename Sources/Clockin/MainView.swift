@@ -69,7 +69,7 @@ struct MainView: View {
     }
 
     var body: some View {
-        VStack(spacing: S(0)) {
+        Group {
             Group {
                 switch tab {
                 case .dashboard:
@@ -95,7 +95,13 @@ struct MainView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-
+        }
+        // Cubugu yigina koymak yerine ustune bindirir. `.ultraThinMaterial`
+        // arkasindakini bulaniklastirdigi icin, icerigin altindan gecmesi
+        // gerekiyor; yigin duzeninde arkada yalnizca duz zemin kaliyordu.
+        // safeAreaInset ayrica kaydirilan icerige alt bosluk ekler, boylece
+        // son satirlar cubugun altinda kalici olarak gizlenmez.
+        .safeAreaInset(edge: .bottom, spacing: S(0)) {
             MainTabBar(selection: $tab, theme: theme)
         }
         // Pencerenin kok gorunumu. En kucuk olcu bildirilmezse NSHostingView
