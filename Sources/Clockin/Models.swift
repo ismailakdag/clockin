@@ -81,12 +81,10 @@ enum DurationText {
 }
 
 extension Double {
+    /// Ekranda saniyede onlarca kez cagriliyor. `NumberFormatter` her
+    /// cagrida yeniden kuruluyordu; `FormatStyle` deger tipi oldugu icin
+    /// ayni ciktiyi kurulum maliyeti olmadan uretir.
     func money(code: String, maxFractionDigits: Int = 2) -> String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .currency
-        formatter.currencyCode = code
-        formatter.minimumFractionDigits = 2
-        formatter.maximumFractionDigits = maxFractionDigits
-        return formatter.string(from: NSNumber(value: self)) ?? String(format: "%.2f %@", self, code)
+        formatted(.currency(code: code).precision(.fractionLength(2...maxFractionDigits)))
     }
 }

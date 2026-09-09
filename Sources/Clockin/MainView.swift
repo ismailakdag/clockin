@@ -242,7 +242,7 @@ struct MainView: View {
     }
 
     private var moneyMomentum: some View {
-        let perSecond = store.hourlyRate / 3600
+        let perSecond = store.effectiveRate(at: now, fallback: store.hourlyRate) / 3600
         let current = store.currentEarnings(at: now)
         let milestone = max(10, ceil(max(current, 0.01) / 10) * 10)
         let progress = current.truncatingRemainder(dividingBy: 10) / 10

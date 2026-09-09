@@ -163,7 +163,7 @@ struct PinnedTimerView: View {
         let usd = store.currentEarnings(at: now)
         let rate = exchangeRates.latestRate
         let isEarning = store.running?.isPaused == false
-        let perSecond = isEarning ? store.hourlyRate / 3600 : 0
+        let perSecond = isEarning ? store.effectiveRate(at: now, fallback: store.hourlyRate) / 3600 : 0
         return VStack(spacing: 8) {
             HStack {
                 HStack(spacing: 7) {
@@ -213,7 +213,7 @@ struct PinnedTimerView: View {
         let earning = store.currentEarnings(at: now)
         let rate = exchangeRates.latestRate
         let active = store.running?.isPaused == false
-        let perSecond = active ? store.hourlyRate / 3600 : 0
+        let perSecond = active ? store.effectiveRate(at: now, fallback: store.hourlyRate) / 3600 : 0
         let day = store.todayDuration(at: now) / 3600
         let month = store.monthDuration(at: now) / 3600
         return VStack(alignment: .leading, spacing: 10) {

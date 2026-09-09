@@ -38,7 +38,7 @@ struct ManualStartView: View {
                 VStack(alignment: .leading, spacing: S(3)) {
                     Text("Starts at \(inferredStart.formatted(date: .omitted, time: .shortened))")
                         .font(.system(size: S(11), weight: .semibold))
-                    Text("Initial earnings: \((elapsed / 3600 * store.hourlyRate).money(code: store.currencyCode))")
+                    Text("Initial earnings: \((elapsed / 3600 * store.effectiveRate(at: .now, fallback: store.hourlyRate)).money(code: store.currencyCode))")
                         .font(.system(size: S(10))).foregroundStyle(.secondary)
                 }
                 Spacer()

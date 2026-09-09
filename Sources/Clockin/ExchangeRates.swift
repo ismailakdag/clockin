@@ -61,6 +61,11 @@ final class ExchangeRateStore: ObservableObject {
                 ratesByDay[latest.actualDay] = latest.rate
                 fetchedLatest = true
                 lastSuccessfulCheck = Date()
+            } else if Task.isCancelled {
+                // Iptal bir ag hatasi degil. Bu is `.task(id:)` icinde kosuyor
+                // ve oturum sayisi her clock out veya ice aktarmada degistigi
+                // icin iptal rutin bir olay; hata olarak raporlanmamali.
+                return
             } else {
                 liveCheckFailed = true
             }
@@ -69,6 +74,9 @@ final class ExchangeRateStore: ObservableObject {
         // Only fetch days that actually contain earnings. Small concurrent
         // batches keep full-page imports quick without flooding the free API.
         for offset in stride(from: 0, to: missingDays.count, by: 6) {
+            // Onbellek bostayken bu dongu yuzlerce gun icin onlarca tur doner;
+            // iptal edildiginde devam etmesinin anlami yok.
+            if Task.isCancelled { return }
             let batch = Array(missingDays[offset..<min(offset + 6, missingDays.count)])
             await withTaskGroup(of: (requestedDay: String, actualDay: String, rate: Double)?.self) { group in
                 for day in batch {
@@ -83,6 +91,7 @@ final class ExchangeRateStore: ObservableObject {
             }
             persistCache()
         }
+        if Task.isCancelled { return }
         latestDate = ratesByDay.keys.max()
         let stillMissing = requestedDays.contains { ratesByDay[$0] == nil }
         if ratesByDay.isEmpty {

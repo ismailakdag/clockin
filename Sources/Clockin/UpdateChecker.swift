@@ -60,6 +60,7 @@ final class UpdateChecker: ObservableObject {
             state = .unknown
             return
         }
+        let previous = state
         state = .checking
         let url = URL(string: "https://api.github.com/repos/\(Self.repository)/compare/\(base)...main")!
         var request = URLRequest(url: url, timeoutInterval: 15)
@@ -84,6 +85,12 @@ final class UpdateChecker: ObservableObject {
             lastChecked = Date()
             state = parsed.ahead_by > 0 ? .behind(parsed.ahead_by) : .upToDate
         } catch {
+            // Bu is Ayarlar'in `.task`'inda kosuyor; ekrandan cikmak onu iptal
+            // eder ve iptal bir ag hatasi degil.
+            if Task.isCancelled {
+                state = previous
+                return
+            }
             state = .failed(error.localizedDescription)
         }
     }
