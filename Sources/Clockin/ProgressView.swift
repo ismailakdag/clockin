@@ -31,7 +31,6 @@ struct ProgressDashboardView: View {
     @State private var now = Date()
     @State private var showShareStats = false
     @State private var selectedBadge: ProgressBadge?
-    let onBack: () -> Void
     private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
     private var theme: ClockinPalette { ClockinThemeChoice.selected(themeRaw).palette }
 
@@ -107,7 +106,7 @@ struct ProgressDashboardView: View {
 
     var body: some View {
         VStack(spacing: S(0)) {
-            HStack { Button(action: onBack) { Image(systemName: "chevron.left").frame(width: S(26), height: S(26)) }.buttonStyle(.hitTarget); Text("PROGRESS").font(.system(size: S(13), weight: .black)).tracking(S(1.3)); Spacer(); Button { showShareStats = true } label: { Image(systemName: "square.and.arrow.up").frame(width: S(28), height: S(28)) }.buttonStyle(.hitTarget).foregroundStyle(theme.accent).help("Share stats") }
+            HStack { Text("PROGRESS").font(.system(size: S(13), weight: .black)).tracking(S(1.3)); Spacer(); Button { showShareStats = true } label: { Image(systemName: "square.and.arrow.up").frame(width: S(28), height: S(28)) }.buttonStyle(.hitTarget).foregroundStyle(theme.accent).help("Share stats") }
                 .padding(.horizontal, S(15)).frame(height: S(50)).overlay(alignment: .bottom) { Divider().opacity(0.25) }
             Picker("", selection: $tab) { Text("Overview").tag(0); Text("Badges").tag(1); Text("Records").tag(2); Text("Weekly").tag(3); Text("Reports").tag(4) }.pickerStyle(.segmented).padding(S(16))
             ScrollView { Group { if tab == 0 { overview } else if tab == 1 { badges } else if tab == 2 { records } else if tab == 3 { weekly } else { reports } }.padding(.horizontal, S(16)).padding(.bottom, S(16)) }

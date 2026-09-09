@@ -7,11 +7,8 @@ struct MainView: View {
     @EnvironmentObject private var exchangeRates: ExchangeRateStore
     @State private var now = Date()
     @State private var rateText = ""
-    @State private var showHistory = false
-    @State private var showHeatmap = false
-    @State private var showSettings = false
+    @State private var tab: MainTab = .dashboard
     @State private var showGuide = false
-    @State private var showProgress = false
     @State private var showPasteImporter = false
     @State private var showCSVComparison = false
     @State private var csvPreviewSessions: [WorkSession] = []
@@ -72,33 +69,34 @@ struct MainView: View {
     }
 
     var body: some View {
-        Group {
-            if showHistory {
-                HistoryView { showHistory = false }
-            } else if showHeatmap {
-                HeatmapView { showHeatmap = false }
-            } else if showSettings {
-                SettingsView { showSettings = false }
-                    .environmentObject(exchangeRates)
-            } else if showProgress {
-                ProgressDashboardView { showProgress = false }
-            } else {
-                VStack(spacing: S(0)) {
-                    header
-                    ScrollView {
-                        VStack(spacing: S(14)) {
-                            timerCard
-                            if mascotEnabled { mascotCard }
-                            todayCard
-                            goalsCard
-                            exchangeCard
-                            recentSection
-                            footer
+        VStack(spacing: S(0)) {
+            Group {
+                switch tab {
+                case .dashboard:
+                    VStack(spacing: S(0)) {
+                        header
+                        ScrollView {
+                            VStack(spacing: S(14)) {
+                                timerCard
+                                if mascotEnabled { mascotCard }
+                                todayCard
+                                goalsCard
+                                exchangeCard
+                                recentSection
+                                footer
+                            }
+                            .padding(S(16))
                         }
-                        .padding(S(16))
                     }
+                case .history:  HistoryView()
+                case .heatmap:  HeatmapView()
+                case .progress: ProgressDashboardView()
+                case .settings: SettingsView().environmentObject(exchangeRates)
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            MainTabBar(selection: $tab, theme: theme)
         }
         // Pencerenin kok gorunumu. En kucuk olcu bildirilmezse NSHostingView
         // ideal boyutu sifir sanip pencereyi cokertiyor.
@@ -161,21 +159,13 @@ struct MainView: View {
             }
             Spacer()
             HStack(spacing: S(2)) {
-                headerIcon("chart.bar.xaxis", help: "Earnings history") { showHistory = true }
-                headerIcon("square.grid.3x3.fill", help: "Work heatmap") { showHeatmap = true }
+                // Gecmis, heatmap, progress ve ayarlar artik alt cubukta.
+                Label("LV \(stats.level)", systemImage: "trophy.fill")
+                    .font(.system(size: S(9), weight: .bold, design: .monospaced))
+                    .foregroundStyle(theme.accent)
+                    .frame(height: S(28))
+                    .help("Level \(stats.level) • \(stats.xp) XP")
                 headerIcon("questionmark.circle", help: "How to use Clockin") { showGuide = true }
-            }
-            .padding(S(3))
-            .background(theme.surface, in: RoundedRectangle(cornerRadius: S(9), style: .continuous))
-            HStack(spacing: S(2)) {
-                Button { showProgress = true } label: {
-                    Label("LV \(stats.level)", systemImage: "trophy.fill")
-                        .font(.system(size: S(9), weight: .bold, design: .monospaced))
-                        .frame(width: S(52), height: S(28))
-                }
-                .buttonStyle(.hitTarget).foregroundStyle(theme.accent)
-                .help("Progress • \(stats.xp) XP • streaks • mascot • records")
-                headerIcon("gearshape.fill", help: "Settings") { showSettings = true }
                 Button { store.setPinned(!store.pinVisible) } label: {
                     Image(systemName: store.pinVisible ? "pin.fill" : "pin")
                         .frame(width: S(28), height: S(28))
@@ -476,7 +466,7 @@ struct MainView: View {
                 sectionTitle("RECENT SESSIONS")
                 Spacer()
                 if !store.sessions.isEmpty {
-                    Button("View all") { showHistory = true }
+                    Button("View all") { tab = .history }
                         .buttonStyle(.hitTarget).font(.system(size: S(10), weight: .semibold)).foregroundStyle(theme.accent)
                 }
             }

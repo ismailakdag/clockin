@@ -30,7 +30,6 @@ struct HistoryView: View {
     @AppStorage("Clockin.HistoryGroupByDay") private var groupByDay = true
     @State private var expandedDays: Set<Date> = []
     @AppStorage("Clockin.Theme") private var themeRaw = ClockinThemeChoice.carbon.rawValue
-    let onBack: () -> Void
     private var theme: ClockinPalette { ClockinThemeChoice.selected(themeRaw).palette }
     private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
@@ -89,8 +88,6 @@ struct HistoryView: View {
 
     private var header: some View {
         HStack {
-            Button(action: onBack) { Image(systemName: "chevron.left").frame(width: S(26), height: S(26)) }
-                .buttonStyle(.hitTarget)
             Text("EARNINGS HISTORY").font(.system(size: S(13), weight: .black, design: .rounded)).tracking(S(1.3))
             Spacer()
             Button(showTRY ? "TRY" : "USD") { showTRY.toggle() }

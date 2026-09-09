@@ -22,7 +22,6 @@ struct HeatmapView: View {
     @State private var hoveredDate: Date?
     @State private var cachedStats: [Date: DayStats] = [:]
     @State private var cachedAggregateStats: [Date: DayStats] = [:]
-    let onBack: () -> Void
 
     private let calendar: Calendar = {
         var value = Calendar.autoupdatingCurrent
@@ -184,9 +183,6 @@ struct HeatmapView: View {
 
     private var header: some View {
         HStack {
-            Button(action: onBack) {
-                Image(systemName: "chevron.left").frame(width: S(26), height: S(26))
-            }.buttonStyle(.hitTarget)
             Text("WORK HEATMAP")
                 .font(.system(size: S(13), weight: .black, design: theme.fontDesign))
                 .tracking(S(1.2))

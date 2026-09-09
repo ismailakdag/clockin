@@ -33,7 +33,6 @@ struct SettingsView: View {
     @State private var confirmRestore = false
     @StateObject private var updates = UpdateChecker.shared
     @AppStorage("Clockin.AutoCheckUpdates") private var autoCheckUpdates = true
-    let onBack: () -> Void
 
     private var theme: ClockinPalette { ClockinThemeChoice.selected(themeRaw).palette }
 
@@ -84,7 +83,6 @@ struct SettingsView: View {
 
     private var header: some View {
         HStack {
-            Button(action: onBack) { Image(systemName: "chevron.left").frame(width: S(26), height: S(26)) }.buttonStyle(.hitTarget)
             Text("SETTINGS").font(.system(size: S(13), weight: .black, design: theme.fontDesign)).tracking(S(1.3))
             Spacer()
         }
