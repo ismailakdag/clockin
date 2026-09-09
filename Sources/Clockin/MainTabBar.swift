@@ -36,6 +36,9 @@ struct MainTabBar: View {
     @Binding var selection: MainTab
     let theme: ClockinPalette
 
+    /// Secim gostergesinin sekmeler arasinda kaymasi icin ortak alan.
+    @Namespace private var indicator
+
     var body: some View {
         HStack(spacing: S(0)) {
             ForEach(MainTab.allCases) { tab in
@@ -43,27 +46,46 @@ struct MainTabBar: View {
             }
         }
         .frame(maxWidth: .infinity)
+        .padding(.horizontal, S(6))
         .padding(.top, S(6))
         .padding(.bottom, S(7))
-        .background(.ultraThinMaterial)
-        .overlay(alignment: .top) { Divider().opacity(0.35) }
+        // Malzemenin kendisi zaten en seffaf olani; opaklgi biraz daha
+        // dusurmek arkadaki icerigi daha fazla gecirir.
+        .background {
+            Rectangle().fill(.ultraThinMaterial).opacity(0.78)
+        }
+        .overlay(alignment: .top) { Divider().opacity(0.22) }
     }
 
     private func item(_ tab: MainTab) -> some View {
         let isOn = selection == tab
         return Button {
-            selection = tab
+            withAnimation(.snappy(duration: 0.22)) { selection = tab }
         } label: {
             VStack(spacing: S(3)) {
                 Image(systemName: tab.symbol)
                     .font(.system(size: S(15), weight: isOn ? .semibold : .regular))
+                    .scaleEffect(isOn ? 1.06 : 1)
                 Text(tab.title)
                     .font(.system(size: S(8), weight: isOn ? .bold : .medium))
                     .lineLimit(1)
             }
             .foregroundStyle(isOn ? theme.accent : .secondary)
             .frame(maxWidth: .infinity)
-            .padding(.vertical, S(3))
+            .padding(.vertical, S(5))
+            .background {
+                if isOn {
+                    RoundedRectangle(cornerRadius: S(10), style: .continuous)
+                        .fill(theme.accent.opacity(0.16))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: S(10), style: .continuous)
+                                .stroke(theme.accent.opacity(0.30), lineWidth: 1)
+                        }
+                        // Ayni kimlik sayesinde gosterge silinip yeniden
+                        // cizilmek yerine yeni sekmeye kayar.
+                        .matchedGeometryEffect(id: "selection", in: indicator)
+                }
+            }
         }
         .buttonStyle(.hitTarget)
         .help(tab.title)

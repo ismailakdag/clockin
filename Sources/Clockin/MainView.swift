@@ -95,6 +95,11 @@ struct MainView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            // Sekme degisiminde ekranlar aninda takla atmasin diye kisa bir
+            // capraz gecis. `id` olmadan SwiftUI govdeyi ayni gorunum sanip
+            // gecisi uygulamiyor.
+            .id(tab)
+            .transition(.opacity)
         }
         // Cubugu yigina koymak yerine ustune bindirir. `.ultraThinMaterial`
         // arkasindakini bulaniklastirdigi icin, icerigin altindan gecmesi
