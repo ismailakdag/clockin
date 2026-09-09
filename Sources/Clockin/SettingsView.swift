@@ -6,7 +6,7 @@ struct SettingsView: View {
     @EnvironmentObject private var store: ClockStore
     @EnvironmentObject private var exchangeRates: ExchangeRateStore
     @AppStorage("Clockin.Theme") private var themeRaw = ClockinThemeChoice.carbon.rawValue
-    @AppStorage(UIScale.key) private var uiScale = 1.0
+    @AppStorage(UIScale.key) private var uiScale = UIScale.defaultPercent
     @AppStorage("Clockin.PinnedMode") private var pinnedMode = "Money"
     @AppStorage("Clockin.ChimeEnabled") private var chimeEnabled = false
     @AppStorage("Clockin.ChimeSound") private var chimeSound = "Glass"
@@ -205,7 +205,7 @@ struct SettingsView: View {
                 }
                 Spacer()
                 Picker("", selection: $uiScale) {
-                    ForEach(UIScale.options, id: \.value) { Text($0.label).tag($0.value) }
+                    ForEach(UIScale.options, id: \.self) { Text(UIScale.label(for: $0)).tag($0) }
                 }
                 .labelsHidden().frame(width: S(140))
                 .onChange(of: uiScale) { _, _ in MainWindowController.shared.applyScale() }

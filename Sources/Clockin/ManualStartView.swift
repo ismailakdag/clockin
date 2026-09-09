@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct ManualStartView: View {
-    @AppStorage(UIScale.key) private var uiScaleObserver = 1.0
+    @AppStorage(UIScale.key) private var uiScaleObserver = UIScale.defaultPercent
     @EnvironmentObject private var store: ClockStore
     @Environment(\.dismiss) private var dismiss
     @State private var hours = 0

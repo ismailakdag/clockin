@@ -32,7 +32,7 @@ enum MainTab: String, CaseIterable, Identifiable {
 }
 
 struct MainTabBar: View {
-    @AppStorage(UIScale.key) private var uiScaleObserver = 1.0
+    @AppStorage(UIScale.key) private var uiScaleObserver = UIScale.defaultPercent
     @Binding var selection: MainTab
     let theme: ClockinPalette
 

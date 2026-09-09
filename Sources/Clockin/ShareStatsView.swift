@@ -37,7 +37,7 @@ private struct ShareStatsSnapshot {
 }
 
 struct ShareStatsView: View {
-    @AppStorage(UIScale.key) private var uiScaleObserver = 1.0
+    @AppStorage(UIScale.key) private var uiScaleObserver = UIScale.defaultPercent
     @EnvironmentObject private var store: ClockStore
     @EnvironmentObject private var exchangeRates: ExchangeRateStore
     @Environment(\.dismiss) private var dismiss

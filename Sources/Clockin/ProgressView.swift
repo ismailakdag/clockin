@@ -21,7 +21,7 @@ private struct ProgressBadge: Identifiable {
 }
 
 struct ProgressDashboardView: View {
-    @AppStorage(UIScale.key) private var uiScaleObserver = 1.0
+    @AppStorage(UIScale.key) private var uiScaleObserver = UIScale.defaultPercent
     @EnvironmentObject private var store: ClockStore
     @AppStorage("Clockin.Theme") private var themeRaw = ClockinThemeChoice.carbon.rawValue
     @AppStorage("Clockin.MascotEnabled") private var mascotEnabled = true

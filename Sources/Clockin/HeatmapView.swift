@@ -8,7 +8,7 @@ private enum HeatmapRange: String, CaseIterable, Identifiable {
 }
 
 struct HeatmapView: View {
-    @AppStorage(UIScale.key) private var uiScaleObserver = 1.0
+    @AppStorage(UIScale.key) private var uiScaleObserver = UIScale.defaultPercent
     private struct DayStats {
         var duration: TimeInterval = 0
         var earnings: Double = 0

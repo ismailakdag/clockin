@@ -3,7 +3,7 @@ import SwiftUI
 import Combine
 
 struct ClockinMascotImage: View {
-    @AppStorage(UIScale.key) private var uiScaleObserver = 1.0
+    @AppStorage(UIScale.key) private var uiScaleObserver = UIScale.defaultPercent
     let asset: String
     var body: some View {
         Group {

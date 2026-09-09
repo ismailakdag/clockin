@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct SessionSummaryView: View {
-    @AppStorage(UIScale.key) private var uiScaleObserver = 1.0
+    @AppStorage(UIScale.key) private var uiScaleObserver = UIScale.defaultPercent
     let session: WorkSession
     @EnvironmentObject private var store: ClockStore
     @Environment(\.dismiss) private var dismiss
