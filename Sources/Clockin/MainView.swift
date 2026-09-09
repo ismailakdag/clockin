@@ -162,7 +162,9 @@ struct MainView: View {
     private var header: some View {
         // Tek kez hesaplanip iki yerde kullanilir (LV rozeti ve help metni).
         let stats = progressStats
-        return HStack {
+        // Varsayilan bosluk olcekle buyumez; %130'da diger her sey buyurken
+        // bu aralik sabit kalirdi.
+        return HStack(spacing: S(8)) {
             HStack(spacing: S(9)) {
                 Image(systemName: "timer")
                     .font(.system(size: S(16), weight: .bold))
@@ -172,13 +174,9 @@ struct MainView: View {
                     .tracking(S(1.8))
             }
             Spacer()
+            levelChip(stats)
             HStack(spacing: S(2)) {
                 // Gecmis, heatmap, progress ve ayarlar artik alt cubukta.
-                Label("LV \(stats.level)", systemImage: "trophy.fill")
-                    .font(.system(size: S(9), weight: .bold, design: .monospaced))
-                    .foregroundStyle(theme.accent)
-                    .frame(height: S(28))
-                    .help("Level \(stats.level) • \(stats.xp) XP")
                 headerIcon("questionmark.circle", help: "How to use Clockin") { showGuide = true }
                 Button { store.setPinned(!store.pinVisible) } label: {
                     Image(systemName: store.pinVisible ? "pin.fill" : "pin")
@@ -195,6 +193,39 @@ struct MainView: View {
         .frame(height: S(50))
         .background(.white.opacity(0.025))
         .overlay(alignment: .bottom) { Divider().opacity(0.25) }
+    }
+
+    /// Seviye rozeti.
+    ///
+    /// Once dugme grubunun kabinin icinde duz bir etiketti: ne dugmeydi ne de
+    /// ayri bir oge, iki ikonun yanina sikismisti. Kendi kapsulune alindi ve
+    /// dolgusu seviye icindeki ilerlemeyi gosteriyor, boylece yer kaplamasinin
+    /// bir karsiligi oluyor.
+    private func levelChip(_ stats: ProgressStats) -> some View {
+        let span = 500
+        let progress = min(max(Double(stats.xp % span) / Double(span), 0), 1)
+        return HStack(spacing: S(5)) {
+            Image(systemName: "trophy.fill")
+                .font(.system(size: S(8)))
+            Text("LV \(stats.level)")
+                .font(.system(size: S(10), weight: .black, design: .monospaced))
+        }
+        .foregroundStyle(theme.accent)
+        .padding(.horizontal, S(9))
+        .frame(height: S(24))
+        .background {
+            ZStack(alignment: .leading) {
+                Capsule(style: .continuous).fill(theme.accent.opacity(0.12))
+                GeometryReader { geo in
+                    Capsule(style: .continuous)
+                        .fill(theme.accent.opacity(0.22))
+                        .frame(width: geo.size.width * progress)
+                }
+            }
+            .clipShape(Capsule(style: .continuous))
+            .overlay { Capsule(style: .continuous).stroke(theme.accent.opacity(0.26), lineWidth: 1) }
+        }
+        .help("Level \(stats.level) • \(stats.xp) XP • \(span - stats.xp % span) XP to next level")
     }
 
     private func headerIcon(_ systemName: String, color: Color = .secondary, help: String, action: @escaping () -> Void) -> some View {
