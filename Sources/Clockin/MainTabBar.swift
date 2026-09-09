@@ -47,14 +47,24 @@ struct MainTabBar: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.horizontal, S(6))
-        .padding(.top, S(6))
-        .padding(.bottom, S(7))
+        .padding(.vertical, S(7))
+        // Kenardan kenara duz bir dikdortgen pencerenin altini sert kesiyordu.
+        // Yuvarlatilmis bir kapsul olarak birakip kenarlardan bosluk vermek
+        // cubugu icerigin uzerinde yuzer gosteriyor.
         // Malzemenin kendisi zaten en seffaf olani; opaklgi biraz daha
         // dusurmek arkadaki icerigi daha fazla gecirir.
         .background {
-            Rectangle().fill(.ultraThinMaterial).opacity(0.78)
+            RoundedRectangle(cornerRadius: S(18), style: .continuous)
+                .fill(.ultraThinMaterial)
+                .opacity(0.85)
+                .overlay {
+                    RoundedRectangle(cornerRadius: S(18), style: .continuous)
+                        .stroke(.white.opacity(0.12), lineWidth: 1)
+                }
+                .shadow(color: .black.opacity(0.20), radius: S(9), y: S(3))
         }
-        .overlay(alignment: .top) { Divider().opacity(0.22) }
+        .padding(.horizontal, S(12))
+        .padding(.bottom, S(10))
     }
 
     private func item(_ tab: MainTab) -> some View {
