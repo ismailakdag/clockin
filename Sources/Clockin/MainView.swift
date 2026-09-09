@@ -95,11 +95,11 @@ struct MainView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            // Sekme degisiminde ekranlar aninda takla atmasin diye kisa bir
-            // capraz gecis. `id` olmadan SwiftUI govdeyi ayni gorunum sanip
-            // gecisi uygulamiyor.
-            .id(tab)
-            .transition(.opacity)
+            // Burada bir capraz gecis denendi ama `.id(tab)` gerektiriyor,
+            // o da her sekme degisiminde ekranin tamamini yikip yeniden
+            // kuruyor. Heatmap ve Gecmis gibi agir ekranlarda bu, gecisin
+            // tam ortasinda kare dusurmeye yol aciyor. Gostergenin kaymasi
+            // degisimi zaten anlatiyor.
         }
         // Cubugu yigina koymak yerine ustune bindirir. `.ultraThinMaterial`
         // arkasindakini bulaniklastirdigi icin, icerigin altindan gecmesi

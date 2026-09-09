@@ -61,7 +61,9 @@ struct MainTabBar: View {
                     RoundedRectangle(cornerRadius: S(18), style: .continuous)
                         .stroke(.white.opacity(0.12), lineWidth: 1)
                 }
-                .shadow(color: .black.opacity(0.20), radius: S(9), y: S(3))
+                // Materyal uzerine golge her karede offscreen bir gecis
+                // zorluyordu. Kenar cizgisi ayrimi zaten veriyor.
+                .shadow(color: .black.opacity(0.14), radius: S(4), y: S(1))
         }
         .padding(.horizontal, S(12))
         .padding(.bottom, S(10))

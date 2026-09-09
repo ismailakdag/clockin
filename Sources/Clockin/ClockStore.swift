@@ -7,6 +7,8 @@ final class ClockStore: ObservableObject {
         didSet {
             cachedSessions = nil
             cachedRateRules = nil
+            cachedTotals = nil
+            cachedByDay = nil
         }
     }
     @Published var statusMessage: String?
@@ -19,6 +21,14 @@ final class ClockStore: ObservableObject {
     /// her okumada yeniden siralama yapilmaz.
     private var cachedSessions: [WorkSession]?
     private var cachedRateRules: [RateRule]?
+    /// Tamamlanmis oturumlarin toplamlari. Ekran saniyede bir yenileniyor ve
+    /// bu degerler tek bir yenilemede alti kez isteniyordu; her biri butun
+    /// oturumlari bastan tariyordu.
+    private var cachedTotals: (duration: TimeInterval, earnings: Double)?
+    /// Gun bazli toplamlar. Gunluk deger sormak icin butun oturumlari
+    /// `isDate(_:inSameDayAs:)` ile suzmek gerekiyordu; takvim
+    /// karsilastirmasi pahalidir ve oturum basina bir kez kosuyordu.
+    private var cachedByDay: [Date: (duration: TimeInterval, earnings: Double)]?
     /// Yedek dizinini her sorguda taramamak icin.
     private var cachedBackupStats: (latest: Date?, count: Int)?
     private var lastAutomaticBackup: Date?
@@ -420,16 +430,29 @@ final class ClockStore: ObservableObject {
         earnings(on: date)
     }
 
+    /// Gun -> (sure, kazanc). Tek gecisde kurulur, `data` degisene kadar durur.
+    private func totalsByDay() -> [Date: (duration: TimeInterval, earnings: Double)] {
+        if let cached = cachedByDay { return cached }
+        var result: [Date: (duration: TimeInterval, earnings: Double)] = [:]
+        for session in data.sessions {
+            let day = calendar.startOfDay(for: session.start)
+            let old = result[day] ?? (0, 0)
+            result[day] = (old.duration + session.duration, old.earnings + earnings(for: session))
+        }
+        cachedByDay = result
+        return result
+    }
+
     func duration(on date: Date) -> TimeInterval {
         let day = calendar.startOfDay(for: date)
-        let completed = data.sessions.filter { calendar.isDate($0.start, inSameDayAs: day) }.reduce(0) { $0 + $1.duration }
+        let completed = totalsByDay()[day]?.duration ?? 0
         let active = data.running.map { calendar.isDate($0.start, inSameDayAs: day) ? $0.elapsed(at: .now) : 0 } ?? 0
         return completed + active
     }
 
     func earnings(on date: Date) -> Double {
         let day = calendar.startOfDay(for: date)
-        let completed = data.sessions.filter { calendar.isDate($0.start, inSameDayAs: day) }.reduce(0) { $0 + earnings(for: $1) }
+        let completed = totalsByDay()[day]?.earnings ?? 0
         let active = data.running.map { calendar.isDate($0.start, inSameDayAs: day) ? currentEarnings(at: .now) : 0 } ?? 0
         return completed + active
     }
@@ -448,8 +471,21 @@ final class ClockStore: ObservableObject {
         return completed + active
     }
 
-    var totalDuration: TimeInterval { data.sessions.reduce(0) { $0 + $1.duration } }
-    var totalEarnings: Double { data.sessions.reduce(0) { $0 + earnings(for: $1) } }
+    private func totals() -> (duration: TimeInterval, earnings: Double) {
+        if let cached = cachedTotals { return cached }
+        var duration: TimeInterval = 0
+        var earned: Double = 0
+        for session in data.sessions {
+            duration += session.duration
+            earned += earnings(for: session)
+        }
+        let result = (duration, earned)
+        cachedTotals = result
+        return result
+    }
+
+    var totalDuration: TimeInterval { totals().duration }
+    var totalEarnings: Double { totals().earnings }
     func allDuration(at date: Date = .now) -> TimeInterval { totalDuration + elapsed(at: date) }
     func allEarnings(at date: Date = .now) -> Double { totalEarnings + currentEarnings(at: date) }
 
