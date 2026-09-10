@@ -85,6 +85,8 @@ extension Double {
     /// cagrida yeniden kuruluyordu; `FormatStyle` deger tipi oldugu icin
     /// ayni ciktiyi kurulum maliyeti olmadan uretir.
     func money(code: String, maxFractionDigits: Int = 2) -> String {
-        formatted(.currency(code: code).precision(.fractionLength(2...maxFractionDigits)))
+        let maximum = max(0, maxFractionDigits)
+        let minimum = min(2, maximum)
+        return formatted(.currency(code: code).precision(.fractionLength(minimum...maximum)))
     }
 }
