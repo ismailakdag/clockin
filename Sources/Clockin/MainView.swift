@@ -13,6 +13,7 @@ struct MainView: View {
     @State private var showCSVComparison = false
     @State private var csvPreviewSessions: [WorkSession] = []
     @State private var showManualStart = false
+    @State private var showManualEntry = false
     @State private var confirmCancel = false
     @State private var showRateSchedule = false
     @State private var completedSummary: WorkSession?
@@ -141,6 +142,9 @@ struct MainView: View {
         }
         .sheet(isPresented: $showManualStart) {
             ManualStartView().environmentObject(store)
+        }
+        .sheet(isPresented: $showManualEntry) {
+            ManualEntryView().environmentObject(store)
         }
         .sheet(isPresented: $showRateSchedule) {
             RateScheduleView().environmentObject(store)
@@ -355,12 +359,20 @@ struct MainView: View {
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(PrimaryButtonStyle(accent: theme.accent))
-                Button { showManualStart = true } label: {
-                    Label("Start with elapsed time", systemImage: "clock.arrow.circlepath")
-                        .font(.system(size: S(10), weight: .semibold))
+                HStack(spacing: S(14)) {
+                    Button { showManualStart = true } label: {
+                        Label("Start with elapsed time", systemImage: "clock.arrow.circlepath")
+                            .font(.system(size: S(10), weight: .semibold))
+                    }
+                    .buttonStyle(.hitTarget)
+                    .foregroundStyle(.secondary)
+                    Button { showManualEntry = true } label: {
+                        Label("Add past entry", systemImage: "plus.circle")
+                            .font(.system(size: S(10), weight: .semibold))
+                    }
+                    .buttonStyle(.hitTarget)
+                    .foregroundStyle(.secondary)
                 }
-                .buttonStyle(.hitTarget)
-                .foregroundStyle(.secondary)
             }
         }
     }

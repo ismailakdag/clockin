@@ -27,6 +27,7 @@ struct HistoryView: View {
     @State private var pendingDelete: WorkSession?
     @State private var hoveredDate: Date?
     @State private var showAllSessions = false
+    @State private var showManualEntry = false
     @AppStorage("Clockin.HistoryGroupByDay") private var groupByDay = true
     @State private var expandedDays: Set<Date> = []
     @AppStorage("Clockin.Theme") private var themeRaw = ClockinThemeChoice.carbon.rawValue
@@ -72,6 +73,9 @@ struct HistoryView: View {
             }
         }
         .fontDesign(theme.fontDesign)
+        .sheet(isPresented: $showManualEntry) {
+            ManualEntryView().environmentObject(store)
+        }
         .alert("Delete this session?", isPresented: Binding(
             get: { pendingDelete != nil },
             set: { if !$0 { pendingDelete = nil } }
@@ -90,6 +94,11 @@ struct HistoryView: View {
         HStack {
             Text("EARNINGS HISTORY").font(.system(size: S(13), weight: .black, design: .rounded)).tracking(S(1.3))
             Spacer()
+            Button { showManualEntry = true } label: {
+                Image(systemName: "plus").frame(width: S(26), height: S(26))
+            }
+            .buttonStyle(.hitTarget).foregroundStyle(theme.accent)
+            .help("Add a past entry by hand")
             Button(showTRY ? "TRY" : "USD") { showTRY.toggle() }
                 .buttonStyle(.hitTarget)
                 .font(.system(size: S(10), weight: .bold, design: .rounded))
