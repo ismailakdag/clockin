@@ -2,16 +2,13 @@ import AppKit
 import SwiftUI
 
 struct MainView: View {
-    @AppStorage(UIScale.key) private var uiScaleObserver = 1.0
+    @AppStorage(UIScale.key) private var uiScaleObserver = UIScale.defaultPercent
     @EnvironmentObject private var store: ClockStore
     @EnvironmentObject private var exchangeRates: ExchangeRateStore
     @State private var now = Date()
     @State private var rateText = ""
-    @State private var showHistory = false
-    @State private var showHeatmap = false
-    @State private var showSettings = false
+    @State private var tab: MainTab = .dashboard
     @State private var showGuide = false
-    @State private var showProgress = false
     @State private var showPasteImporter = false
     @State private var showCSVComparison = false
     @State private var csvPreviewSessions: [WorkSession] = []
@@ -41,8 +38,7 @@ struct MainView: View {
     /// yeniden tariyordu ve header bunu saniyede 14 kez tetikliyordu.
     private var progressStats: ProgressStats {
         let calendar = Calendar.current
-        var daily: [Date: TimeInterval] = [:]
-        for session in store.sessions { daily[calendar.startOfDay(for: session.start), default: 0] += session.duration }
+        var daily = store.dailyDurations
         if let running = store.running { daily[calendar.startOfDay(for: running.start), default: 0] += running.elapsed(at: now) }
 
         let days = daily.keys.sorted()
@@ -73,37 +69,53 @@ struct MainView: View {
 
     var body: some View {
         Group {
-            if showHistory {
-                HistoryView { showHistory = false }
-            } else if showHeatmap {
-                HeatmapView { showHeatmap = false }
-            } else if showSettings {
-                SettingsView { showSettings = false }
-                    .environmentObject(exchangeRates)
-            } else if showProgress {
-                ProgressDashboardView { showProgress = false }
-            } else {
-                VStack(spacing: S(0)) {
-                    header
-                    ScrollView {
-                        VStack(spacing: S(14)) {
-                            timerCard
-                            if mascotEnabled { mascotCard }
-                            todayCard
-                            goalsCard
-                            exchangeCard
-                            recentSection
-                            footer
+            Group {
+                switch tab {
+                case .dashboard:
+                    VStack(spacing: S(0)) {
+                        header
+                        ScrollView {
+                            VStack(spacing: S(14)) {
+                                timerCard
+                                if mascotEnabled { mascotCard }
+                                todayCard
+                                goalsCard
+                                exchangeCard
+                                recentSection
+                                footer
+                            }
+                            .padding(S(16))
                         }
-                        .padding(S(16))
                     }
+                case .history:  HistoryView()
+                case .heatmap:  HeatmapView()
+                case .progress: ProgressDashboardView()
+                case .settings: SettingsView().environmentObject(exchangeRates)
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            // Burada bir capraz gecis denendi ama `.id(tab)` gerektiriyor,
+            // o da her sekme degisiminde ekranin tamamini yikip yeniden
+            // kuruyor. Heatmap ve Gecmis gibi agir ekranlarda bu, gecisin
+            // tam ortasinda kare dusurmeye yol aciyor. Gostergenin kaymasi
+            // degisimi zaten anlatiyor.
+        }
+        // Cubugu yigina koymak yerine ustune bindirir. `.ultraThinMaterial`
+        // arkasindakini bulaniklastirdigi icin, icerigin altindan gecmesi
+        // gerekiyor; yigin duzeninde arkada yalnizca duz zemin kaliyordu.
+        // safeAreaInset ayrica kaydirilan icerige alt bosluk ekler, boylece
+        // son satirlar cubugun altinda kalici olarak gizlenmez.
+        .safeAreaInset(edge: .bottom, spacing: S(0)) {
+            MainTabBar(selection: $tab, theme: theme)
         }
         // Pencerenin kok gorunumu. En kucuk olcu bildirilmezse NSHostingView
         // ideal boyutu sifir sanip pencereyi cokertiyor.
         .frame(minWidth: S(UIScale.base.width), maxWidth: .infinity,
                minHeight: S(UIScale.base.height), maxHeight: .infinity)
+        // Icerik zaten sigiyorsa kaydirma esnemesin. Sabit duran bir
+        // ekranin lastik gibi geri gelmesi bozukluk hissi veriyordu.
+        // Bu degistirici alttaki kaydirma gorunumlerine yayilir.
+        .scrollBounceBehavior(.basedOnSize)
         .background(theme.background)
         .fontDesign(theme.fontDesign)
         .preferredColorScheme(theme.colorScheme)
@@ -150,7 +162,9 @@ struct MainView: View {
     private var header: some View {
         // Tek kez hesaplanip iki yerde kullanilir (LV rozeti ve help metni).
         let stats = progressStats
-        return HStack {
+        // Varsayilan bosluk olcekle buyumez; %130'da diger her sey buyurken
+        // bu aralik sabit kalirdi.
+        return HStack(spacing: S(8)) {
             HStack(spacing: S(9)) {
                 Image(systemName: "timer")
                     .font(.system(size: S(16), weight: .bold))
@@ -160,27 +174,15 @@ struct MainView: View {
                     .tracking(S(1.8))
             }
             Spacer()
+            levelChip(stats)
             HStack(spacing: S(2)) {
-                headerIcon("chart.bar.xaxis", help: "Earnings history") { showHistory = true }
-                headerIcon("square.grid.3x3.fill", help: "Work heatmap") { showHeatmap = true }
+                // Gecmis, heatmap, progress ve ayarlar artik alt cubukta.
                 headerIcon("questionmark.circle", help: "How to use Clockin") { showGuide = true }
-            }
-            .padding(S(3))
-            .background(theme.surface, in: RoundedRectangle(cornerRadius: S(9), style: .continuous))
-            HStack(spacing: S(2)) {
-                Button { showProgress = true } label: {
-                    Label("LV \(stats.level)", systemImage: "trophy.fill")
-                        .font(.system(size: S(9), weight: .bold, design: .monospaced))
-                        .frame(width: S(52), height: S(28))
-                }
-                .buttonStyle(.plain).foregroundStyle(theme.accent)
-                .help("Progress • \(stats.xp) XP • streaks • mascot • records")
-                headerIcon("gearshape.fill", help: "Settings") { showSettings = true }
                 Button { store.setPinned(!store.pinVisible) } label: {
                     Image(systemName: store.pinVisible ? "pin.fill" : "pin")
                         .frame(width: S(28), height: S(28))
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.hitTarget)
                 .foregroundStyle(store.pinVisible ? theme.accent : .secondary)
                 .help(store.pinVisible ? "Hide floating timer" : "Pin timer to desktop")
             }
@@ -193,11 +195,44 @@ struct MainView: View {
         .overlay(alignment: .bottom) { Divider().opacity(0.25) }
     }
 
+    /// Seviye rozeti.
+    ///
+    /// Once dugme grubunun kabinin icinde duz bir etiketti: ne dugmeydi ne de
+    /// ayri bir oge, iki ikonun yanina sikismisti. Kendi kapsulune alindi ve
+    /// dolgusu seviye icindeki ilerlemeyi gosteriyor, boylece yer kaplamasinin
+    /// bir karsiligi oluyor.
+    private func levelChip(_ stats: ProgressStats) -> some View {
+        let span = 500
+        let progress = min(max(Double(stats.xp % span) / Double(span), 0), 1)
+        return HStack(spacing: S(5)) {
+            Image(systemName: "trophy.fill")
+                .font(.system(size: S(8)))
+            Text("LV \(stats.level)")
+                .font(.system(size: S(10), weight: .black, design: .monospaced))
+        }
+        .foregroundStyle(theme.accent)
+        .padding(.horizontal, S(9))
+        .frame(height: S(24))
+        .background {
+            ZStack(alignment: .leading) {
+                Capsule(style: .continuous).fill(theme.accent.opacity(0.12))
+                GeometryReader { geo in
+                    Capsule(style: .continuous)
+                        .fill(theme.accent.opacity(0.22))
+                        .frame(width: geo.size.width * progress)
+                }
+            }
+            .clipShape(Capsule(style: .continuous))
+            .overlay { Capsule(style: .continuous).stroke(theme.accent.opacity(0.26), lineWidth: 1) }
+        }
+        .help("Level \(stats.level) • \(stats.xp) XP • \(span - stats.xp % span) XP to next level")
+    }
+
     private func headerIcon(_ systemName: String, color: Color = .secondary, help: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: systemName).frame(width: S(28), height: S(28))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.hitTarget)
         .foregroundStyle(color)
         .help(help)
     }
@@ -307,7 +342,7 @@ struct MainView: View {
                     Label("Cancel session", systemImage: "xmark")
                         .font(.system(size: S(10), weight: .medium))
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.hitTarget)
                 .foregroundStyle(.secondary)
             }
         } else {
@@ -324,7 +359,7 @@ struct MainView: View {
                     Label("Start with elapsed time", systemImage: "clock.arrow.circlepath")
                         .font(.system(size: S(10), weight: .semibold))
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.hitTarget)
                 .foregroundStyle(.secondary)
             }
         }
@@ -476,8 +511,8 @@ struct MainView: View {
                 sectionTitle("RECENT SESSIONS")
                 Spacer()
                 if !store.sessions.isEmpty {
-                    Button("View all") { showHistory = true }
-                        .buttonStyle(.plain).font(.system(size: S(10), weight: .semibold)).foregroundStyle(theme.accent)
+                    Button("View all") { tab = .history }
+                        .buttonStyle(.hitTarget).font(.system(size: S(10), weight: .semibold)).foregroundStyle(theme.accent)
                 }
             }
             if store.sessions.isEmpty {
@@ -567,7 +602,7 @@ struct MainView: View {
                 }
                 Spacer()
                 Button("Manage") { showRateSchedule = true }
-                    .buttonStyle(.plain).font(.system(size: S(10), weight: .bold)).foregroundStyle(theme.accent)
+                    .buttonStyle(.hitTarget).font(.system(size: S(10), weight: .bold)).foregroundStyle(theme.accent)
             }
             .padding(S(10))
             .background(cardBackground)
@@ -604,7 +639,7 @@ struct MainView: View {
                 Button { FocusChimeController.shared.playPreview() } label: {
                     Image(systemName: "speaker.wave.3.fill").foregroundStyle(theme.accent)
                 }
-                .buttonStyle(.plain).help("Play selected sound")
+                .buttonStyle(.hitTarget).help("Play selected sound")
             }
             .padding(S(10))
             .background(cardBackground)
@@ -642,7 +677,7 @@ struct MainView: View {
                 Button { FocusChimeController.shared.playPreview() } label: {
                     Image(systemName: "play.circle").foregroundStyle(.secondary)
                 }
-                .buttonStyle(.plain).help("Test sound")
+                .buttonStyle(.hitTarget).help("Test sound")
                 Toggle("", isOn: $chimeEnabled).labelsHidden().toggleStyle(.switch)
                     .onChange(of: chimeEnabled) { _, _ in FocusChimeController.shared.settingChanged() }
             }
@@ -674,7 +709,7 @@ struct MainView: View {
                 .foregroundStyle(.tertiary)
             Spacer()
             Button("Quit") { NSApplication.shared.terminate(nil) }
-                .buttonStyle(.plain)
+                .buttonStyle(.hitTarget)
                 .font(.system(size: S(10)))
                 .foregroundStyle(.secondary)
         }

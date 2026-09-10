@@ -19,7 +19,7 @@ private struct DailyEarning: Identifiable {
 }
 
 struct HistoryView: View {
-    @AppStorage(UIScale.key) private var uiScaleObserver = 1.0
+    @AppStorage(UIScale.key) private var uiScaleObserver = UIScale.defaultPercent
     @EnvironmentObject private var store: ClockStore
     @EnvironmentObject private var exchangeRates: ExchangeRateStore
     @State private var range: HistoryRange = .month
@@ -30,7 +30,6 @@ struct HistoryView: View {
     @AppStorage("Clockin.HistoryGroupByDay") private var groupByDay = true
     @State private var expandedDays: Set<Date> = []
     @AppStorage("Clockin.Theme") private var themeRaw = ClockinThemeChoice.carbon.rawValue
-    let onBack: () -> Void
     private var theme: ClockinPalette { ClockinThemeChoice.selected(themeRaw).palette }
     private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
@@ -53,10 +52,10 @@ struct HistoryView: View {
                             .font(.system(size: S(9), weight: .bold)).foregroundStyle(.secondary).tracking(S(1.2))
                         Spacer()
                         Button(groupByDay ? "Sessions" : "By day") { groupByDay.toggle() }
-                            .buttonStyle(.plain).font(.system(size: S(9), weight: .bold)).foregroundStyle(theme.accent)
+                            .buttonStyle(.hitTarget).font(.system(size: S(9), weight: .bold)).foregroundStyle(theme.accent)
                         if (groupByDay ? filteredDays.count : filteredSessions.count) > 30 {
                             Button(showAllSessions ? "Show recent" : "Show all") { showAllSessions.toggle() }
-                                .buttonStyle(.plain).font(.system(size: S(9), weight: .bold)).foregroundStyle(theme.accent)
+                                .buttonStyle(.hitTarget).font(.system(size: S(9), weight: .bold)).foregroundStyle(theme.accent)
                                 .padding(.leading, S(10))
                         }
                     }
@@ -89,12 +88,10 @@ struct HistoryView: View {
 
     private var header: some View {
         HStack {
-            Button(action: onBack) { Image(systemName: "chevron.left").frame(width: S(26), height: S(26)) }
-                .buttonStyle(.plain)
             Text("EARNINGS HISTORY").font(.system(size: S(13), weight: .black, design: .rounded)).tracking(S(1.3))
             Spacer()
             Button(showTRY ? "TRY" : "USD") { showTRY.toggle() }
-                .buttonStyle(.plain)
+                .buttonStyle(.hitTarget)
                 .font(.system(size: S(10), weight: .bold, design: .rounded))
                 .foregroundStyle(theme.accent)
                 .padding(.horizontal, S(9)).padding(.vertical, S(5))
@@ -373,7 +370,7 @@ struct HistoryView: View {
             Button { pendingDelete = session } label: {
                 Image(systemName: "trash").font(.system(size: S(10))).foregroundStyle(.secondary)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.hitTarget)
         }
         .padding(S(12)).background(card)
     }

@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct ImportComparisonView: View {
-    @AppStorage(UIScale.key) private var uiScaleObserver = 1.0
+    @AppStorage(UIScale.key) private var uiScaleObserver = UIScale.defaultPercent
     @EnvironmentObject private var store: ClockStore
     @Environment(\.dismiss) private var dismiss
     @AppStorage("Clockin.Theme") private var themeRaw = ClockinThemeChoice.carbon.rawValue
@@ -84,6 +84,7 @@ struct ImportComparisonView: View {
         }
         .padding(S(18))
         .frame(width: S(560), height: S(560))
+        .scrollBounceBehavior(.basedOnSize)
         .background(theme.background)
         .fontDesign(theme.fontDesign)
         .preferredColorScheme(theme.colorScheme)
@@ -104,7 +105,7 @@ struct ImportComparisonView: View {
             }
             Spacer()
             Button { dismiss() } label: { Image(systemName: "xmark").frame(width: S(28), height: S(28)) }
-                .buttonStyle(.plain).foregroundStyle(.secondary)
+                .buttonStyle(.hitTarget).foregroundStyle(.secondary)
         }
     }
 
@@ -121,7 +122,7 @@ struct ImportComparisonView: View {
                         ? []
                         : Set(actionable.map(\.id))
                 }
-                .buttonStyle(.plain).foregroundStyle(theme.accent)
+                .buttonStyle(.hitTarget).foregroundStyle(theme.accent)
                 .font(.system(size: S(10), weight: .bold))
                 .padding(.leading, S(8))
             }
@@ -141,7 +142,7 @@ struct ImportComparisonView: View {
             .foregroundStyle(.secondary)
             .padding(.horizontal, S(9)).padding(.vertical, S(7))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.hitTarget)
     }
 
     private var footer: some View {

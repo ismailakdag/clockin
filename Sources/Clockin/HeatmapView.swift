@@ -8,7 +8,7 @@ private enum HeatmapRange: String, CaseIterable, Identifiable {
 }
 
 struct HeatmapView: View {
-    @AppStorage(UIScale.key) private var uiScaleObserver = 1.0
+    @AppStorage(UIScale.key) private var uiScaleObserver = UIScale.defaultPercent
     private struct DayStats {
         var duration: TimeInterval = 0
         var earnings: Double = 0
@@ -22,7 +22,6 @@ struct HeatmapView: View {
     @State private var hoveredDate: Date?
     @State private var cachedStats: [Date: DayStats] = [:]
     @State private var cachedAggregateStats: [Date: DayStats] = [:]
-    let onBack: () -> Void
 
     private let calendar: Calendar = {
         var value = Calendar.autoupdatingCurrent
@@ -184,9 +183,6 @@ struct HeatmapView: View {
 
     private var header: some View {
         HStack {
-            Button(action: onBack) {
-                Image(systemName: "chevron.left").frame(width: S(26), height: S(26))
-            }.buttonStyle(.plain)
             Text("WORK HEATMAP")
                 .font(.system(size: S(13), weight: .black, design: theme.fontDesign))
                 .tracking(S(1.2))
@@ -310,9 +306,9 @@ struct HeatmapView: View {
             Text("PAN").font(.system(size: S(7), weight: .bold)).foregroundStyle(.tertiary).tracking(S(0.8))
             Spacer()
             Button("Start") { proxy.scrollTo(firstID, anchor: .leading) }
-                .buttonStyle(.plain).font(.system(size: S(8), weight: .semibold)).foregroundStyle(.secondary)
+                .buttonStyle(.hitTarget).font(.system(size: S(8), weight: .semibold)).foregroundStyle(.secondary)
             Button("Today") { proxy.scrollTo(lastID, anchor: .trailing) }
-                .buttonStyle(.plain).font(.system(size: S(8), weight: .bold)).foregroundStyle(theme.accent)
+                .buttonStyle(.hitTarget).font(.system(size: S(8), weight: .bold)).foregroundStyle(theme.accent)
         }
     }
 

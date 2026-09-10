@@ -12,6 +12,7 @@ final class AppDependencies {
 final class ClockinAppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
+        UIScale.migrateLegacyValueIfNeeded()
         DispatchQueue.main.async {
             let dependencies = AppDependencies.shared
             FocusChimeController.shared.start(store: dependencies.store)

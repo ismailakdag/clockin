@@ -6,7 +6,7 @@ struct SettingsView: View {
     @EnvironmentObject private var store: ClockStore
     @EnvironmentObject private var exchangeRates: ExchangeRateStore
     @AppStorage("Clockin.Theme") private var themeRaw = ClockinThemeChoice.carbon.rawValue
-    @AppStorage(UIScale.key) private var uiScale = 1.0
+    @AppStorage(UIScale.key) private var uiScale = UIScale.defaultPercent
     @AppStorage("Clockin.PinnedMode") private var pinnedMode = "Money"
     @AppStorage("Clockin.ChimeEnabled") private var chimeEnabled = false
     @AppStorage("Clockin.ChimeSound") private var chimeSound = "Glass"
@@ -33,7 +33,6 @@ struct SettingsView: View {
     @State private var confirmRestore = false
     @StateObject private var updates = UpdateChecker.shared
     @AppStorage("Clockin.AutoCheckUpdates") private var autoCheckUpdates = true
-    let onBack: () -> Void
 
     private var theme: ClockinPalette { ClockinThemeChoice.selected(themeRaw).palette }
 
@@ -84,7 +83,6 @@ struct SettingsView: View {
 
     private var header: some View {
         HStack {
-            Button(action: onBack) { Image(systemName: "chevron.left").frame(width: S(26), height: S(26)) }.buttonStyle(.plain)
             Text("SETTINGS").font(.system(size: S(13), weight: .black, design: theme.fontDesign)).tracking(S(1.3))
             Spacer()
         }
@@ -117,7 +115,7 @@ struct SettingsView: View {
                         .font(.system(size: S(9))).foregroundStyle(.secondary)
                 }
                 Spacer()
-                Button("Manage") { showRateSchedule = true }.buttonStyle(.plain).foregroundStyle(theme.accent)
+                Button("Manage") { showRateSchedule = true }.buttonStyle(.hitTarget).foregroundStyle(theme.accent)
             }.padding(S(10)).background(card)
         }
     }
@@ -135,7 +133,7 @@ struct SettingsView: View {
                     ProgressView().controlSize(.small)
                 } else {
                     Button("Check now") { Task { await updates.check() } }
-                        .buttonStyle(.plain).foregroundStyle(theme.accent)
+                        .buttonStyle(.hitTarget).foregroundStyle(theme.accent)
                         .font(.system(size: S(10), weight: .bold))
                 }
             }
@@ -207,7 +205,7 @@ struct SettingsView: View {
                 }
                 Spacer()
                 Picker("", selection: $uiScale) {
-                    ForEach(UIScale.options, id: \.value) { Text($0.label).tag($0.value) }
+                    ForEach(UIScale.options, id: \.self) { Text(UIScale.label(for: $0)).tag($0) }
                 }
                 .labelsHidden().frame(width: S(140))
                 .onChange(of: uiScale) { _, _ in MainWindowController.shared.applyScale() }
@@ -244,7 +242,7 @@ struct SettingsView: View {
                         store.setPinned(false)
                         MainWindowController.shared.hide()
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.hitTarget)
                     .foregroundStyle(theme.accent)
                 }
                 .padding(.horizontal, S(10))
@@ -348,7 +346,7 @@ struct SettingsView: View {
                 Slider(value: $chimeVolume, in: 0.1...1).tint(theme.accent)
                 Text("\(Int(chimeVolume * 100))%").font(.system(size: S(9), design: .monospaced)).frame(width: S(34))
                 Button { FocusChimeController.shared.playPreview() } label: { Image(systemName: "play.circle.fill") }
-                    .buttonStyle(.plain).foregroundStyle(theme.accent).help("Test sound")
+                    .buttonStyle(.hitTarget).foregroundStyle(theme.accent).help("Test sound")
             }.padding(S(10)).background(card)
         }
     }
@@ -375,7 +373,7 @@ struct SettingsView: View {
                 }
                 Spacer()
                 Button("Restore latest") { confirmRestore = true }
-                    .buttonStyle(.plain).foregroundStyle(theme.accent)
+                    .buttonStyle(.hitTarget).foregroundStyle(theme.accent)
                     .disabled(store.latestBackupDate == nil)
             }.padding(S(10)).background(card)
             if let message = store.statusMessage { Text(message).font(.system(size: S(9))).foregroundStyle(.secondary) }

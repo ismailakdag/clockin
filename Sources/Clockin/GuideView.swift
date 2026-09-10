@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct GuideView: View {
-    @AppStorage(UIScale.key) private var uiScaleObserver = 1.0
+    @AppStorage(UIScale.key) private var uiScaleObserver = UIScale.defaultPercent
     @Environment(\.dismiss) private var dismiss
     @AppStorage("Clockin.Theme") private var themeRaw = ClockinThemeChoice.carbon.rawValue
 
@@ -18,7 +18,7 @@ struct GuideView: View {
                 }
                 Spacer()
                 Button { dismiss() } label: { Image(systemName: "xmark").frame(width: S(28), height: S(28)) }
-                    .buttonStyle(.plain).foregroundStyle(.secondary)
+                    .buttonStyle(.hitTarget).foregroundStyle(.secondary)
             }
             .padding(.horizontal, S(16)).frame(height: S(58))
             .overlay(alignment: .bottom) { Divider().opacity(0.25) }
@@ -40,6 +40,7 @@ struct GuideView: View {
             }
         }
         .frame(width: S(590), height: S(670))
+        .scrollBounceBehavior(.basedOnSize)
         .background(theme.background)
         .fontDesign(theme.fontDesign)
         .preferredColorScheme(theme.colorScheme)

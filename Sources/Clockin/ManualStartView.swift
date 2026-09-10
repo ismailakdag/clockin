@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct ManualStartView: View {
-    @AppStorage(UIScale.key) private var uiScaleObserver = 1.0
+    @AppStorage(UIScale.key) private var uiScaleObserver = UIScale.defaultPercent
     @EnvironmentObject private var store: ClockStore
     @Environment(\.dismiss) private var dismiss
     @State private var hours = 0
@@ -42,7 +42,7 @@ struct ManualStartView: View {
                         .font(.system(size: S(10))).foregroundStyle(.secondary)
                 }
                 Spacer()
-                Button("Cancel") { dismiss() }.buttonStyle(.plain).foregroundStyle(.secondary)
+                Button("Cancel") { dismiss() }.buttonStyle(.hitTarget).foregroundStyle(.secondary)
                 Button("Start") {
                     store.clockIn(elapsed: elapsed, note: note)
                     dismiss()

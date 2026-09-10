@@ -37,7 +37,7 @@ private struct ShareStatsSnapshot {
 }
 
 struct ShareStatsView: View {
-    @AppStorage(UIScale.key) private var uiScaleObserver = 1.0
+    @AppStorage(UIScale.key) private var uiScaleObserver = UIScale.defaultPercent
     @EnvironmentObject private var store: ClockStore
     @EnvironmentObject private var exchangeRates: ExchangeRateStore
     @Environment(\.dismiss) private var dismiss
@@ -54,10 +54,10 @@ struct ShareStatsView: View {
     private var theme: ClockinPalette { ClockinThemeChoice.selected(themeRaw).palette }
 
     private var dailyDurations: [Date: TimeInterval] {
-        let calendar = Calendar.current
-        var values: [Date: TimeInterval] = [:]
-        for session in store.sessions { values[calendar.startOfDay(for: session.start), default: 0] += session.duration }
-        if let running = store.running { values[calendar.startOfDay(for: running.start), default: 0] += running.elapsed(at: now) }
+        var values = store.dailyDurations
+        if let running = store.running {
+            values[Calendar.current.startOfDay(for: running.start), default: 0] += running.elapsed(at: now)
+        }
         return values
     }
 
@@ -159,7 +159,7 @@ struct ShareStatsView: View {
                         .font(.system(size: S(9))).foregroundStyle(.secondary)
                 }
                 Spacer()
-                Button(action: { dismiss() }) { Image(systemName: "xmark").frame(width: S(26), height: S(26)) }.buttonStyle(.plain)
+                Button(action: { dismiss() }) { Image(systemName: "xmark").frame(width: S(26), height: S(26)) }.buttonStyle(.hitTarget)
             }
             .padding(.horizontal, S(15)).frame(height: S(54))
             .overlay(alignment: .bottom) { Divider().opacity(0.25) }
@@ -172,11 +172,11 @@ struct ShareStatsView: View {
 
             HStack(spacing: S(12)) {
                 Button { page = max(0, page - 1) } label: { Image(systemName: "chevron.left") }
-                    .buttonStyle(.plain).disabled(page == 0)
+                    .buttonStyle(.hitTarget).disabled(page == 0)
                 Text("PAGE \(page + 1) / 3 • \(["OVERVIEW", "RHYTHM", "MILESTONES"][page])")
                     .font(.system(size: S(9), weight: .bold, design: .monospaced)).foregroundStyle(theme.accent)
                 Button { page = min(2, page + 1) } label: { Image(systemName: "chevron.right") }
-                    .buttonStyle(.plain).disabled(page == 2)
+                    .buttonStyle(.hitTarget).disabled(page == 2)
             }
             .padding(.top, S(9))
 
@@ -205,6 +205,7 @@ struct ShareStatsView: View {
         }
         // Sheet olarak sunuluyor: kendi olcusunu bildirmeli.
         .frame(width: S(UIScale.base.width), height: S(UIScale.base.height))
+        .scrollBounceBehavior(.basedOnSize)
         .background(theme.background)
         .fontDesign(theme.fontDesign)
         .preferredColorScheme(theme.colorScheme)

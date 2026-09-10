@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct RateScheduleView: View {
-    @AppStorage(UIScale.key) private var uiScaleObserver = 1.0
+    @AppStorage(UIScale.key) private var uiScaleObserver = UIScale.defaultPercent
     @EnvironmentObject private var store: ClockStore
     @Environment(\.dismiss) private var dismiss
     @AppStorage("Clockin.Theme") private var themeRaw = ClockinThemeChoice.carbon.rawValue
@@ -61,6 +61,7 @@ struct RateScheduleView: View {
         }
         .padding(S(18))
         .frame(width: S(560), height: S(520))
+        .scrollBounceBehavior(.basedOnSize)
         .background(theme.background)
         .fontDesign(theme.fontDesign)
         .preferredColorScheme(theme.colorScheme)
@@ -121,7 +122,7 @@ private struct RateRuleRow: View {
             Button { store.deleteRateRule(id: rule.id) } label: {
                 Image(systemName: "trash").foregroundStyle(canDelete ? .secondary : .tertiary)
             }
-            .buttonStyle(.plain).disabled(!canDelete)
+            .buttonStyle(.hitTarget).disabled(!canDelete)
         }
         .padding(S(11))
         .background(theme.surface, in: RoundedRectangle(cornerRadius: S(10)))

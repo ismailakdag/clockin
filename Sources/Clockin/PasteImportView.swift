@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 
 struct PasteImportView: View {
-    @AppStorage(UIScale.key) private var uiScaleObserver = 1.0
+    @AppStorage(UIScale.key) private var uiScaleObserver = UIScale.defaultPercent
     @EnvironmentObject private var store: ClockStore
     @Environment(\.dismiss) private var dismiss
     @State private var text = ""
@@ -25,7 +25,7 @@ struct PasteImportView: View {
                 Button { dismiss() } label: {
                     Image(systemName: "xmark").frame(width: S(28), height: S(28))
                 }
-                .buttonStyle(.plain).foregroundStyle(.secondary).help("Close")
+                .buttonStyle(.hitTarget).foregroundStyle(.secondary).help("Close")
                 Button("Paste") {
                     text = NSPasteboard.general.string(forType: .string) ?? ""
                 }
