@@ -14,6 +14,9 @@ struct MainView: View {
     @State private var csvPreviewSessions: [WorkSession] = []
     @State private var showManualStart = false
     @State private var showManualEntry = false
+    @State private var editingSession: WorkSession?
+    @State private var pendingDelete: WorkSession?
+    @State private var shimmer = false
     @State private var confirmCancel = false
     @State private var showRateSchedule = false
     @State private var completedSummary: WorkSession?
@@ -146,6 +149,21 @@ struct MainView: View {
         .sheet(isPresented: $showManualEntry) {
             ManualEntryView().environmentObject(store)
         }
+        .sheet(item: $editingSession) { session in
+            ManualEntryView(editing: session).environmentObject(store)
+        }
+        .alert("Delete this session?", isPresented: Binding(
+            get: { pendingDelete != nil },
+            set: { if !$0 { pendingDelete = nil } }
+        )) {
+            Button("Keep", role: .cancel) { pendingDelete = nil }
+            Button("Delete", role: .destructive) {
+                if let session = pendingDelete { store.deleteSession(id: session.id) }
+                pendingDelete = nil
+            }
+        } message: {
+            Text("Its time and earnings will be removed permanently.")
+        }
         .sheet(isPresented: $showRateSchedule) {
             RateScheduleView().environmentObject(store)
         }
@@ -224,10 +242,30 @@ struct MainView: View {
                     Capsule(style: .continuous)
                         .fill(theme.accent.opacity(0.22))
                         .frame(width: geo.size.width * progress)
+                        // Dolgunun uzerinden arada bir soldan saga gecen isik.
+                        // Sabit bir dolgu, ilerlemeyi tasidigini pek belli
+                        // etmiyordu.
+                        .overlay {
+                            LinearGradient(
+                                colors: [.clear, theme.accent.opacity(0.55), .clear],
+                                startPoint: .leading, endPoint: .trailing
+                            )
+                            .frame(width: geo.size.width * 0.45)
+                            .offset(x: shimmer ? geo.size.width * 1.1 : -geo.size.width * 0.5)
+                            .blendMode(.plusLighter)
+                        }
+                        .clipShape(Capsule(style: .continuous))
                 }
             }
             .clipShape(Capsule(style: .continuous))
             .overlay { Capsule(style: .continuous).stroke(theme.accent.opacity(0.26), lineWidth: 1) }
+        }
+        .onAppear {
+            // Surekli degil arada bir: her tekrarda uzun bir duraklama var,
+            // boylece dikkat cekiyor ama gozu yormuyor.
+            withAnimation(.easeInOut(duration: 1.1).repeatForever(autoreverses: false).delay(3.4)) {
+                shimmer = true
+            }
         }
         .help("Level \(stats.level) • \(stats.xp) XP • \(span - stats.xp % span) XP to next level")
     }
@@ -565,6 +603,22 @@ struct MainView: View {
             VStack(alignment: .trailing, spacing: S(3)) {
                 Text(DurationText.compact(session.duration)).font(.system(size: S(12), weight: .semibold, design: .rounded))
                 Text(store.earnings(for: session).money(code: store.currencyCode)).font(.system(size: S(10))).foregroundStyle(theme.accent)
+            }
+            // Bir kaydi duzeltmek ya da silmek icin Gecmis'e gitmek
+            // gerekiyordu; en cok dokunulan kayitlar zaten burada duruyor.
+            HStack(spacing: S(2)) {
+                Button { editingSession = session } label: {
+                    Image(systemName: "pencil").font(.system(size: S(10)))
+                        .frame(width: S(22), height: S(22))
+                }
+                .buttonStyle(.hitTarget).foregroundStyle(.secondary)
+                .help("Edit times or note")
+                Button { pendingDelete = session } label: {
+                    Image(systemName: "trash").font(.system(size: S(10)))
+                        .frame(width: S(22), height: S(22))
+                }
+                .buttonStyle(.hitTarget).foregroundStyle(.secondary)
+                .help("Delete this session")
             }
         }
         .padding(.horizontal, S(12))

@@ -357,6 +357,26 @@ final class ClockStore: ObservableObject {
         return ImportComparisonSummary(items: items)
     }
 
+    /// Var olan bir kaydin saatlerini ve notunu degistirir.
+    ///
+    /// Yanlis girilen bir kaydi duzeltmek icin tek yol silip yeniden eklemekti;
+    /// o da kaydin kimligini ve ice aktarma isaretlerini kaybettiriyordu.
+    @discardableResult
+    func updateSession(id: UUID, start: Date, end: Date, note: String) -> Bool {
+        guard end > start else {
+            statusMessage = "End time must be after the start time."
+            return false
+        }
+        guard let index = data.sessions.firstIndex(where: { $0.id == id }) else { return false }
+        data.sessions[index].start = start
+        data.sessions[index].end = end
+        data.sessions[index].duration = end.timeIntervalSince(start)
+        data.sessions[index].note = note
+        save()
+        statusMessage = "Entry updated."
+        return true
+    }
+
     func deleteSession(id: UUID) {
         guard let index = data.sessions.firstIndex(where: { $0.id == id }) else { return }
         data.sessions.remove(at: index)

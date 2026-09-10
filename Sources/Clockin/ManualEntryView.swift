@@ -11,6 +11,9 @@ struct ManualEntryView: View {
     @Environment(\.dismiss) private var dismiss
     @AppStorage("Clockin.Theme") private var themeRaw = ClockinThemeChoice.carbon.rawValue
 
+    /// Verilirse ekran duzenleme kipinde acilir.
+    var editing: WorkSession?
+
     @State private var day = Date()
     @State private var startTime = Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: Date()) ?? Date()
     @State private var endTime = Calendar.current.date(bySettingHour: 17, minute: 0, second: 0, of: Date()) ?? Date()
@@ -51,9 +54,11 @@ struct ManualEntryView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: S(16)) {
             VStack(alignment: .leading, spacing: S(4)) {
-                Text("Add a past entry")
+                Text(editing == nil ? "Add a past entry" : "Edit entry")
                     .font(.system(size: S(18), weight: .bold, design: .rounded))
-                Text("For work the timer missed. It lands in history like any other session.")
+                Text(editing == nil
+                     ? "For work the timer missed. It lands in history like any other session."
+                     : "Correct the times or the note. Earnings follow the new duration.")
                     .font(.system(size: S(11))).foregroundStyle(.secondary)
             }
 
@@ -94,10 +99,14 @@ struct ManualEntryView: View {
                 Spacer()
                 Button("Cancel") { dismiss() }
                     .buttonStyle(.hitTarget).foregroundStyle(.secondary)
-                Button("Add entry") {
-                    if store.addManualSession(start: resolvedStart, end: resolvedEnd, note: note) {
-                        dismiss()
+                Button(editing == nil ? "Add entry" : "Save") {
+                    let saved: Bool
+                    if let editing {
+                        saved = store.updateSession(id: editing.id, start: resolvedStart, end: resolvedEnd, note: note)
+                    } else {
+                        saved = store.addManualSession(start: resolvedStart, end: resolvedEnd, note: note)
                     }
+                    if saved { dismiss() }
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(theme.accent)
@@ -110,6 +119,13 @@ struct ManualEntryView: View {
         .background(theme.background)
         .fontDesign(theme.fontDesign)
         .preferredColorScheme(theme.colorScheme)
+        .onAppear {
+            guard let editing else { return }
+            day = editing.start
+            startTime = editing.start
+            endTime = editing.end
+            note = editing.note
+        }
     }
 
     private func field<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
