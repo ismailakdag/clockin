@@ -239,21 +239,27 @@ struct MainView: View {
             ZStack(alignment: .leading) {
                 Capsule(style: .continuous).fill(theme.accent.opacity(0.12))
                 GeometryReader { geo in
+                    // Bant ve yol dolgunun genisligine oranlanir, kapsulunkine
+                    // degil: kapsule oranlandiginda ilerleme azken bant
+                    // dolgudan genis kaliyor ve akan isik yerine parlama gibi
+                    // goruunuyordu.
+                    let fill = geo.size.width * progress
                     Capsule(style: .continuous)
                         .fill(theme.accent.opacity(0.22))
-                        .frame(width: geo.size.width * progress)
-                        // Dolgunun uzerinden arada bir soldan saga gecen isik.
-                        // Sabit bir dolgu, ilerlemeyi tasidigini pek belli
-                        // etmiyordu.
+                        .frame(width: fill)
                         .overlay {
                             LinearGradient(
-                                colors: [.clear, theme.accent.opacity(0.55), .clear],
+                                colors: [.clear, .white.opacity(0.30), .clear],
                                 startPoint: .leading, endPoint: .trailing
                             )
-                            .frame(width: geo.size.width * 0.45)
-                            .offset(x: shimmer ? geo.size.width * 1.1 : -geo.size.width * 0.5)
-                            .blendMode(.plusLighter)
+                            .frame(width: fill * 0.55)
+                            // Yol dolgunun dort kati. Dongu basa donerken bant
+                            // dolgunun disinda oldugu icin sicrama gorunmez;
+                            // duraklama da bu yoldan cikar, `delay` gerekmez —
+                            // `delay` zaten yalnizca ilk turu geciktirir.
+                            .offset(x: fill * (shimmer ? 2.7 : -1.4))
                         }
+                        // Isik dolgunun yuvarlak ucunu asmasin.
                         .clipShape(Capsule(style: .continuous))
                 }
             }
@@ -261,9 +267,9 @@ struct MainView: View {
             .overlay { Capsule(style: .continuous).stroke(theme.accent.opacity(0.26), lineWidth: 1) }
         }
         .onAppear {
-            // Surekli degil arada bir: her tekrarda uzun bir duraklama var,
-            // boylece dikkat cekiyor ama gozu yormuyor.
-            withAnimation(.easeInOut(duration: 1.1).repeatForever(autoreverses: false).delay(3.4)) {
+            // Sabit hiz: `easeInOut` isigi hizlandirip yavaslatiyordu, gecen
+            // bir isik icin dogal durmuyor.
+            withAnimation(.linear(duration: 5.2).repeatForever(autoreverses: false)) {
                 shimmer = true
             }
         }
