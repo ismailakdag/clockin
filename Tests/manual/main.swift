@@ -85,4 +85,34 @@ if CommandLine.arguments.count > 1 {
     print("Provided CSV parsed: \(realSessions.count) sessions, \(DurationText.compact(realSessions.reduce(0) { $0 + $1.duration })).")
 }
 
+// money() bir donem `.fractionLength(2...maxFractionDigits)` kullandi.
+// Heatmap kazanc etiketi bunu 0 ile cagiriyor, yani aralik `2...0` oluyordu:
+// gecersiz bir ClosedRange ve calisma aninda cokme. Asagidaki matris o
+// cagriyi da kapsiyor — cokerse bu betik zaten hic bitmez — ve ciktinin
+// esdeger yapilandirilmis bir NumberFormatter ile ayni kalmasini bekler.
+func referenceMoney(_ value: Double, code: String, maxFractionDigits: Int) -> String {
+    let formatter = NumberFormatter()
+    formatter.numberStyle = .currency
+    formatter.currencyCode = code
+    formatter.maximumFractionDigits = max(0, maxFractionDigits)
+    formatter.minimumFractionDigits = min(2, formatter.maximumFractionDigits)
+    return formatter.string(from: NSNumber(value: value)) ?? ""
+}
+
+for digits in [0, 1, 2, 4] {
+    for value in [0.0, 0.0069, 12.5, 99.6, 1234.0, 2158.52] {
+        for code in ["USD", "TRY"] {
+            let produced = value.money(code: code, maxFractionDigits: digits)
+            expect(produced == referenceMoney(value, code: code, maxFractionDigits: digits),
+                   "money(\(value), \(code), maxFractionDigits: \(digits)) gave \(produced)")
+            expect(!produced.isEmpty,
+                   "money(\(value), \(code), maxFractionDigits: \(digits)) should not be empty")
+        }
+    }
+}
+
+// Varsayilan iki ondalik olmali; kazanc gosterimlerinin cogu bunu kullaniyor.
+expect(12.5.money(code: "USD") == referenceMoney(12.5, code: "USD", maxFractionDigits: 2),
+       "default maxFractionDigits should stay at two")
+
 print("All manual validation tests passed.")
