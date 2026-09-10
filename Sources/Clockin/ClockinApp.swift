@@ -54,6 +54,9 @@ struct ClockinApp: App {
     @AppStorage("Clockin.MinimalMode") private var minimalMode = false
 
     init() {
+        // Preserve the interface-size preference written by pre-percent builds
+        // before any view reads the new integer-backed AppStorage key.
+        UIScale.migrateLegacyValueIfNeeded()
         let dependencies = AppDependencies.shared
         _store = StateObject(wrappedValue: dependencies.store)
         _exchangeRates = StateObject(wrappedValue: dependencies.exchangeRates)
