@@ -1,10 +1,10 @@
-# iOS genel kontrol — 11 Eylül 2026
+# iOS genel kontrol, 11 Eylül 2026
 
 İncelenen commit: `25f4776`. Uygulama kaynakları değiştirilmedi.
 
 ## Bulgular
 
-### P1 — Not düzenlemek kayıtlı çalışma süresini ve kazancı değiştiriyor
+### P1: Not düzenlemek kayıtlı çalışma süresini ve kazancı değiştiriyor
 
 `Shared/Core/ClockStore.swift:371–374` ve `Clockin/Views/ManualEntryView.swift:109`.
 
@@ -25,7 +25,7 @@ değiştiyse mola payını korur; moladan kısa aralık reddedilir. İki editör
 dokunulmadıysa kaydın kendi saatlerini geçirir. Mac'teki `Tests/manual/store`
 testi eski `ClockStore` ile kırılıyor, yeni kodla geçiyor.
 
-### P1 — Okuma hatası mevcut veri dosyasının boş veriyle değiştirilmesine yol açıyor
+### P1: Okuma hatası mevcut veri dosyasının boş veriyle değiştirilmesine yol açıyor
 
 `Shared/Core/ClockStore.swift:44–55`.
 
@@ -43,7 +43,7 @@ yapılmalı, mevcut dosya okunamıyorsa korunmalı ve kurtarma yolu gösterilmel
 olarak kenara kopyalanır ve kullanıcıya mesaj gösterilir; kopya alınamazsa dosyanın
 üzerine hiç yazılmaz. Test eski kodla kırılıyor, yeni kodla geçiyor.
 
-### P2 — Para birimi değişince açık Live Activity eski birimde kalıyor
+### P2: Para birimi değişince açık Live Activity eski birimde kalıyor
 
 `Shared/Sync/SessionMirror.swift:57–65` ve
 `ClockinWidgets/ClockinLiveActivity.swift:12`.
