@@ -26,14 +26,14 @@ isteğiyle ara commit atılmadan, onu izleyen tek commit'te.
   yedek paylaşma ve geri yükleme, sürüm. Ayarlar ekranı ve alt ekranlar Codex,
   bağlantılar Claude · geri yükleme, ücret dönemi ekleme/silme ve CSV inceleme
   adımı simülatörde denendi.
-- **Live Activity / Dynamic Island:** saniyeli sayaç, son güncelleme anındaki
+- **Live Activity / Dynamic Island:** adada saat:dakika (iOS 18+), kilit ekranında saniyeli sayaç, son güncelleme anındaki
   oturum kazancı (kompakt adada solda tam sayı, açık ada ve kilit ekranında
   kuruşlu), Pause/Resume ve Clock out düğmeleri. Kazanç uygulama açıldığında,
   arka plana geçtiğinde veya düğmeye basıldığında yenilenir.
   Claude + Codex · simülatörde denendi: kilit ekranından Pause veriye yazıldı,
-  kazanç adada ve kilit ekranında göründü. Kullanıcı saniyesiz saat:dakika
-  istedi; üç yol denendi ve üçü de olmadı (bkz. "iOS tarafında öğrenilenler"),
-  saniyeli sayaca dönüldü.
+  kazanç adada ve kilit ekranında göründü. Adadaki saat:dakikayı üç başarısız
+  denemeden sonra Codex buldu (bkz. "iOS tarafında öğrenilenler"); adada
+  02:45'ten 02:48'e kendi kendine ilerlediği görüldü.
   Kilit ekranındaki saatlik ücret kaldırıldı; boş olmayan not korundu ve USD
   kazancın altına mevcut kurla TRY karşılığı eklendi. Kur Activity içeriğinde
   isteğe bağlı taşınır (eski etkinlikler okunabilir); başarılı kur yenilemesi
@@ -188,7 +188,10 @@ iPhone işi bu ayrı klasörde.
   `SystemFormatStyle.Timer` ve `.Stopwatch` (iOS 18) `maxPrecision` dakikaya
   indirilince süreyi rakamla değil yazıyla ("1 hour, 15 minutes") gösteriyor.
   Saniyeli `Text(timerInterval:)`'ı görünmez bir "H:MM" yer tutucusunun üzerine
-  bindirip kırpmak da Live Activity'de sayacı tamamen boş bırakıyor.
+  bindirip kırpmak da Live Activity'de sayacı tamamen boş bırakıyor. Çalışan yol:
+  iOS 18'de `Text(.durationOffset(to: start), format: Duration.TimeFormatStyle(pattern:
+  .hourMinute(padHourToLength: 2, roundSeconds: .down)))` rakamla "02:45" gösterip
+  kendi kendine ilerliyor.
 - Aynı değeri gösteren kartlar tek bir `TimelineView`'dan okumalı; ayrı
   zamanlayıcılar farklı anlarda yenilenip bir sent farklı değer gösteriyordu.
 - Onay isteyen kaydırarak silmede `role: .destructive` kullanılmamalı. List bu
