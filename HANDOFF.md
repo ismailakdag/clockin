@@ -13,6 +13,10 @@ isteğiyle ara commit atılmadan, onu izleyen tek commit'te.
 - **Bugün:** sayaç (başlat, duraklat, clock out, iptal, geçen süreyle başlat),
   bugünkü süre ve kazanç, son 5 kayıt, geçmiş kayıt ekleme, clock out özeti.
   Claude · simülatörde denendi.
+  USD kazançların altında TRY karşılığı ve Bugün kartından sonra USD/TRY kur
+  kartı eklendi; kur açılışta ve oturum sayısı değişince yenilenir.
+  Bu ekleme Codex (gpt-6-astra, medium) · simülatörde doğrulandı: canlı kur geldi,
+  TL karşılıkları hesapla tuttu.
 - **Geçmiş:** gün gün gruplu liste, gün toplamları, kaydırarak düzenle/sil.
   Codex · simülatörde denendi (gerçek Mac verisiyle).
 - **Insights:** seviye/XP, seriler, hedefler, heatmap, haftalık/aylık/toplam
@@ -30,6 +34,12 @@ isteğiyle ara commit atılmadan, onu izleyen tek commit'te.
   kazanç adada ve kilit ekranında göründü. Kullanıcı saniyesiz saat:dakika
   istedi; üç yol denendi ve üçü de olmadı (bkz. "iOS tarafında öğrenilenler"),
   saniyeli sayaca dönüldü.
+  Kilit ekranındaki saatlik ücret kaldırıldı; boş olmayan not korundu ve USD
+  kazancın altına mevcut kurla TRY karşılığı eklendi. Kur Activity içeriğinde
+  isteğe bağlı taşınır (eski etkinlikler okunabilir); başarılı kur yenilemesi
+  Live Activity'yi de günceller. Dynamic Island değiştirilmedi.
+  Bu ekleme Codex (gpt-6-astra, medium) · kilit ekranında doğrulandı: süre, USD
+  kazanç ve TL karşılığı görünüyor, saatlik ücret yok.
 - **Ana ekran widget'ı:** bugünkü süre (çalışırken canlı sayar) ve kazanç;
   orta boyda Clock in/out düğmesi; kilit ekranı boyutu. Claude · orta boy
   simülatörde ana ekrana eklendi: sayaç Dynamic Island ile aynı saniyede
@@ -54,7 +64,7 @@ Clockin/            yalnızca uygulama: ekranlar, Kısayollar sağlayıcısı, i
   Views/Import/     Codex
   Intents/          AppShortcutsProvider
 Shared/             iki hedef de derler
-  Core/             Mac'ten kopya: Models, ClockStore, CSVImporter, PastedTextImporter, ImportComparison
+  Core/             Mac'ten kopya: Models, ClockStore, CSVImporter, PastedTextImporter, ImportComparison, ExchangeRates
   Theme/            Mac'ten kopya: Themes, ButtonStyles — iOS: PaletteEnvironment, ActionButtonStyles
   Sync/             AppGroup, ClockinSnapshot, SharedStore, SessionMirror, ClockinActivityAttributes
   Intents/          ClockIn / ClockOut / TogglePause (LiveActivityIntent)
@@ -64,6 +74,9 @@ Config/             entitlements, widget Info.plist
 
 `Shared/Core` Mac'in `16514e5` commit'inden kopyalandı. `ClockStore` Mac'tekinden
 yalnızca iki yerde farklı (`import AppKit` yok, sabitlenmiş pencere çağrısı yok).
+`ExchangeRates.swift` sonradan mevcut Mac dosyasından bayt bayt aynı kopyalandı;
+yukarıdaki commit referansı bu yeni dosya için geçerli değil.
+
 Mac tarafında değişirse elle taşınmalı:
 
 ```bash
@@ -78,6 +91,10 @@ diff ../clockin-main/Sources/Clockin/ClockStore.swift Shared/Core/ClockStore.swi
 - Tek `ClockStore` örneği: `SharedStore.clock`. Uygulama, Kısayollar ve Live
   Activity düğmeleri aynı örneği kullanır. Ayrı örnekler aynı dosyayı birbirinden
   habersiz yazardı.
+- Tek kur mağazası `SharedStore.exchangeRates`; uygulama ortam nesnesi olarak
+  paylaşır. Mac ile aynı önbellek ve yenileme akışı kullanılır. `SessionMirror`
+  USD oturumlar için son kuru Activity içeriğine yazar; kur yenilemesi sonrası
+  uygulama mirror'ı çağırır, kur mağazası mirror'a bağımlı değildir.
 - `SessionMirror` mağaza değiştikçe `widget-snapshot.json` yazar, widget'ı
   yeniden yükletir ve Live Activity'yi başlatır, günceller ya da bitirir.
   Görünümlerde değil, çünkü Kısayollar uygulamayı arka planda açınca hiçbir
@@ -104,7 +121,7 @@ ve `com.erdmncdr.clockin.widgets`, yalnızca iPhone, dikey.
 - CLI: `/Applications/ChatGPT.app/Contents/Resources/codex`. PATH'te değil,
   ChatGPT hesabıyla oturum açık.
 - İşe yarayan kalıp: arka planda
-  `codex exec -s workspace-write -C <klasör> -o <sonuç.md> - < prompt.md`.
+  `codex exec -m gpt-6-astra -c model_reasoning_effort="medium" -s workspace-write -C <klasör> -o <sonuç.md> - < prompt.md`.
   Aynı anda üç Codex çalıştı; her biri yalnızca yeni dosyalar oluşturdu, ortak
   bir prompt başlığı (kullanılacak parçalar, Mac tuzakları, stil) paylaşıldı.
   Ekranları uygulamaya bağlamak Claude'da kaldı, böylece dosyalar çakışmadı.
