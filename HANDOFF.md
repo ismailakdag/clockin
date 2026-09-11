@@ -1,9 +1,9 @@
-# Clockin iPhone — devir notu
+# Clockin iPhone: devir notu
 
 Bu klasör Clockin'in iPhone sürümü için. Mac uygulaması üzerinde uzun bir
 çalışma oturumundan ayrıldı; buradaki bilgiler bu oturumlarda doğrulandı.
 
-## Durum — 11 Eylül 2026
+## Durum: 11 Eylül 2026
 
 İlk prototip `4413893`'te commit edildi. Aşağıdaki özelliklerin tamamı, kullanıcının
 isteğiyle ara commit atılmadan, onu izleyen tek commit'te.
@@ -44,7 +44,12 @@ isteğiyle ara commit atılmadan, onu izleyen tek commit'te.
   orta boyda Clock in/out düğmesi; kilit ekranı boyutu. Claude · orta boy
   simülatörde ana ekrana eklendi: sayaç Dynamic Island ile aynı saniyede
   sayıyor, widget'taki Clock out kaydı veriye yazdı, Live Activity kapandı ve
-  widget "READY"e döndü. Kilit ekranı boyutu denenmedi.
+  widget "READY"e döndü. Kilit ekranı boyutu 12 Eylül'de denendi: kilit ekranına
+  eklendi, boş/çalışıyor/mola üçünde de doğru okudu. İki kusur çıkıp düzeltildi:
+  sayaç işlerken "Working" yazıp günün toplamını gösteriyordu (artık hep
+  "Today", şimşek simgesi sayacı anlatıyor) ve tutar 15 dakika boyunca donuk
+  kalıyordu (artık dakikalık girdiler üretiliyor, dokunmadan 75 saniyede
+  $1,06'dan $1,47'ye ilerlediği görüldü).
 - **Kısayollar:** Clock In, Clock Out, Pause or Resume (Siri, Kısayollar,
   Eylem düğmesi). Claude · üç kısayol Spotlight'ta görünüyor, ama simülatörde
   çalıştırılamadı: uygulama takım kimliği olmadan (`adhoc`) imzalı olduğu için
@@ -65,7 +70,7 @@ Clockin/            yalnızca uygulama: ekranlar, Kısayollar sağlayıcısı, i
   Intents/          AppShortcutsProvider
 Shared/             iki hedef de derler
   Core/             Mac'ten kopya: Models, ClockStore, CSVImporter, PastedTextImporter, ImportComparison, ExchangeRates
-  Theme/            Mac'ten kopya: Themes, ButtonStyles — iOS: PaletteEnvironment, ActionButtonStyles
+  Theme/            Mac'ten kopya: Themes, ButtonStyles (iOS: PaletteEnvironment, ActionButtonStyles)
   Sync/             AppGroup, ClockinSnapshot, SharedStore, SessionMirror, ClockinActivityAttributes
   Intents/          ClockIn / ClockOut / TogglePause (LiveActivityIntent)
 ClockinWidgets/     Bugün widget'ı ve Live Activity
@@ -113,6 +118,21 @@ xcrun simctl install booted build/DerivedData/Build/Products/Debug-iphonesimulat
 xcrun simctl launch booted com.erdmncdr.clockin
 ```
 
+#### Manuel snapshot testi
+
+Repo kökünden, XCTest veya SwiftPM gerektirmeyen aritmetik ve JSON kontrolleri:
+
+```bash
+swiftc -swift-version 6 -strict-concurrency=complete Shared/Core/Models.swift Shared/Sync/ClockinSnapshot.swift Tests/manual/snapshot/main.swift -o /tmp/clockin-snapshot-tests && /tmp/clockin-snapshot-tests
+```
+
+Her kontrol `ok` veya `FAIL` yazdırır; hata varsa çıkış kodu sıfır değildir.
+Dosya kontrolleri oluşturulup silinen geçici klasörü kullanır. `ClockStore` ve
+`AppGroup` test taslaklarıdır; `init(store:at:)` kapsam dışıdır. 38 kontrolün
+tamamı 12 Eylül 2026'da derlenip çalıştırıldı ve geçti; `isSameDay` kuralı
+bozularak testlerin gerçekten yakaladığı doğrulandı. Rapor:
+`Tests/manual/snapshot/REPORT.md`.
+
 Ayarlar: iOS 17.0 hedef, Swift 6 dil modu, bundle id'ler `com.erdmncdr.clockin`
 ve `com.erdmncdr.clockin.widgets`, yalnızca iPhone, dikey.
 
@@ -136,7 +156,6 @@ ve `com.erdmncdr.clockin.widgets`, yalnızca iPhone, dikey.
 
 ### Denenmeyenler
 
-- Kilit ekranı widget'ı (`accessoryRectangular`).
 - Kısayolların çalışması (Spotlight, Siri, Kısayollar, Eylem düğmesi). Bu Mac'te
   imza kimliği yok ve projede `DEVELOPMENT_TEAM` tanımlı değil; Xcode'a Apple
   hesabıyla giriş yapılıp takım seçildikten sonra denenmeli.
@@ -154,7 +173,7 @@ ve `com.erdmncdr.clockin.widgets`, yalnızca iPhone, dikey.
 
 - Mac uygulaması: `../clockin-main`
 - Upstream repo: `ismailakdag/clockin` (sahibi İsmail)
-- Fork: `erdmncdr/clockin` — katkılar buradan PR olarak gidiyor
+- Fork: `erdmncdr/clockin`, katkılar buradan PR olarak gidiyor
 - Git kimliği: `erdmncdr` / `edolin67@gmail.com`
 
 İsmail'in reposunun yapısı onun onayı olmadan değiştirilmemeli. Bu yüzden
