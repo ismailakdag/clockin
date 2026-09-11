@@ -165,6 +165,32 @@ final class ClockStore: ObservableObject {
         return session
     }
 
+    /// Tamamlanmis bir oturumu elle ekler.
+    ///
+    /// Kaynak "Clockin" olarak yazilir: elle girilen sure de bir tahmindir ve
+    /// sonradan gelen resmi CSV kaydinin onu duzeltebilmesi gerekir. Eslesme
+    /// yalnizca bu kaynagi tasiyan kayitlara bakiyor.
+    @discardableResult
+    func addManualSession(start: Date, end: Date, note: String = "") -> Bool {
+        guard end > start else {
+            statusMessage = "End time must be after the start time."
+            return false
+        }
+        let session = WorkSession(
+            id: UUID(), start: start, end: end, duration: end.timeIntervalSince(start),
+            note: note, hourlyRate: hourlyRate, source: "Clockin"
+        )
+        let key = Self.deduplicationKey(session)
+        guard !data.sessions.contains(where: { Self.deduplicationKey($0) == key }) else {
+            statusMessage = "An entry with these exact times already exists."
+            return false
+        }
+        data.sessions.append(session)
+        save()
+        statusMessage = "Entry added."
+        return true
+    }
+
     func updateRate(_ value: Double) {
         guard value >= 0, value.isFinite else { return }
         data.hourlyRate = value
@@ -329,6 +355,26 @@ final class ClockStore: ObservableObject {
             return ImportComparisonItem(session: session, kind: .new)
         }
         return ImportComparisonSummary(items: items)
+    }
+
+    /// Var olan bir kaydin saatlerini ve notunu degistirir.
+    ///
+    /// Yanlis girilen bir kaydi duzeltmek icin tek yol silip yeniden eklemekti;
+    /// o da kaydin kimligini ve ice aktarma isaretlerini kaybettiriyordu.
+    @discardableResult
+    func updateSession(id: UUID, start: Date, end: Date, note: String) -> Bool {
+        guard end > start else {
+            statusMessage = "End time must be after the start time."
+            return false
+        }
+        guard let index = data.sessions.firstIndex(where: { $0.id == id }) else { return false }
+        data.sessions[index].start = start
+        data.sessions[index].end = end
+        data.sessions[index].duration = end.timeIntervalSince(start)
+        data.sessions[index].note = note
+        save()
+        statusMessage = "Entry updated."
+        return true
     }
 
     func deleteSession(id: UUID) {

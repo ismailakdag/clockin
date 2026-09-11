@@ -27,6 +27,8 @@ struct HistoryView: View {
     @State private var pendingDelete: WorkSession?
     @State private var hoveredDate: Date?
     @State private var showAllSessions = false
+    @State private var showManualEntry = false
+    @State private var editingSession: WorkSession?
     @AppStorage("Clockin.HistoryGroupByDay") private var groupByDay = true
     @State private var expandedDays: Set<Date> = []
     @AppStorage("Clockin.Theme") private var themeRaw = ClockinThemeChoice.carbon.rawValue
@@ -72,6 +74,12 @@ struct HistoryView: View {
             }
         }
         .fontDesign(theme.fontDesign)
+        .sheet(isPresented: $showManualEntry) {
+            ManualEntryView().environmentObject(store)
+        }
+        .sheet(item: $editingSession) { session in
+            ManualEntryView(editing: session).environmentObject(store)
+        }
         .alert("Delete this session?", isPresented: Binding(
             get: { pendingDelete != nil },
             set: { if !$0 { pendingDelete = nil } }
@@ -90,6 +98,11 @@ struct HistoryView: View {
         HStack {
             Text("EARNINGS HISTORY").font(.system(size: S(13), weight: .black, design: .rounded)).tracking(S(1.3))
             Spacer()
+            Button { showManualEntry = true } label: {
+                Image(systemName: "plus").frame(width: S(26), height: S(26))
+            }
+            .buttonStyle(.hitTarget).foregroundStyle(theme.accent)
+            .help("Add a past entry by hand")
             Button(showTRY ? "TRY" : "USD") { showTRY.toggle() }
                 .buttonStyle(.hitTarget)
                 .font(.system(size: S(10), weight: .bold, design: .rounded))
@@ -367,10 +380,16 @@ struct HistoryView: View {
                     Text(DurationText.compact(session.duration)).font(.system(size: S(9))).foregroundStyle(.secondary)
                 }
             }
+            Button { editingSession = session } label: {
+                Image(systemName: "pencil").font(.system(size: S(10))).foregroundStyle(.secondary)
+            }
+            .buttonStyle(.hitTarget)
+            .help("Edit times or note")
             Button { pendingDelete = session } label: {
                 Image(systemName: "trash").font(.system(size: S(10))).foregroundStyle(.secondary)
             }
             .buttonStyle(.hitTarget)
+            .help("Delete this session")
         }
         .padding(S(12)).background(card)
     }
