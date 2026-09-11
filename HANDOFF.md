@@ -1,38 +1,86 @@
 # Clockin iPhone — devir notu
 
 Bu klasör Clockin'in iPhone sürümü için. Mac uygulaması üzerinde uzun bir
-çalışma oturumundan ayrıldı; buradaki bilgiler o oturumda doğrulandı.
+çalışma oturumundan ayrıldı; buradaki bilgiler bu oturumlarda doğrulandı.
 
 ## Durum — 11 Eylül 2026
 
-Prototip derleniyor ve iPhone 17 Pro simülatöründe denendi:
+İlk prototip `4413893`'te commit edildi. Aşağıdaki özelliklerin tamamı, kullanıcının
+isteğiyle ara commit atılmadan, onu izleyen tek commit'te.
 
-- **Bugün:** sayaç (başlat, duraklat, clock out, iptal), bugünkü süre ve kazanç,
-  son 5 kayıt (dokun: düzenle; basılı tut: düzenle/sil), + ile geçmiş kayıt
-  ekleme, clock out sonrası özet.
+Özellikler (kim yazdı · nasıl doğrulandı):
+
+- **Bugün:** sayaç (başlat, duraklat, clock out, iptal, geçen süreyle başlat),
+  bugünkü süre ve kazanç, son 5 kayıt, geçmiş kayıt ekleme, clock out özeti.
+  Claude · simülatörde denendi.
 - **Geçmiş:** gün gün gruplu liste, gün toplamları, kaydırarak düzenle/sil.
-  Codex yazdı; derleme ve simülatör denemesi Claude tarafında yapıldı.
-- **Veri:** uygulamanın kendi Application Support klasöründe
-  `Clockin/clockin.json`, Mac ile aynı biçim. Mac ile paylaşılmıyor.
+  Codex · simülatörde denendi (gerçek Mac verisiyle).
+- **Insights:** seviye/XP, seriler, hedefler, heatmap, haftalık/aylık/toplam
+  özet, kilometre taşları. Codex · simülatörde denendi; XP, seviye ve seri
+  veriden bağımsız hesapla birebir tuttu.
+- **Ayarlar:** ücret, para birimi, ücret takvimi, tema, timecard içe aktarma,
+  yedek paylaşma ve geri yükleme, sürüm. Ayarlar ekranı ve alt ekranlar Codex,
+  bağlantılar Claude · geri yükleme, ücret dönemi ekleme/silme ve CSV inceleme
+  adımı simülatörde denendi.
+- **Live Activity / Dynamic Island:** çalışan sayaç, Pause/Resume ve Clock out
+  düğmeleri. Claude · simülatörde denendi: kilit ekranından Pause veriye yazıldı.
+- **Ana ekran widget'ı:** bugünkü süre (çalışırken canlı sayar) ve kazanç;
+  orta boyda Clock in/out düğmesi; kilit ekranı boyutu. Claude · orta boy
+  simülatörde ana ekrana eklendi: sayaç Dynamic Island ile aynı saniyede
+  sayıyor, widget'taki Clock out kaydı veriye yazdı, Live Activity kapandı ve
+  widget "READY"e döndü. Kilit ekranı boyutu denenmedi.
+- **Kısayollar:** Clock In, Clock Out, Pause or Resume (Siri, Kısayollar,
+  Eylem düğmesi). Claude · üç kısayol Spotlight'ta görünüyor, ama simülatörde
+  çalıştırılamadı: uygulama takım kimliği olmadan (`adhoc`) imzalı olduğu için
+  `linkd` bağlantıyı reddediyor ("Unable to get teamId", "Couldn't find
+  AppShortcutsProvider"). Kod ve meta veri doğru; takım kimliğiyle imzalı
+  derlemede doğrulanmalı.
+- **İkon:** Mac ikonunun çizim script'inden iOS için kenardan kenara, saydamsız
+  1024 px sürüm.
 
 ### Yapı
 
 ```text
-Clockin.xcodeproj   elle yazıldı; Xcode 16+ klasör senkronu, dosya eklerken projeye dokunmak gerekmiyor
-Clockin/
-  Core/    Mac'ten kopya: Models, ClockStore, CSVImporter, PastedTextImporter, ImportComparison
-  Theme/   Mac'ten kopya: Themes, ButtonStyles — iOS: PaletteEnvironment, ActionButtonStyles
-  Views/   iOS'a özel ekranlar
+Clockin.xcodeproj   elle yazıldı; klasör senkronu. Hedefler: Clockin, ClockinWidgets
+Clockin/            yalnızca uygulama: ekranlar, Kısayollar sağlayıcısı, ikon
+  Views/            Bugün, Geçmiş, Ayarlar, sheet'ler
+  Views/Insights/   Codex
+  Views/Import/     Codex
+  Intents/          AppShortcutsProvider
+Shared/             iki hedef de derler
+  Core/             Mac'ten kopya: Models, ClockStore, CSVImporter, PastedTextImporter, ImportComparison
+  Theme/            Mac'ten kopya: Themes, ButtonStyles — iOS: PaletteEnvironment, ActionButtonStyles
+  Sync/             AppGroup, ClockinSnapshot, SharedStore, SessionMirror, ClockinActivityAttributes
+  Intents/          ClockIn / ClockOut / TogglePause (LiveActivityIntent)
+ClockinWidgets/     Bugün widget'ı ve Live Activity
+Config/             entitlements, widget Info.plist
 ```
 
-Kopyalar Mac'in `16514e5` commit'inden alındı. `ClockStore` Mac'tekinden
-yalnızca iki yerde farklı: `import AppKit` yok, `setPinned` sabitlenmiş pencereyi
-çağırmıyor. Diğer kopyalar birebir aynı. Mac tarafında bu dosyalar değişirse elle
-taşınmalı. Kontrol:
+`Shared/Core` Mac'in `16514e5` commit'inden kopyalandı. `ClockStore` Mac'tekinden
+yalnızca iki yerde farklı (`import AppKit` yok, sabitlenmiş pencere çağrısı yok).
+Mac tarafında değişirse elle taşınmalı:
 
 ```bash
-diff ../clockin-main/Sources/Clockin/ClockStore.swift Clockin/Core/ClockStore.swift
+diff ../clockin-main/Sources/Clockin/ClockStore.swift Shared/Core/ClockStore.swift
 ```
+
+### Veri akışı
+
+- Veri App Group `group.com.erdmncdr.clockin` içinde `Clockin/clockin.json`.
+  İlk sürüm veriyi uygulamanın kendi klasöründe tutuyordu; ilk açılışta bir kez
+  kopyalanır, eski dosya silinmez.
+- Tek `ClockStore` örneği: `SharedStore.clock`. Uygulama, Kısayollar ve Live
+  Activity düğmeleri aynı örneği kullanır. Ayrı örnekler aynı dosyayı birbirinden
+  habersiz yazardı.
+- `SessionMirror` mağaza değiştikçe `widget-snapshot.json` yazar, widget'ı
+  yeniden yükletir ve Live Activity'yi başlatır, günceller ya da bitirir.
+  Görünümlerde değil, çünkü Kısayollar uygulamayı arka planda açınca hiçbir
+  ekran yüklenmez.
+- Widget oturum listesini okumaz; ücret kuralları tek yerde, `ClockStore`'da
+  hesaplanır ve özete yazılır.
+- Intent'ler `LiveActivityIntent`: widget ya da kilit ekranından tetiklense de
+  uygulamanın sürecinde çalışır. Widget hedefi `WIDGET_EXTENSION` koşuluyla
+  derlenir; oradaki dal hiç çalışmaz, yalnızca düğmeler tiplere başvurabilsin diye.
 
 ### Derleme ve çalıştırma
 
@@ -42,10 +90,8 @@ xcrun simctl install booted build/DerivedData/Build/Products/Debug-iphonesimulat
 xcrun simctl launch booted com.erdmncdr.clockin
 ```
 
-Ya da `open Clockin.xcodeproj` ile Xcode'da Run.
-
-Ayarlar: iOS 17.0 hedef, Swift 6 dil modu, bundle id `com.erdmncdr.clockin`,
-yalnızca iPhone, dikey.
+Ayarlar: iOS 17.0 hedef, Swift 6 dil modu, bundle id'ler `com.erdmncdr.clockin`
+ve `com.erdmncdr.clockin.widgets`, yalnızca iPhone, dikey.
 
 ### Codex ile iş bölüşümü
 
@@ -53,17 +99,32 @@ yalnızca iPhone, dikey.
   ChatGPT hesabıyla oturum açık.
 - İşe yarayan kalıp: arka planda
   `codex exec -s workspace-write -C <klasör> -o <sonuç.md> - < prompt.md`.
-  Görev tek dosyayla sınırlı, commit yok, kullanılacak ortak parçalar prompt'ta
-  adıyla verildi.
-- `workspace-write` sandbox'ı CoreSimulator'a erişemiyor, bu yüzden Codex iOS
-  derlemesini doğrulayamıyor. Derleme ve simülatör denemesi Claude tarafında
-  yapılmalı. Codex bunu raporunda açıkça belirtti.
+  Aynı anda üç Codex çalıştı; her biri yalnızca yeni dosyalar oluşturdu, ortak
+  bir prompt başlığı (kullanılacak parçalar, Mac tuzakları, stil) paylaşıldı.
+  Ekranları uygulamaya bağlamak Claude'da kaldı, böylece dosyalar çakışmadı.
+- `workspace-write` sandbox'ında Codex SwiftUI kodunu hiçbir şekilde
+  doğrulayamıyor: `xcodebuild` CoreSimulator'a erişemiyor, simülatörsüz
+  `swiftc -typecheck` de SwiftUI makro eklentisi engellendiği için düşüyor
+  (`sandbox_apply: Operation not permitted`). Derleme ve simülatör denemesi
+  Claude tarafında yapılmalı.
+- Codex'in dört ekranı ilk derlemede hatasız çıktı. Denemede bulunanlar:
+  heatmap yerleşimi, "25.0" biçimi, iç içe sheet renk şeması, silme uyarısı
+  metni.
+
+### Denenmeyenler
+
+- Kilit ekranı widget'ı (`accessoryRectangular`).
+- Kısayolların çalışması (Spotlight, Siri, Kısayollar, Eylem düğmesi). Bu Mac'te
+  imza kimliği yok ve projede `DEVELOPMENT_TEAM` tanımlı değil; Xcode'a Apple
+  hesabıyla giriş yapılıp takım seçildikten sonra denenmeli.
+- Ücret alanına yazma, para birimi ve tema değiştirme.
+- Kendi iPhone'una kurulum. App Group ve Live Activity'nin ücretsiz Apple ID
+  ile imzalanan uygulamada çalışıp çalışmadığı doğrulanmadı.
 
 ### Bilinen eksikler
 
-- Uygulama ikonu yok (`AppIcon` boş).
-- Ayarlar ekranı yok. Ücret 25 USD varsayılanıyla başlıyor, tema Carbon'da sabit.
-- "Geçen süreyle başlat" (`ManualStartView`) taşınmadı.
+- iCloud senkronizasyonu yok (11 Eylül'de "şimdilik yok" kararı).
+- Widget ve Live Activity uygulamanın tema seçimini izlemiyor; Carbon sabit.
 - Test hedefi yok.
 
 ## Kaynak proje
@@ -74,31 +135,7 @@ yalnızca iPhone, dikey.
 - Git kimliği: `erdmncdr` / `edolin67@gmail.com`
 
 İsmail'in reposunun yapısı onun onayı olmadan değiştirilmemeli. Bu yüzden
-iPhone işi şimdilik bu ayrı klasörde.
-
-## Taşınabilirlik (Mac kodu üzerinde yapılan tarama)
-
-26 Swift dosyasının 20'si AppKit / pencere / menü çubuğu API'si kullanmıyor:
-
-`Models`, `CSVImporter`, `PastedTextImporter`, `ImportComparison`,
-`ExchangeRates`, `RadioController`, `Themes`, `ButtonStyles`, `MainTabBar`,
-`HistoryView`, `HeatmapView`, `ProgressView`, `ManualEntryView`,
-`ManualStartView`, `RateScheduleView`, `ImportComparisonView`,
-`SessionSummaryView`, `GuideView`, `UIScale`, `UpdateChecker`
-
-Bu listeden `Models`, `CSVImporter`, `PastedTextImporter`, `ImportComparison`,
-`Themes` ve `ButtonStyles` iOS'ta değiştirilmeden derlendi. Görünümler Mac'te
-`S()` ölçekleme fonksiyonuna bağlı olduğu için kopyalanmadı, iOS için yeniden
-yazıldı. Listedeki diğer dosyalar hâlâ yalnızca sembol taramasıyla doğrulanmış
-durumda.
-
-iOS'ta anlamı olmayanlar: `UIScale` (iOS'ta Dynamic Type kullanılır),
-`UpdateChecker` (App Store / TestFlight kurulumunda gereksiz).
-
-- macOS'a özel, yeniden yazılması gerekenler: `ClockinApp` (menü çubuğu),
-  `MainWindow`, `PinnedWindow`, `KeyboardShortcuts`, `FocusChime` (NSSound),
-  `MascotAsset` (NSImage), panel/pano kullanan kısımlar (`PasteImportView`,
-  `SettingsView`, `ShareStatsView`).
+iPhone işi bu ayrı klasörde.
 
 ## Ortam
 
@@ -107,41 +144,43 @@ iOS'ta anlamı olmayanlar: `UIScale` (iOS'ta Dynamic Type kullanılır),
 - Yalnızca Command Line Tools ile SwiftUI derlenmiyor (SwiftUI makro eklentisi
   Xcode ile geliyor). Xcode seçili kalmalı.
 - XcodeGen ve Homebrew kurulu değil.
+- Simülatörün klavye düzeni Türkçe: `text` ile yazılan "i" "ı", ":" "Ş" oluyor.
+  Saat ya da İngilizce metin gereken denemelerde dosya yoluyla veri verilmeli.
 
 ## Bekleyen kararlar
 
-1. **Senkronizasyon.** Mac verisi yerel JSON:
-   `~/Library/Application Support/Clockin/clockin.json`. iPhone ayrı dosya
-   tutarsa iki ayrı kayıt olur (telefonda başlayan sayacı Mac bilmez, toplamlar
-   ayrışır). Gerçekçi çözüm iCloud, ama iCloud yetkisi **ücretli Apple Developer
-   hesabı** (99 $/yıl) istiyor; ücretsiz Apple ID ile imzalanan uygulama
-   iCloud kullanamıyor.
+1. **Senkronizasyon.** Şimdilik yok. İleride iCloud **ücretli Apple Developer
+   hesabı** (99 $/yıl) ister ve Mac uygulamasında da değişiklik gerektirir.
 2. **Dağıtım.** Simülatör ücretsiz. Ücretsiz Apple ID ile kendi iPhone'a kurulum
    7 günde bir yenilenmeli. Başkasıyla paylaşmak (TestFlight / App Store) ücretli
    hesap istiyor.
 3. **İsmail.** Ortak `ClockinCore` modülü ve iOS hedefi upstream repoya girecekse
    önce onunla konuşulmalı.
 
-## Plan
-
-1. ~~Prototip: taşınabilir kodu kopyala, SwiftUI iOS uygulaması, yerel veri.~~
-   Yapıldı.
-2. ~~Simülatörde çalıştırıp dene.~~ Yapıldı.
-3. Karar sonrası: iCloud senkronizasyonu, Live Activity / Dynamic Island
-   (çalışan sayaç ve kazanç), ana ekran widget'ı, App Intents / Shortcuts ile
-   clock in. CSV içe aktarma, heatmap, ücret takvimi başta Mac'te kalabilir.
-
 ## iOS tarafında öğrenilenler
 
-- Aynı değeri gösteren kartlar tek bir `TimelineView`'dan okumalı. Sayaç ve
-  Bugün kartı ayrı `TimelineView` kullanırken farklı anlarda yenileniyordu;
-  kazanç iki kartta bir sent farklı görünüyordu.
+- Aynı değeri gösteren kartlar tek bir `TimelineView`'dan okumalı; ayrı
+  zamanlayıcılar farklı anlarda yenilenip bir sent farklı değer gösteriyordu.
 - Onay isteyen kaydırarak silmede `role: .destructive` kullanılmamalı. List bu
-  rolü görünce satırı veri silinmeden kaldırıyor; onay uyarısı açıkken satır
-  kayboluyordu. Ayrıca kökteki `.tint(palette.accent)` kaydırma düğmelerine de
-  iniyor ve Delete yeşil görünüyordu. Doğrusu: rol yok, `.tint(.red)`.
-- `preferredColorScheme` en yakın sunuma uygulanıyor. Sheet ayrı bir sunum
-  olduğu için içinde tekrar verilmesi gerekiyor (`SessionSheets.swift`).
+  rolü görünce satırı veri silinmeden kaldırıyor. Kökteki tema `tint`'i de silme
+  düğmesini yeşile boyuyordu. Doğrusu: rol yok, `.tint(.red)`.
+- `preferredColorScheme` en yakın sunuma uygulanıyor; her sheet'te, iç içe
+  olanlarda da, yeniden verilmeli.
+- Genişliği verilmemiş `Color.clear` yatayda yayılıyor; heatmap'in gün etiketi
+  sütunu satırın yarısını kaplayıp ızgarayı sağa sıkıştırıyordu.
+- `Activity` Sendable değil; ana aktörden bir `Task`'a geçirilemiyor.
+  Etkinlikler `nonisolated` bir yardımcıda alınıp kullanılıyor.
+- `objectWillChange` değer yazılmadan önce geliyor; yeni değeri okumak için bir
+  sonraki turda senkronlanmalı.
+- Simülatör imzasında `codesign -d --entitlements` App Group'u göstermiyor;
+  yetkinin çalıştığını `simctl get_app_container ... groups` ile doğrulamak gerekiyor.
+- Takım kimliği olmayan (`adhoc`) simülatör derlemesinde App Shortcuts
+  Spotlight'ta görünür ama çalışmaz: `linkd` kısayol servisine bağlanan
+  uygulamayı `requiresValidBundle` ile reddeder. Widget ve Live Activity
+  düğmeleri işlemi doğrudan çağırdığı için etkilenmez. Tanı için
+  `log show --predicate 'process == "linkd" OR process == "Clockin"'`.
+- Uygulama öndeyken iOS o uygulamanın kendi Live Activity'sini Dynamic Island'da
+  göstermiyor; görmek için ana ekrana ya da kilit ekranına çıkmak gerekiyor.
 
 ## Mac tarafında öğrenilen tuzaklar
 
@@ -160,8 +199,10 @@ iOS'ta anlamı olmayanlar: `UIScale` (iOS'ta Dynamic Type kullanılır),
 ## Çalışma tarzı
 
 - Kullanıcı Türkçe yazıyor.
-- Commit mesajları İngilizce ve "neden" odaklı.
+- Commit mesajları İngilizce ve "neden" odaklı. Uygulama son haline gelene kadar
+  ara commit yok.
 - Kullanıcı arayüzü kendisi gözle kontrol ediyor; görsel doğrulama yapılamadıysa
   bu açıkça söylenmeli.
 - İşin bir kısmı Codex'e verilmeli, uygun yerlerde yüklü skill'ler kullanılmalı
-  (bu oturumda `swiftui-ui-patterns`, `swift-concurrency-pro`).
+  (`swiftui-ui-patterns`, `swift-concurrency-pro`).
+- Sistem izin soruları (Live Activity izni, pano izni gibi) kullanıcıya bırakılır.
