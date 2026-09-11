@@ -3,6 +3,69 @@
 Bu klasör Clockin'in iPhone sürümü için. Mac uygulaması üzerinde uzun bir
 çalışma oturumundan ayrıldı; buradaki bilgiler o oturumda doğrulandı.
 
+## Durum — 11 Eylül 2026
+
+Prototip derleniyor ve iPhone 17 Pro simülatöründe denendi:
+
+- **Bugün:** sayaç (başlat, duraklat, clock out, iptal), bugünkü süre ve kazanç,
+  son 5 kayıt (dokun: düzenle; basılı tut: düzenle/sil), + ile geçmiş kayıt
+  ekleme, clock out sonrası özet.
+- **Geçmiş:** gün gün gruplu liste, gün toplamları, kaydırarak düzenle/sil.
+  Codex yazdı; derleme ve simülatör denemesi Claude tarafında yapıldı.
+- **Veri:** uygulamanın kendi Application Support klasöründe
+  `Clockin/clockin.json`, Mac ile aynı biçim. Mac ile paylaşılmıyor.
+
+### Yapı
+
+```text
+Clockin.xcodeproj   elle yazıldı; Xcode 16+ klasör senkronu, dosya eklerken projeye dokunmak gerekmiyor
+Clockin/
+  Core/    Mac'ten kopya: Models, ClockStore, CSVImporter, PastedTextImporter, ImportComparison
+  Theme/   Mac'ten kopya: Themes, ButtonStyles — iOS: PaletteEnvironment, ActionButtonStyles
+  Views/   iOS'a özel ekranlar
+```
+
+Kopyalar Mac'in `16514e5` commit'inden alındı. `ClockStore` Mac'tekinden
+yalnızca iki yerde farklı: `import AppKit` yok, `setPinned` sabitlenmiş pencereyi
+çağırmıyor. Diğer kopyalar birebir aynı. Mac tarafında bu dosyalar değişirse elle
+taşınmalı. Kontrol:
+
+```bash
+diff ../clockin-main/Sources/Clockin/ClockStore.swift Clockin/Core/ClockStore.swift
+```
+
+### Derleme ve çalıştırma
+
+```bash
+xcodebuild -project Clockin.xcodeproj -scheme Clockin -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -derivedDataPath build/DerivedData build
+xcrun simctl install booted build/DerivedData/Build/Products/Debug-iphonesimulator/Clockin.app
+xcrun simctl launch booted com.erdmncdr.clockin
+```
+
+Ya da `open Clockin.xcodeproj` ile Xcode'da Run.
+
+Ayarlar: iOS 17.0 hedef, Swift 6 dil modu, bundle id `com.erdmncdr.clockin`,
+yalnızca iPhone, dikey.
+
+### Codex ile iş bölüşümü
+
+- CLI: `/Applications/ChatGPT.app/Contents/Resources/codex`. PATH'te değil,
+  ChatGPT hesabıyla oturum açık.
+- İşe yarayan kalıp: arka planda
+  `codex exec -s workspace-write -C <klasör> -o <sonuç.md> - < prompt.md`.
+  Görev tek dosyayla sınırlı, commit yok, kullanılacak ortak parçalar prompt'ta
+  adıyla verildi.
+- `workspace-write` sandbox'ı CoreSimulator'a erişemiyor, bu yüzden Codex iOS
+  derlemesini doğrulayamıyor. Derleme ve simülatör denemesi Claude tarafında
+  yapılmalı. Codex bunu raporunda açıkça belirtti.
+
+### Bilinen eksikler
+
+- Uygulama ikonu yok (`AppIcon` boş).
+- Ayarlar ekranı yok. Ücret 25 USD varsayılanıyla başlıyor, tema Carbon'da sabit.
+- "Geçen süreyle başlat" (`ManualStartView`) taşınmadı.
+- Test hedefi yok.
+
 ## Kaynak proje
 
 - Mac uygulaması: `../clockin-main`
@@ -23,15 +86,15 @@ iPhone işi şimdilik bu ayrı klasörde.
 `ManualStartView`, `RateScheduleView`, `ImportComparisonView`,
 `SessionSummaryView`, `GuideView`, `UIScale`, `UpdateChecker`
 
-Uyarı: tarama sembol aramasıydı, derleme değil. iOS'ta derlenmeden taşınabilir
-sayılmamalı.
+Bu listeden `Models`, `CSVImporter`, `PastedTextImporter`, `ImportComparison`,
+`Themes` ve `ButtonStyles` iOS'ta değiştirilmeden derlendi. Görünümler Mac'te
+`S()` ölçekleme fonksiyonuna bağlı olduğu için kopyalanmadı, iOS için yeniden
+yazıldı. Listedeki diğer dosyalar hâlâ yalnızca sembol taramasıyla doğrulanmış
+durumda.
 
 iOS'ta anlamı olmayanlar: `UIScale` (iOS'ta Dynamic Type kullanılır),
 `UpdateChecker` (App Store / TestFlight kurulumunda gereksiz).
 
-- `ClockStore` AppKit'e **tek satırla** bağlı: `setPinned` içinde
-  `PinnedWindowController.shared.update(...)`. O çağrı ayrılınca mağaza iki
-  platformda da kullanılabilir.
 - macOS'a özel, yeniden yazılması gerekenler: `ClockinApp` (menü çubuğu),
   `MainWindow`, `PinnedWindow`, `KeyboardShortcuts`, `FocusChime` (NSSound),
   `MascotAsset` (NSImage), panel/pano kullanan kısımlar (`PasteImportView`,
@@ -39,10 +102,11 @@ iOS'ta anlamı olmayanlar: `UIScale` (iOS'ta Dynamic Type kullanılır),
 
 ## Ortam
 
-- Xcode kurulu ve seçili (`xcode-select` Xcode'u gösteriyor).
+- Xcode 26.6 kurulu ve seçili (`xcode-select` Xcode'u gösteriyor).
 - iOS 26.5 SDK ve simülatörler var (iPhone 17 Pro, 17 Pro Max, 17e).
 - Yalnızca Command Line Tools ile SwiftUI derlenmiyor (SwiftUI makro eklentisi
   Xcode ile geliyor). Xcode seçili kalmalı.
+- XcodeGen ve Homebrew kurulu değil.
 
 ## Bekleyen kararlar
 
@@ -60,13 +124,24 @@ iOS'ta anlamı olmayanlar: `UIScale` (iOS'ta Dynamic Type kullanılır),
 
 ## Plan
 
-1. Prototip, bu klasörde: taşınabilir kodu kopyala (İsmail'in reposuna
-   dokunmadan), SwiftUI iOS uygulaması, yerel veri. Kapsam: sayaç, bugün, son
-   kayıtlar, elle kayıt ekleme.
-2. Simülatörde çalıştırıp dene.
+1. ~~Prototip: taşınabilir kodu kopyala, SwiftUI iOS uygulaması, yerel veri.~~
+   Yapıldı.
+2. ~~Simülatörde çalıştırıp dene.~~ Yapıldı.
 3. Karar sonrası: iCloud senkronizasyonu, Live Activity / Dynamic Island
    (çalışan sayaç ve kazanç), ana ekran widget'ı, App Intents / Shortcuts ile
    clock in. CSV içe aktarma, heatmap, ücret takvimi başta Mac'te kalabilir.
+
+## iOS tarafında öğrenilenler
+
+- Aynı değeri gösteren kartlar tek bir `TimelineView`'dan okumalı. Sayaç ve
+  Bugün kartı ayrı `TimelineView` kullanırken farklı anlarda yenileniyordu;
+  kazanç iki kartta bir sent farklı görünüyordu.
+- Onay isteyen kaydırarak silmede `role: .destructive` kullanılmamalı. List bu
+  rolü görünce satırı veri silinmeden kaldırıyor; onay uyarısı açıkken satır
+  kayboluyordu. Ayrıca kökteki `.tint(palette.accent)` kaydırma düğmelerine de
+  iniyor ve Delete yeşil görünüyordu. Doğrusu: rol yok, `.tint(.red)`.
+- `preferredColorScheme` en yakın sunuma uygulanıyor. Sheet ayrı bir sunum
+  olduğu için içinde tekrar verilmesi gerekiyor (`SessionSheets.swift`).
 
 ## Mac tarafında öğrenilen tuzaklar
 
@@ -88,3 +163,5 @@ iOS'ta anlamı olmayanlar: `UIScale` (iOS'ta Dynamic Type kullanılır),
 - Commit mesajları İngilizce ve "neden" odaklı.
 - Kullanıcı arayüzü kendisi gözle kontrol ediyor; görsel doğrulama yapılamadıysa
   bu açıkça söylenmeli.
+- İşin bir kısmı Codex'e verilmeli, uygun yerlerde yüklü skill'ler kullanılmalı
+  (bu oturumda `swiftui-ui-patterns`, `swift-concurrency-pro`).
