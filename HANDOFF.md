@@ -22,8 +22,14 @@ isteğiyle ara commit atılmadan, onu izleyen tek commit'te.
   yedek paylaşma ve geri yükleme, sürüm. Ayarlar ekranı ve alt ekranlar Codex,
   bağlantılar Claude · geri yükleme, ücret dönemi ekleme/silme ve CSV inceleme
   adımı simülatörde denendi.
-- **Live Activity / Dynamic Island:** çalışan sayaç, Pause/Resume ve Clock out
-  düğmeleri. Claude · simülatörde denendi: kilit ekranından Pause veriye yazıldı.
+- **Live Activity / Dynamic Island:** saniyeli sayaç, son güncelleme anındaki
+  oturum kazancı (kompakt adada solda tam sayı, açık ada ve kilit ekranında
+  kuruşlu), Pause/Resume ve Clock out düğmeleri. Kazanç uygulama açıldığında,
+  arka plana geçtiğinde veya düğmeye basıldığında yenilenir.
+  Claude + Codex · simülatörde denendi: kilit ekranından Pause veriye yazıldı,
+  kazanç adada ve kilit ekranında göründü. Kullanıcı saniyesiz saat:dakika
+  istedi; üç yol denendi ve üçü de olmadı (bkz. "iOS tarafında öğrenilenler"),
+  saniyeli sayaca dönüldü.
 - **Ana ekran widget'ı:** bugünkü süre (çalışırken canlı sayar) ve kazanç;
   orta boyda Clock in/out düğmesi; kilit ekranı boyutu. Claude · orta boy
   simülatörde ana ekrana eklendi: sayaç Dynamic Island ile aynı saniyede
@@ -159,6 +165,13 @@ iPhone işi bu ayrı klasörde.
 
 ## iOS tarafında öğrenilenler
 
+- Live Activity kendi başına yalnızca zamanı ilerletebilir; kazanç gibi hesaplanan
+  değerler ancak uygulama güncelleme gönderdiğinde değişir (veya sunucu ve ücretli
+  hesap gerektiren push ile). iOS'un kendi ilerleyen saat:dakika biçimi yok:
+  `SystemFormatStyle.Timer` ve `.Stopwatch` (iOS 18) `maxPrecision` dakikaya
+  indirilince süreyi rakamla değil yazıyla ("1 hour, 15 minutes") gösteriyor.
+  Saniyeli `Text(timerInterval:)`'ı görünmez bir "H:MM" yer tutucusunun üzerine
+  bindirip kırpmak da Live Activity'de sayacı tamamen boş bırakıyor.
 - Aynı değeri gösteren kartlar tek bir `TimelineView`'dan okumalı; ayrı
   zamanlayıcılar farklı anlarda yenilenip bir sent farklı değer gösteriyordu.
 - Onay isteyen kaydırarak silmede `role: .destructive` kullanılmamalı. List bu
