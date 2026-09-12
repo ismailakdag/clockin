@@ -133,6 +133,24 @@ tamamı 12 Eylül 2026'da derlenip çalıştırıldı ve geçti; `isSameDay` kur
 bozularak testlerin gerçekten yakaladığı doğrulandı. Rapor:
 `Tests/manual/snapshot/REPORT.md`.
 
+#### Kazanç grafiği, maskot modu ve kur günü testleri
+
+Aynı biçimde, üç ayrı hesap kümesi. Hepsi 12 Eylül 2026'da kasıtlı olarak
+bozulmuş kopyalarla denendi ve gerçekten patladıkları görüldü.
+
+```bash
+swiftc -swift-version 6 Shared/Core/Models.swift Clockin/Views/Earnings/EarningsSnapshot.swift Tests/manual/earnings/main.swift -o /tmp/clockin-earnings-tests && /tmp/clockin-earnings-tests
+swiftc -swift-version 6 Clockin/Views/Mascot/CompanionMode.swift Tests/manual/companion/main.swift -o /tmp/clockin-companion-tests && /tmp/clockin-companion-tests
+swiftc -swift-version 6 Shared/Core/ExchangeRates.swift Tests/manual/raterange/main.swift -o /tmp/clockin-ratedate-tests
+for tz in Europe/Istanbul America/Los_Angeles Pacific/Kiritimati UTC; do TZ=$tz /tmp/clockin-ratedate-tests; done
+```
+
+Kur günü testi cihazın saat dilimini kullandığı için `TZ` ile birden çok kez
+çalıştırılır: UTC'nin üç saat ilerisi, yedi saat gerisi ve on dört saat ilerisi.
+Buradaki asıl kontrol, yerel takvim gününün kurun okunduğu UTC anahtarıyla aynı
+kalması. `parts.hour = 12` ise bozulduğunda test patlamıyor: biçimlendirici
+zaten UTC olduğu için öğle vakti gerekli değil, payda bırakılmış bir güvenlik.
+
 Ayarlar: iOS 17.0 hedef, Swift 6 dil modu, bundle id'ler `com.erdmncdr.clockin`
 ve `com.erdmncdr.clockin.widgets`, yalnızca iPhone, dikey.
 
