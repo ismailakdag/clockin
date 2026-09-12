@@ -1,0 +1,38 @@
+import SwiftUI
+
+enum AppTab: Hashable {
+    case today
+    case history
+    case insights
+    case settings
+}
+
+struct RootView: View {
+    @AppStorage("Clockin.Theme") private var themeRaw = ClockinThemeChoice.carbon.rawValue
+    @State private var tab: AppTab = .today
+
+    private var palette: ClockinPalette { ClockinThemeChoice.selected(themeRaw).palette }
+
+    var body: some View {
+        TabView(selection: $tab) {
+            DashboardView(showHistory: { tab = .history }, showInsights: { tab = .insights })
+                .tabItem { Label("Today", systemImage: "timer") }
+                .tag(AppTab.today)
+            HistoryView()
+                .tabItem { Label("History", systemImage: "clock.arrow.circlepath") }
+                .tag(AppTab.history)
+            InsightsView()
+                .tabItem { Label("Insights", systemImage: "chart.bar.xaxis") }
+                .tag(AppTab.insights)
+            SettingsView()
+                .tabItem { Label("Settings", systemImage: "gearshape") }
+                .tag(AppTab.settings)
+        }
+        // Mac'te her gorunum temayi `@AppStorage`'dan kendisi okuyordu.
+        // Burada bir kez okunup ortamla asagi iniyor.
+        .environment(\.palette, palette)
+        .tint(palette.accent)
+        .fontDesign(palette.fontDesign)
+        .preferredColorScheme(palette.colorScheme)
+    }
+}
