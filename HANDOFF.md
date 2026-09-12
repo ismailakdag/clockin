@@ -155,6 +155,15 @@ Aynı dökümün düzeltilmiş halinin ikinci kez alınması kayıt çoğaltmama
 yönü de kontrol ediliyor: aynı günün ayrı vardiyaları, az örtüşen işler, başka
 bir işverenin dökümü ve ertesi günün aynı saatleri birleşmemeli.
 
+#### Çakışma testi
+
+```bash
+swiftc -swift-version 6 Shared/Core/Models.swift Shared/Core/SessionOverlap.swift Tests/manual/overlap/main.swift -o /tmp/clockin-overlap-tests && /tmp/clockin-overlap-tests
+```
+
+Üst üste binen kayıtlar. Arka arkaya iki vardiya çakışma sayılmaz, gece yarısını
+aşan kayıt ertesi günün sabahıyla çakışır, düzenlenen kayıt kendisiyle çakışmaz.
+
 Kur günü testi cihazın saat dilimini kullandığı için `TZ` ile birden çok kez
 çalıştırılır: UTC'nin üç saat ilerisi, yedi saat gerisi ve on dört saat ilerisi.
 Buradaki asıl kontrol, yerel takvim gününün kurun okunduğu UTC anahtarıyla aynı
