@@ -85,7 +85,7 @@ yukarıdaki commit referansı bu yeni dosya için geçerli değil.
 Mac tarafında değişirse elle taşınmalı:
 
 ```bash
-diff ../clockin-main/Sources/Clockin/ClockStore.swift Shared/Core/ClockStore.swift
+diff ../Sources/Clockin/ClockStore.swift Shared/Core/ClockStore.swift
 ```
 
 ### Veri akışı
@@ -148,7 +148,7 @@ for tz in Europe/Istanbul America/Los_Angeles Pacific/Kiritimati UTC; do TZ=$tz 
 #### İçe aktarma tekrar testi
 
 ```bash
-swiftc -swift-version 6 Shared/Core/Models.swift Shared/Core/ClockStore.swift Shared/Core/ImportComparison.swift Shared/Core/PastedTextImporter.swift Shared/Core/CSVImporter.swift Tests/manual/import/main.swift -o /tmp/clockin-import-tests && /tmp/clockin-import-tests
+swiftc -swift-version 6 Shared/Core/Models.swift Shared/Core/ClockStore.swift Shared/Core/ImportComparison.swift Shared/Core/PastedTextImporter.swift Shared/Core/CSVImporter.swift Shared/Core/SessionOverlap.swift Tests/manual/import/main.swift -o /tmp/clockin-import-tests && /tmp/clockin-import-tests
 ```
 
 Aynı dökümün düzeltilmiş halinin ikinci kez alınması kayıt çoğaltmamalı. Karşı
@@ -208,13 +208,14 @@ ve `com.erdmncdr.clockin.widgets`, yalnızca iPhone, dikey.
 
 ## Kaynak proje
 
-- Mac uygulaması: `../clockin-main`
+- Mac uygulaması: reponun kökü (`../Sources/Clockin`)
+- iPhone uygulaması: `iOS/`
 - Upstream repo: `ismailakdag/clockin` (sahibi İsmail)
 - Fork: `erdmncdr/clockin`, katkılar buradan PR olarak gidiyor
-- Git kimliği: `erdmncdr` / `edolin67@gmail.com`
 
-İsmail'in reposunun yapısı onun onayı olmadan değiştirilmemeli. Bu yüzden
-iPhone işi bu ayrı klasörde.
+iPhone işi önce ayrı bir klasörde tutuldu, çünkü İsmail'in reposunun yapısı
+onun onayı olmadan değiştirilmemeliydi. Ortak proje olduğu için `iOS/`
+klasörü olarak PR ile önerildi; kabul edip etmemek İsmail'in kararı.
 
 ## Ortam
 
