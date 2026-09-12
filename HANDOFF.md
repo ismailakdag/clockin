@@ -145,6 +145,16 @@ swiftc -swift-version 6 Shared/Core/ExchangeRates.swift Tests/manual/raterange/m
 for tz in Europe/Istanbul America/Los_Angeles Pacific/Kiritimati UTC; do TZ=$tz /tmp/clockin-ratedate-tests; done
 ```
 
+#### İçe aktarma tekrar testi
+
+```bash
+swiftc -swift-version 6 Shared/Core/Models.swift Shared/Core/ClockStore.swift Shared/Core/ImportComparison.swift Shared/Core/PastedTextImporter.swift Shared/Core/CSVImporter.swift Tests/manual/import/main.swift -o /tmp/clockin-import-tests && /tmp/clockin-import-tests
+```
+
+Aynı dökümün düzeltilmiş halinin ikinci kez alınması kayıt çoğaltmamalı. Karşı
+yönü de kontrol ediliyor: aynı günün ayrı vardiyaları, az örtüşen işler, başka
+bir işverenin dökümü ve ertesi günün aynı saatleri birleşmemeli.
+
 Kur günü testi cihazın saat dilimini kullandığı için `TZ` ile birden çok kez
 çalıştırılır: UTC'nin üç saat ilerisi, yedi saat gerisi ve on dört saat ilerisi.
 Buradaki asıl kontrol, yerel takvim gününün kurun okunduğu UTC anahtarıyla aynı
