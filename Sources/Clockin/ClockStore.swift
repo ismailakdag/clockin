@@ -310,8 +310,7 @@ final class ClockStore: ObservableObject {
                 throw CocoaError(.validationMissingMandatoryProperty)
             }
             data = decoded
-            save()
-            statusMessage = "Backup restored."
+            if save() { statusMessage = "Backup restored." }
         } catch {
             statusMessage = "Could not restore backup: \(error.localizedDescription)"
         }
@@ -372,16 +371,14 @@ final class ClockStore: ObservableObject {
         data.sessions[index].end = end
         data.sessions[index].duration = end.timeIntervalSince(start)
         data.sessions[index].note = note
-        save()
-        statusMessage = "Entry updated."
+        if save() { statusMessage = "Entry updated." }
         return true
     }
 
     func deleteSession(id: UUID) {
         guard let index = data.sessions.firstIndex(where: { $0.id == id }) else { return }
         data.sessions.remove(at: index)
-        save()
-        statusMessage = "Session deleted."
+        if save() { statusMessage = "Session deleted." }
     }
 
     func importSessions(_ imported: [WorkSession]) {
@@ -433,7 +430,7 @@ final class ClockStore: ObservableObject {
             }
         }
         data.sessions.append(contentsOf: fresh)
-        save()
+        guard save() else { return }
         if fresh.isEmpty, matched == 0, corrected == 0 {
             statusMessage = "All entries were already imported."
         } else {
@@ -554,14 +551,22 @@ final class ClockStore: ObservableObject {
         "\(Int(session.start.timeIntervalSince1970))|\(Int(session.end.timeIntervalSince1970))|\(Int(session.duration))"
     }
 
-    private func save() {
+    /// Diske yazmayi dener ve basarili olup olmadigini soyler.
+    ///
+    /// Sonucu donmesi gerekiyor: cagiranlar ardindan "Entry updated." gibi bir
+    /// mesaj yaziyordu ve bu, hata mesajinin uzerini ortuyordu. Kullanici
+    /// kaydedildi saniyor, disk hala eski halde kaliyordu.
+    @discardableResult
+    private func save() -> Bool {
         do {
             try FileManager.default.createDirectory(at: fileURL.deletingLastPathComponent(), withIntermediateDirectories: true)
             createAutomaticBackupIfNeeded()
             let encoded = try JSONEncoder().encode(data)
             try encoded.write(to: fileURL, options: .atomic)
+            return true
         } catch {
             statusMessage = "Could not save: \(error.localizedDescription)"
+            return false
         }
     }
 

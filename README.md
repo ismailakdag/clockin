@@ -19,6 +19,13 @@ swiftc Sources/Clockin/Models.swift Sources/Clockin/CSVImporter.swift Sources/Cl
 /tmp/clockin-tests
 ```
 
+The store's save reporting is covered by:
+
+```bash
+swiftc Sources/Clockin/Models.swift Sources/Clockin/ClockStore.swift Sources/Clockin/CSVImporter.swift Sources/Clockin/PastedTextImporter.swift Sources/Clockin/ImportComparison.swift Tests/manual/save/main.swift -o /tmp/clockin-save-tests
+/tmp/clockin-save-tests
+```
+
 The optional live API check is:
 
 ```bash
