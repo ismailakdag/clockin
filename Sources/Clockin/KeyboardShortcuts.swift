@@ -24,9 +24,19 @@ final class KeyboardShortcutController {
         }
     }
 
+    /// Yalnizca bu dort tusu tuketiriz.
+    ///
+    /// Once "Option-Command ve herhangi bir karakter" yeterli sayiliyordu. Yerel
+    /// izleyici ise eslesen olayi `nil` dondurup yutuyor, `perform` da taninmayan
+    /// tusta hicbir sey yapmiyordu: Option-Command ile baslayan butun diger
+    /// kisayollar sessizce kayboluyordu.
+    private static let shortcutKeys: Set<String> = ["i", "p", "o", "e"]
+
     private static func matches(_ event: NSEvent) -> Bool {
         let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-        return modifiers == [.command, .option] && event.charactersIgnoringModifiers != nil
+        guard modifiers == [.command, .option],
+              let key = event.charactersIgnoringModifiers?.lowercased() else { return false }
+        return shortcutKeys.contains(key)
     }
 
     private func perform(_ event: NSEvent) {

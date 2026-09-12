@@ -115,4 +115,24 @@ for digits in [0, 1, 2, 4] {
 expect(12.5.money(code: "USD") == referenceMoney(12.5, code: "USD", maxFractionDigits: 2),
        "default maxFractionDigits should stay at two")
 
+// Yapistirilan sayfada donem araligi ters yazilabilir. Eskiden bu satir
+// `start...end` kurarken cokuyordu; artik aralik yok sayilip yil bugunden
+// cikariliyor.
+let reversedRange = """
+Aug 31, 2026 - Dec 31, 2025
+Saturday
+January 17
+Approved
+Starfleet
+15:20
+15:22
+2
+"""
+// now: 1 Haziran 2026, yani 17 Ocak geride kalmis bir gun.
+let reversedSessions = try PastedTextImporter.parse(
+    reversedRange, hourlyRate: 30, now: Date(timeIntervalSince1970: 1_780_272_000))
+expect(reversedSessions.count == 1, "a reversed period range should not stop the import")
+expect(Calendar.current.component(.year, from: reversedSessions[0].start) == 2026,
+       "with the range ignored, the year comes from today")
+
 print("All manual validation tests passed.")
