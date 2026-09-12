@@ -19,6 +19,13 @@ swiftc Sources/Clockin/Models.swift Sources/Clockin/CSVImporter.swift Sources/Cl
 /tmp/clockin-tests
 ```
 
+The store checks (editing a session, unreadable data file) compile `ClockStore` with a stub for the pinned window:
+
+```bash
+swiftc Sources/Clockin/Models.swift Sources/Clockin/ClockStore.swift Sources/Clockin/CSVImporter.swift Sources/Clockin/PastedTextImporter.swift Sources/Clockin/ImportComparison.swift Tests/manual/store/main.swift -o /tmp/clockin-store-tests
+/tmp/clockin-store-tests
+```
+
 The optional live API check is:
 
 ```bash
