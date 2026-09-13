@@ -33,6 +33,7 @@ struct SettingsView: View {
     @State private var csvPreviewSessions: [WorkSession] = []
     @State private var confirmRestore = false
     @StateObject private var updates = UpdateChecker.shared
+    @ObservedObject private var installer = UpdateInstaller.shared
     @AppStorage("Clockin.AutoCheckUpdates") private var autoCheckUpdates = true
 
     private var theme: ClockinPalette { ClockinThemeChoice.selected(themeRaw).palette }
@@ -140,7 +141,9 @@ struct SettingsView: View {
             }
             .padding(S(10)).background(card)
 
-            if case .behind(let count) = updates.state {
+            if installer.phase != .idle {
+                installerRow
+            } else if case .behind(let count) = updates.state {
                 HStack {
                     VStack(alignment: .leading, spacing: S(2)) {
                         Text("\(count) new \(count == 1 ? "commit" : "commits") available")
@@ -151,9 +154,12 @@ struct SettingsView: View {
                             .font(.system(size: S(9))).foregroundStyle(.tertiary)
                     }
                     Spacer()
-                    if updates.updateScriptPath != nil {
-                        Button("Update now") { _ = updates.runUpdateScript() }
-                            .buttonStyle(.borderedProminent).tint(theme.accent).foregroundStyle(.black)
+                    if let scriptPath = updates.updateScriptPath {
+                        Button("Update now") {
+                            installer.start(scriptPath: scriptPath)
+                            UpdateWindowController.shared.show()
+                        }
+                        .buttonStyle(.borderedProminent).tint(theme.accent).foregroundStyle(.black)
                     }
                 }
                 .padding(S(10)).background(card)
@@ -171,6 +177,32 @@ struct SettingsView: View {
             }
             .padding(S(10)).background(card)
         }
+    }
+
+    /// Pencere kapatilsa da guncelleme surer; bu satir onu gosterir ve
+    /// pencereyi geri acar.
+    private var installerRow: some View {
+        HStack(spacing: S(10)) {
+            VStack(alignment: .leading, spacing: S(5)) {
+                Text(installer.phase == .failed ? "Update failed" : "Updating…")
+                    .font(.system(size: S(11), weight: .semibold))
+                    .foregroundStyle(installer.phase == .failed ? .orange : theme.accent)
+                if installer.phase == .failed {
+                    Text(installer.failureMessage ?? "")
+                        .font(.system(size: S(9))).foregroundStyle(.tertiary).lineLimit(2)
+                } else {
+                    TimelineView(.periodic(from: .now, by: 0.25)) { context in
+                        ProgressView(value: installer.displayedFraction(at: context.date))
+                            .progressViewStyle(.linear).tint(theme.accent)
+                    }
+                }
+            }
+            Spacer()
+            Button("Show") { UpdateWindowController.shared.show() }
+                .buttonStyle(.hitTarget).foregroundStyle(theme.accent)
+                .font(.system(size: S(10), weight: .bold))
+        }
+        .padding(S(10)).background(card)
     }
 
     private var updateStatusText: String {

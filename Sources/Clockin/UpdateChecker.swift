@@ -95,22 +95,6 @@ final class UpdateChecker: ObservableObject {
         }
     }
 
-    /// Guncelleme betigini calistirir. Betik uygulamayi kapatip yeniden
-    /// kurdugu icin burada beklemek anlamsiz.
-    func runUpdateScript() -> Bool {
-        guard let updateScriptPath else { return false }
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/open")
-        process.arguments = [updateScriptPath]
-        do {
-            try process.run()
-            return true
-        } catch {
-            state = .failed(error.localizedDescription)
-            return false
-        }
-    }
-
     private struct Comparison: Decodable {
         let ahead_by: Int
     }
