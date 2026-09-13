@@ -33,6 +33,13 @@ swiftc Sources/Clockin/Models.swift Sources/Clockin/ClockStore.swift Sources/Clo
 /tmp/clockin-save-tests
 ```
 
+Re-importing a corrected timecard, and the cases that must stay separate, are covered by:
+
+```bash
+swiftc Sources/Clockin/Models.swift Sources/Clockin/ClockStore.swift Sources/Clockin/CSVImporter.swift Sources/Clockin/PastedTextImporter.swift Sources/Clockin/ImportComparison.swift Tests/manual/reimport/main.swift -o /tmp/clockin-reimport-tests
+/tmp/clockin-reimport-tests
+```
+
 The optional live API check is:
 
 ```bash
