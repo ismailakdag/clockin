@@ -327,8 +327,11 @@ struct MainView: View {
     private var moneyMomentum: some View {
         let perSecond = store.effectiveRate(at: now, fallback: store.hourlyRate) / 3600
         let current = store.currentEarnings(at: now)
-        let milestone = max(10, ceil(max(current, 0.01) / 10) * 10)
-        let progress = current.truncatingRemainder(dividingBy: 10) / 10
+        // Tam onlukta hedef bir sonraki onluga gecer; onceden hedef mevcut
+        // tutara esit kalip "0 to go" derken cubuk bosaliyordu.
+        let remainder = max(0, current).truncatingRemainder(dividingBy: 10)
+        let milestone = max(0, current) + (10 - remainder)
+        let progress = remainder / 10
         let isEarning = store.running?.isPaused == false
         return VStack(spacing: S(8)) {
             HStack(spacing: S(9)) {
@@ -629,149 +632,6 @@ struct MainView: View {
         }
         .padding(.horizontal, S(12))
         .padding(.vertical, S(10))
-    }
-
-    private var settingsSection: some View {
-        VStack(alignment: .leading, spacing: S(10)) {
-            sectionTitle("PAY & DATA")
-            HStack(spacing: S(10)) {
-                HStack {
-                    Text("Rate").foregroundStyle(.secondary)
-                    Spacer()
-                    TextField("0", text: $rateText)
-                        .textFieldStyle(.plain)
-                        .multilineTextAlignment(.trailing)
-                        .frame(width: S(72))
-                        .onSubmit(commitRate)
-                        .onChange(of: rateText) { _, newText in
-                            let normalized = newText.replacingOccurrences(of: ",", with: ".")
-                            guard let value = Double(normalized), value >= 0,
-                                  abs(value - store.hourlyRate) > 0.000_001 else { return }
-                            store.updateRate(value)
-                        }
-                    Text("/ hr").foregroundStyle(.tertiary)
-                }
-                .padding(S(11))
-                .background(cardBackground)
-
-                Picker("", selection: Binding(
-                    get: { store.currencyCode },
-                    set: { newCode in store.updateCurrency(newCode) }
-                )) {
-                    ForEach(["USD", "EUR", "GBP", "TRY"], id: \.self) { Text($0).tag($0) }
-                }
-                .labelsHidden()
-                .frame(width: S(82))
-            }
-
-            HStack {
-                VStack(alignment: .leading, spacing: S(2)) {
-                    Text("RATE SCHEDULE").font(.system(size: S(9), weight: .bold)).foregroundStyle(.secondary).tracking(S(1))
-                    if let date = store.currentRateEffectiveFrom {
-                        Text("Current rate applies from \(date.formatted(.dateTime.month(.abbreviated).day().year()))")
-                            .font(.system(size: S(9))).foregroundStyle(.secondary)
-                    }
-                }
-                Spacer()
-                Button("Manage") { showRateSchedule = true }
-                    .buttonStyle(.hitTarget).font(.system(size: S(10), weight: .bold)).foregroundStyle(theme.accent)
-            }
-            .padding(S(10))
-            .background(cardBackground)
-
-            HStack {
-                Label("Theme", systemImage: "paintpalette.fill")
-                    .font(.system(size: S(11), weight: .medium)).foregroundStyle(.secondary)
-                Spacer()
-                Picker("Theme", selection: $themeRaw) {
-                    ForEach(ClockinThemeChoice.allCases) { choice in
-                        Text(choice.rawValue).tag(choice.rawValue)
-                    }
-                }
-                .labelsHidden()
-                .frame(width: S(135))
-            }
-            .padding(S(10))
-            .background(cardBackground)
-
-            HStack(spacing: S(9)) {
-                Image(systemName: "waveform").foregroundStyle(theme.secondary)
-                Picker("Chime sound", selection: $chimeSound) {
-                    ForEach(FocusChimeController.availableSounds, id: \.self) { sound in
-                        Text(sound).tag(sound)
-                    }
-                }
-                .labelsHidden()
-                .frame(width: S(105))
-                Slider(value: $chimeVolume, in: 0.1...1.0)
-                    .tint(theme.accent)
-                Text("\(Int(chimeVolume * 100))%")
-                    .font(.system(size: S(9), weight: .semibold, design: .monospaced))
-                    .foregroundStyle(.secondary).frame(width: S(34), alignment: .trailing)
-                Button { FocusChimeController.shared.playPreview() } label: {
-                    Image(systemName: "speaker.wave.3.fill").foregroundStyle(theme.accent)
-                }
-                .buttonStyle(.hitTarget).help("Play selected sound")
-            }
-            .padding(S(10))
-            .background(cardBackground)
-
-            HStack {
-                Label("Pinned widget", systemImage: "pin.fill")
-                    .font(.system(size: S(11), weight: .medium)).foregroundStyle(.secondary)
-                Spacer()
-                Picker("Pinned widget", selection: $pinnedMode) {
-                    Text("Compact").tag("Compact")
-                    Text("Money").tag("Money")
-                }
-                .labelsHidden()
-                .frame(width: S(105))
-                .onChange(of: pinnedMode) { _, newMode in
-                    PinnedWindowController.shared.applyPreset(newMode)
-                }
-            }
-            .padding(S(10))
-            .background(cardBackground)
-
-            HStack(spacing: S(10)) {
-                Image(systemName: chimeEnabled ? "speaker.wave.2.fill" : "speaker.slash.fill")
-                    .foregroundStyle(chimeEnabled ? theme.accent : .secondary)
-                VStack(alignment: .leading, spacing: S(2)) {
-                    Text("10-minute focus beep").font(.system(size: S(11), weight: .semibold))
-                    if let remaining = FocusChimeController.shared.remaining(store: store, at: now) {
-                        Text("Next in \(DurationText.compact(remaining))").font(.system(size: S(9))).foregroundStyle(.secondary)
-                    } else {
-                        Text(chimeEnabled ? "Starts while the timer is running" : "Optional \(chimeSound) sound at \(Int(chimeVolume * 100))%")
-                            .font(.system(size: S(9))).foregroundStyle(.secondary)
-                    }
-                }
-                Spacer()
-                Button { FocusChimeController.shared.playPreview() } label: {
-                    Image(systemName: "play.circle").foregroundStyle(.secondary)
-                }
-                .buttonStyle(.hitTarget).help("Test sound")
-                Toggle("", isOn: $chimeEnabled).labelsHidden().toggleStyle(.switch)
-                    .onChange(of: chimeEnabled) { _, _ in FocusChimeController.shared.settingChanged() }
-            }
-            .padding(S(10))
-            .background(cardBackground)
-
-            Button(action: chooseCSV) {
-                Label("Import timesheet CSV", systemImage: "square.and.arrow.down")
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(SecondaryButtonStyle())
-
-            Button { showPasteImporter = true } label: {
-                Label("Paste approved timecards", systemImage: "doc.on.clipboard")
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(SecondaryButtonStyle())
-
-            if let message = store.statusMessage {
-                Text(message).font(.system(size: S(10))).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-            }
-        }
     }
 
     private var footer: some View {

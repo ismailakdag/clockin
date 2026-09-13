@@ -24,6 +24,7 @@ struct HistoryView: View {
     @EnvironmentObject private var exchangeRates: ExchangeRateStore
     @State private var range: HistoryRange = .month
     @State private var showTRY = true
+    private var chartInTRY: Bool { showTRY && store.currencyCode == "USD" }
     @State private var pendingDelete: WorkSession?
     @State private var hoveredDate: Date?
     @State private var showAllSessions = false
@@ -103,12 +104,16 @@ struct HistoryView: View {
             }
             .buttonStyle(.hitTarget).foregroundStyle(theme.accent)
             .help("Add a past entry by hand")
-            Button(showTRY ? "TRY" : "USD") { showTRY.toggle() }
-                .buttonStyle(.hitTarget)
-                .font(.system(size: S(10), weight: .bold, design: .rounded))
-                .foregroundStyle(theme.accent)
-                .padding(.horizontal, S(9)).padding(.vertical, S(5))
-                .background(theme.accent.opacity(0.1), in: Capsule())
+            // TRY karsiligi yalnizca USD hesaplarda anlamli; baska para
+            // biriminde dugme USD yazip tutari yanlis kurla ceviriyordu.
+            if store.currencyCode == "USD" {
+                Button(showTRY ? "TRY" : "USD") { showTRY.toggle() }
+                    .buttonStyle(.hitTarget)
+                    .font(.system(size: S(10), weight: .bold, design: .rounded))
+                    .foregroundStyle(theme.accent)
+                    .padding(.horizontal, S(9)).padding(.vertical, S(5))
+                    .background(theme.accent.opacity(0.1), in: Capsule())
+            }
         }
         .padding(.horizontal, S(15)).frame(height: S(50))
         .background(.white.opacity(0.025))
@@ -162,7 +167,7 @@ struct HistoryView: View {
             HStack {
                 Text("DAILY EARNINGS").font(.system(size: S(9), weight: .bold)).foregroundStyle(.secondary).tracking(S(1))
                 Spacer()
-                Text(showTRY ? "Historical daily TRY" : "USD")
+                Text(chartInTRY ? "Historical daily TRY" : store.currencyCode)
                     .font(.system(size: S(9))).foregroundStyle(.tertiary)
             }
             Group {
@@ -171,7 +176,7 @@ struct HistoryView: View {
                 } else {
                     HStack {
                         Image(systemName: "cursorarrow.motionlines").foregroundStyle(.secondary)
-                        Text("Hover a bar for hours, USD, TRY and daily rate")
+                        Text(store.currencyCode == "USD" ? "Hover a bar for hours, USD, TRY and daily rate" : "Hover a bar for hours and earnings")
                             .font(.system(size: S(9))).foregroundStyle(.secondary)
                     }
                 }
@@ -184,7 +189,7 @@ struct HistoryView: View {
             } else {
                 ScrollView(.horizontal, showsIndicators: false) {
                     Chart(chartPoints) { point in
-                        let value = showTRY ? (point.tryValue ?? 0) : point.usd
+                        let value = chartInTRY ? (point.tryValue ?? 0) : point.usd
                         LineMark(
                             x: .value("Date", point.date),
                             y: .value("Earnings", value)
@@ -314,7 +319,7 @@ struct HistoryView: View {
             }
             Spacer(minLength: 4)
             VStack(alignment: .trailing, spacing: S(2)) {
-                Text(point.usd.money(code: "USD")).font(.system(size: S(9), weight: .semibold))
+                Text(point.usd.money(code: store.currencyCode)).font(.system(size: S(9), weight: .semibold))
             if let value = point.tryValue, point.usd > 0 {
                     Text("≈ \(value.money(code: "TRY")) • rate \(String(format: "%.3f", value / point.usd))")
                         .font(.system(size: S(8), design: .monospaced)).foregroundStyle(theme.accent)
@@ -448,7 +453,8 @@ struct HistoryView: View {
         }
         return totals.map { date, value in
             DailyEarning(date: date, duration: value.duration, usd: value.usd,
-                         tryValue: (exchangeRates.rate(on: date) ?? exchangeRates.latestRate).map { value.usd * $0 })
+                         tryValue: store.currencyCode == "USD"
+                            ? (exchangeRates.rate(on: date) ?? exchangeRates.latestRate).map { value.usd * $0 } : nil)
         }.sorted { $0.date < $1.date }
     }
 
@@ -458,7 +464,7 @@ struct HistoryView: View {
     }
 
     private var chartMaximum: Double {
-        let values = points(at: .now).map { showTRY ? ($0.tryValue ?? 0) : $0.usd }
+        let values = points(at: .now).map { chartInTRY ? ($0.tryValue ?? 0) : $0.usd }
         return max(1, (values.max() ?? 0) * 1.22)
     }
 
