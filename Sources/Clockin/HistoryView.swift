@@ -123,7 +123,7 @@ struct HistoryView: View {
                 Text(totals.earnings.money(code: store.currencyCode))
                     .font(.system(size: S(25), weight: .bold, design: .rounded))
                 if store.currencyCode == "USD", let rate = exchangeRates.latestRate {
-                    Text("\(range.rawValue) • \(totals.includesActive ? "includes active" : "completed") • ≈ \((totals.earnings * rate).money(code: "TRY"))")
+                    Text("\(range.rawValue) • \(totals.includesActive ? "includes active" : "completed") • \((totals.earnings * rate).money(code: "TRY"))")
                         .font(.system(size: S(11))).foregroundStyle(theme.accent)
                 } else {
                     Text("\(range.rawValue) • \(totals.includesActive ? "includes active" : "completed")")
@@ -316,7 +316,7 @@ struct HistoryView: View {
             VStack(alignment: .trailing, spacing: S(2)) {
                 Text(point.usd.money(code: "USD")).font(.system(size: S(9), weight: .semibold))
             if let value = point.tryValue, point.usd > 0 {
-                    Text("≈ \(value.money(code: "TRY")) • rate \(String(format: "%.3f", value / point.usd))")
+                    Text("\(value.money(code: "TRY")) • rate \(String(format: "%.3f", value / point.usd))")
                         .font(.system(size: S(8), design: .monospaced)).foregroundStyle(theme.accent)
                 }
             }

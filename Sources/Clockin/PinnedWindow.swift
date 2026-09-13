@@ -181,7 +181,7 @@ struct PinnedTimerView: View {
                     .font(.system(size: 21, weight: .bold, design: .rounded)).foregroundStyle(theme.accent)
                 Spacer()
                 if store.currencyCode == "USD", let rate {
-                    Text("≈ \((usd * rate).money(code: "TRY"))")
+                    Text("\((usd * rate).money(code: "TRY"))")
                         .font(.system(size: 15, weight: .semibold, design: .rounded)).foregroundStyle(.white)
                 }
             }
@@ -229,7 +229,7 @@ struct PinnedTimerView: View {
             HStack(alignment: .firstTextBaseline) {
                 Text(earning.money(code: store.currencyCode)).font(.system(size: 23, weight: .bold, design: .rounded)).foregroundStyle(theme.accent)
                 Spacer()
-                if store.currencyCode == "USD", let rate { Text("≈ \((earning * rate).money(code: "TRY"))").font(.system(size: 14, weight: .semibold)).foregroundStyle(.white) }
+                if store.currencyCode == "USD", let rate { Text("\((earning * rate).money(code: "TRY"))").font(.system(size: 14, weight: .semibold)).foregroundStyle(.white) }
             }
             HStack {
                 Label("+\(perSecond.money(code: store.currencyCode, maxFractionDigits: 4))/sec", systemImage: "bolt.fill")
@@ -276,7 +276,7 @@ struct PinnedTimerView: View {
                     .font(.system(size: 24, weight: .bold, design: .rounded)).foregroundStyle(theme.accent)
                 Spacer()
                 if store.currencyCode == "USD", let rate {
-                    Text("≈ \((total * rate).money(code: "TRY"))")
+                    Text("\((total * rate).money(code: "TRY"))")
                         .font(.system(size: 13, weight: .semibold)).foregroundStyle(.white)
                 }
             }

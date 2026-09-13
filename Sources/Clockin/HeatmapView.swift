@@ -380,7 +380,7 @@ struct HeatmapView: View {
                     .foregroundStyle(.secondary)
                 if store.currencyCode == "USD" {
                     if let rate = exchangeRates.rate(on: date) ?? exchangeRates.latestRate {
-                        Text("≈ \((periodStats.earnings * rate).money(code: "TRY")) • 1 USD = \(String(format: "%.3f", rate)) TRY")
+                        Text("\((periodStats.earnings * rate).money(code: "TRY")) • 1 USD = \(String(format: "%.3f", rate)) TRY")
                             .font(.system(size: S(8), weight: .medium, design: .monospaced))
                             .foregroundStyle(theme.accent)
                     } else {
