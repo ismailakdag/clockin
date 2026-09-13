@@ -171,7 +171,14 @@ struct HeatmapView: View {
             cachedStats = makeDailyStats(at: now)
             cachedAggregateStats = makeAggregateStats()
         }
-        .onChange(of: store.sessions.count) {
+        // Oturum sayisi degismeyen duzenlemeler (saat ya da not) ve ucret
+        // degisiklikleri de hemen yansisin; onceden 20 saniyelik zamanlayiciyi
+        // bekliyordu.
+        .onChange(of: store.sessions) {
+            cachedStats = makeDailyStats(at: now)
+            cachedAggregateStats = makeAggregateStats()
+        }
+        .onChange(of: store.rateRules) {
             cachedStats = makeDailyStats(at: now)
             cachedAggregateStats = makeAggregateStats()
         }
