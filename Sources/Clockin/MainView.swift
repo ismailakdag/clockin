@@ -325,7 +325,7 @@ struct MainView: View {
     }
 
     private var moneyMomentum: some View {
-        let perSecond = store.effectiveRate(at: now, fallback: store.hourlyRate) / 3600
+        let perSecond = store.currentRate(at: now) / 3600
         let current = store.currentEarnings(at: now)
         // Tam onlukta hedef bir sonraki onluga gecer; onceden hedef mevcut
         // tutara esit kalip "0 to go" derken cubuk bosaliyordu.
