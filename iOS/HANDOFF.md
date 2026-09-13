@@ -48,8 +48,8 @@ isteğiyle ara commit atılmadan, onu izleyen tek commit'te.
   eklendi, boş/çalışıyor/mola üçünde de doğru okudu. İki kusur çıkıp düzeltildi:
   sayaç işlerken "Working" yazıp günün toplamını gösteriyordu (artık hep
   "Today", şimşek simgesi sayacı anlatıyor) ve tutar 15 dakika boyunca donuk
-  kalıyordu (artık dakikalık girdiler üretiliyor, dokunmadan 75 saniyede
-  $1,06'dan $1,47'ye ilerlediği görüldü).
+  kalıyordu (artık dakikalık girdiler üretiliyor, dokunmadan kendi kendine
+  ilerlediği görüldü).
 - **Kısayollar:** Clock In, Clock Out, Pause or Resume (Siri, Kısayollar,
   Eylem düğmesi). Claude · üç kısayol Spotlight'ta görünüyor, ama simülatörde
   çalıştırılamadı: uygulama takım kimliği olmadan (`adhoc`) imzalı olduğu için

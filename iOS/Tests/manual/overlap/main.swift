@@ -9,11 +9,11 @@ var checks = 0
 var calendar = Calendar(identifier: .gregorian)
 calendar.timeZone = .current
 @MainActor func s(_ day: Int, _ sh: Int, _ sm: Int, _ eh: Int, _ em: Int, id: UUID = UUID()) -> WorkSession {
-    let start = calendar.date(from: DateComponents(year: 2026, month: 9, day: day, hour: sh, minute: sm))!
-    var end = calendar.date(from: DateComponents(year: 2026, month: 9, day: day, hour: eh, minute: em))!
+    let start = calendar.date(from: DateComponents(year: 2026, month: 3, day: day, hour: sh, minute: sm))!
+    var end = calendar.date(from: DateComponents(year: 2026, month: 3, day: day, hour: eh, minute: em))!
     if end < start { end = end.addingTimeInterval(86_400) }
     return WorkSession(id: id, start: start, end: end, duration: end.timeIntervalSince(start),
-                       note: "", hourlyRate: 25, source: "Clockin")
+                       note: "", hourlyRate: 40, source: "Clockin")
 }
 
 // Temel kesisme
@@ -28,11 +28,11 @@ check(SessionOverlap.intersects(s(11, 22, 0, 2, 0), s(12, 0, 30, 1, 0)), "an ove
 // touching
 do {
     let a = s(11, 9, 0, 12, 0), b = s(11, 14, 0, 18, 0)
-    let noon = calendar.date(from: DateComponents(year: 2026, month: 9, day: 11, hour: 10))!
-    let one = calendar.date(from: DateComponents(year: 2026, month: 9, day: 11, hour: 11))!
+    let noon = calendar.date(from: DateComponents(year: 2026, month: 3, day: 11, hour: 10))!
+    let one = calendar.date(from: DateComponents(year: 2026, month: 3, day: 11, hour: 11))!
     let hits = SessionOverlap.touching(start: noon, end: one, in: [a, b])
     check(hits.count == 1 && hits.first?.id == a.id, "touching finds only the records a range reaches")
-    let wide = calendar.date(from: DateComponents(year: 2026, month: 9, day: 11, hour: 15))!
+    let wide = calendar.date(from: DateComponents(year: 2026, month: 3, day: 11, hour: 15))!
     check(SessionOverlap.touching(start: noon, end: wide, in: [a, b]).count == 2,
           "a range spanning both records reports both")
     check(SessionOverlap.touching(start: a.start, end: a.end, in: [a, b], excluding: a.id).isEmpty,
@@ -47,12 +47,12 @@ do {
           "an empty range touches nothing")
 }
 
-// conflicting: 11 Eylul'un gercek kayitlari
+// conflicting: zincir halinde ust uste binen alti kayit, biri gece yarisini asiyor
 do {
-    let real = [s(11, 10, 45, 14, 55), s(11, 14, 0, 19, 9), s(11, 19, 10, 1, 30),
-                s(11, 22, 19, 2, 20), s(11, 23, 25, 2, 26), s(11, 23, 29, 2, 37)]
-    let bad = SessionOverlap.conflicting(in: real)
-    check(bad.count == 6, "every record in the 11 September pile is flagged")
+    let pile = [s(11, 9, 0, 12, 0), s(11, 11, 30, 14, 0), s(11, 13, 0, 17, 0),
+                s(11, 16, 30, 20, 0), s(11, 19, 30, 1, 0), s(11, 23, 0, 2, 0)]
+    let bad = SessionOverlap.conflicting(in: pile)
+    check(bad.count == 6, "every record in an overlapping pile is flagged")
 }
 do {
     let clean = [s(11, 9, 0, 12, 0), s(11, 13, 0, 15, 0), s(11, 16, 0, 18, 0)]

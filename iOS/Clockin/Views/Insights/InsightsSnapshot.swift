@@ -25,7 +25,7 @@ struct InsightsSnapshot {
     /// Mac'te hedeflere de XP veriliyor: her hedef gunu +100, iki kati +250,
     /// her hedef ayi +500. Hedef kullanicinin kendi sectigi bir sayi ve
     /// degistirilince butun gecmis yeniden puanlaniyor; gunluk hedefi 10
-    /// dakikaya ceken biri 243 gunluk arsivde aniden yuzlerce seviye aliyordu.
+    /// dakikaya ceken biri uzun bir arsivde aniden yuzlerce seviye aliyordu.
     /// Seviye herkes icin ayni sekilde sayilabilen seylere dayanmali. Hedefler
     /// kisisel takip icin kaliyor ama odul vermiyor.
     var xp: Int { baseXP + streakXP }

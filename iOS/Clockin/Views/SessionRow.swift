@@ -11,7 +11,7 @@ struct SessionRow: View {
     /// gosterilir.
     var showsDay = true
     /// Baska bir kaydin uzerine biniyorsa saatler isaretlenir. Bu kayitlar
-    /// gun toplamina iki kez giriyor; arsivde 11 Eylul boyle 25 saat.
+    /// gun toplamina iki kez giriyor ve gunu imkansiz bir toplama cikarabiliyor.
     var conflicts = false
     /// USD hesaplarda o gunun kuruyla TL karsiligi. Yalnizca gecmiste; kucuk
     /// listelerde (cakisma uyarisi gibi) satiri gereksiz uzatmasin.
