@@ -12,6 +12,8 @@ Timer with pause, cancel and start with elapsed time; manual entries, editing an
 - Live Activity and Dynamic Island, with pause and clock out
 - Shortcuts and Siri actions: Clock In, Clock Out, Pause or Resume
 - iOS 18 controls for clock in/out and pause/resume in Control Center, Lock Screen slots, and the Action Button on supported iPhones
+- Companion nudges with Grumpy or Friendly tone, companion moods, and at most two daytime notifications per day
+- Long session reminder with Clock out, Set end time, and Remind in 1 hour actions
 - Haptics on timer actions, a celebration on the clock-out summary
 - Overlap warnings in History and in the entry editor
 - Desk mode: a full-screen timer in landscape that keeps the screen on while a session runs
