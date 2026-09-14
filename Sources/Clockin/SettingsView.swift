@@ -421,7 +421,10 @@ struct SettingsView: View {
 
     private var totalHours: Double { (store.totalDuration + store.elapsed()) / 3600 }
     private var mascotOptions: [(String, String, Double)] {
-        [("Auto", "Auto", 0), ("Typing", "Typing", 0), ("Coffee", "Coffee", 0), ("Victory", "Victory • 10h", 10), ("Stretch", "Stretch • 25h", 25), ("Dance", "Dance • 50h", 50), ("Music", "Music • 100h", 100)]
+        CompanionMode.allCases.map { mode in
+            let label = mode.requiredHours > 0 ? "\(mode.rawValue) • \(Int(mode.requiredHours))h" : mode.rawValue
+            return (mode.rawValue, label, mode.requiredHours)
+        }
     }
 
     private func chooseCSV() {
