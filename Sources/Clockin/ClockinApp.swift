@@ -13,6 +13,11 @@ final class ClockinAppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         UIScale.migrateLegacyValueIfNeeded()
+        // Sparkle'dan once sorulur: DMG'den calisan kopya guncellenemez.
+        if MoveToApplications.offerIfNeeded() {
+            NSApp.terminate(nil)
+            return
+        }
         UpdateChecker.shared.start()
         DispatchQueue.main.async {
             let dependencies = AppDependencies.shared

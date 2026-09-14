@@ -48,6 +48,7 @@ swiftc Sources/Clockin/Models.swift Sources/Clockin/ClockStore.swift Sources/Clo
 swiftc Sources/Clockin/Models.swift Sources/Clockin/ClockStore.swift Sources/Clockin/CSVImporter.swift Sources/Clockin/PastedTextImporter.swift Sources/Clockin/ImportComparison.swift Tests/manual/save/main.swift -o /tmp/clockin-save-tests && /tmp/clockin-save-tests
 swiftc Sources/Clockin/Models.swift Sources/Clockin/ClockStore.swift Sources/Clockin/CSVImporter.swift Sources/Clockin/PastedTextImporter.swift Sources/Clockin/ImportComparison.swift Tests/manual/reimport/main.swift -o /tmp/clockin-reimport-tests && /tmp/clockin-reimport-tests
 swiftc -swift-version 6 Sources/Clockin/Models.swift Sources/Clockin/ClockStore.swift Sources/Clockin/CSVImporter.swift Sources/Clockin/PastedTextImporter.swift Sources/Clockin/ImportComparison.swift Tests/manual/sessions/main.swift -o /tmp/clockin-sessions-tests && /tmp/clockin-sessions-tests
+swiftc -swift-version 6 Sources/Clockin/ApplicationMover.swift Tests/manual/mover/main.swift -o /tmp/clockin-mover-tests && /tmp/clockin-mover-tests
 ```
 
 Exchange rates come from the free [Frankfurter API](https://frankfurter.dev/).
