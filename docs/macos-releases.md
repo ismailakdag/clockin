@@ -30,6 +30,47 @@ shipping, confirm the repository in `SUFeedURL` is the one you control. If using
 a fork or another HTTPS host, change that URL before the first installation.
 Do not publish this app's feed into an unrelated project's release.
 
+## Release with one command
+
+```sh
+scripts/publish-mac.sh 1.1.1 --dry-run   # local rehearsal, nothing committed or published
+scripts/publish-mac.sh 1.1.1             # the real release
+```
+
+Write `docs/release-notes-<version>.md` first. The script picks the next build
+number from the live feed and asks once before it changes anything. After that
+it runs unattended:
+
+1. commits the version and build in `Resources/Info.plist` and pushes the branch;
+2. builds, signs, notarizes and packages with `scripts/release.sh`, then checks
+   that a tampered feed or DMG is rejected;
+3. publishes the GitHub release `macos-v<version>` on that commit;
+4. deploys the website to Netlify with the new DMG and download links;
+5. replaces the feed in `macos-updates`, which is when installed copies see the update.
+
+Each public step is downloaded again anonymously and compared with the built
+files before the next one starts, so a failure stops before existing users are
+offered anything. The feed goes last for the same reason. A failed feed upload
+puts the previous feed back.
+
+It must run on the Mac that holds the Developer ID certificate and the Sparkle
+key. The release is made from whatever branch is checked out; normally `main`.
+
+### One-time setup
+
+- **Notarization profile.** Run `xcrun notarytool store-credentials ClockinNotary`
+  and follow its prompts (Apple ID, team `LU36PKDPT3`, and an app-specific
+  password from account.apple.com). The password stays in the Keychain.
+- **Netlify token.** Create a personal access token in Netlify (User settings →
+  Applications) and store it with
+  `security add-generic-password -a getclockin -s clockin-netlify -w`,
+  which asks for the value without echoing it.
+- **GitHub.** Nothing to add. The script uses the credential Git already uses to
+  push to this repository and checks that it can publish releases.
+
+Tokens and passwords are read at run time and never printed, committed or
+written to disk. Do not paste them into a chat.
+
 ## Signing keys
 
 Sparkle 2.10.0 is pinned in Package.swift and Package.resolved. Its Ed25519 public

@@ -20,7 +20,7 @@ PY
 if "$WORK/verify" "$WORK/tampered/appcast.xml" "$PLIST" > "$WORK/result.log" 2>&1; then
     print -u2 'FAIL: modified feed was accepted'; exit 1
 fi
-rg -q 'Feed length mismatch|Feed signature does not match' "$WORK/result.log"
+grep -Eq 'Feed length mismatch|Feed signature does not match' "$WORK/result.log"
 print 'PASS: modified feed rejected'
 cp "$RELEASE_DIR/appcast.xml" "$WORK/tampered/appcast.xml"
 # Change a byte while preserving the length so this tests the signature too.
@@ -34,5 +34,5 @@ PY
 if "$WORK/verify" "$WORK/tampered/appcast.xml" "$PLIST" > "$WORK/result.log" 2>&1; then
     print -u2 'FAIL: modified archive was accepted'; exit 1
 fi
-rg -q 'Invalid archive signature' "$WORK/result.log"
+grep -q 'Invalid archive signature' "$WORK/result.log"
 print 'PASS: modified archive rejected'
