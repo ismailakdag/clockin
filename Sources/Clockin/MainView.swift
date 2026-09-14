@@ -310,7 +310,7 @@ struct MainView: View {
                 .contentTransition(.numericText())
 
             if store.currencyCode == "USD", let usdTry = exchangeRates.latestRate {
-                Text("≈ \((store.currentEarnings(at: now) * usdTry).money(code: "TRY"))")
+                Text("\((store.currentEarnings(at: now) * usdTry).money(code: "TRY"))")
                     .font(.system(size: S(11), weight: .medium, design: .rounded))
                     .foregroundStyle(.secondary)
             }
@@ -447,7 +447,7 @@ struct MainView: View {
                 Text(earned.money(code: store.currencyCode)).font(.system(size: S(13), weight: .semibold, design: .rounded))
                 if store.currencyCode == "USD" {
                     if let rate = exchangeRates.latestRate {
-                        Text("≈ " + (earned * rate).money(code: "TRY"))
+                        Text((earned * rate).money(code: "TRY"))
                             .font(.system(size: S(9), weight: .medium, design: .rounded))
                             .foregroundStyle(theme.accent)
                     } else {
