@@ -372,7 +372,7 @@ struct SettingsView: View {
             HStack {
                 VStack(alignment: .leading, spacing: S(2)) {
                     Text("AUTOMATIC BACKUPS").font(.system(size: S(9), weight: .bold)).foregroundStyle(.secondary).tracking(S(1))
-                    Text(store.latestBackupDate.map { "Last \($0.formatted(.dateTime.month(.abbreviated).day().hour().minute())) • \(store.backupCount) saved" } ?? "Created automatically before each save")
+                    Text(store.latestBackupDate.map { "Last \($0.formatted(.dateTime.month(.abbreviated).day().hour().minute())) • \(store.backupCount) saved" } ?? "Created automatically, at most once a day")
                         .font(.system(size: S(9))).foregroundStyle(.tertiary)
                 }
                 Spacer()
@@ -426,6 +426,10 @@ struct SettingsView: View {
                 Slider(value: $radio.volume, in: 0...1).tint(theme.accent)
                 Text("\(Int(radio.volume * 100))%").font(.system(size: S(9), design: .monospaced)).frame(width: S(32))
             }.padding(S(10)).background(card)
+            if let error = radio.errorMessage {
+                Text(error).font(.system(size: S(9), weight: .medium)).foregroundStyle(.orange)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
             if let station = radio.stations.first(where: { $0.id == selectedStationID }) {
                 Text(station.description).font(.system(size: S(8))).foregroundStyle(.tertiary).frame(maxWidth: .infinity, alignment: .leading)
             }

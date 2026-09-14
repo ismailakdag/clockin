@@ -50,9 +50,18 @@ final class UpdateChecker: ObservableObject {
 
     var shortCommit: String? { builtCommit.map { String($0.prefix(7)) } }
 
+    /// Son otomatik denemenin zamani diskte tutulur ve basarisiz denemeler de
+    /// sayilir. Onceden yalnizca bellekteki basarili denetim sayiliyordu;
+    /// uygulama her acildiginda ya da ag hatasinda alti saat beklenmiyordu.
+    private static let lastAttemptKey = "Clockin.LastUpdateCheckAttempt"
+
     func checkIfDue() async {
-        if let last = lastChecked, Date().timeIntervalSince(last) < Self.automaticInterval { return }
+        let defaults = UserDefaults.standard
+        if let last = defaults.object(forKey: Self.lastAttemptKey) as? Date,
+           Date().timeIntervalSince(last) < Self.automaticInterval { return }
         await check()
+        // Ayarlardan cikinca iptal edilen deneme sayilmaz.
+        if !Task.isCancelled { defaults.set(Date(), forKey: Self.lastAttemptKey) }
     }
 
     func check() async {
