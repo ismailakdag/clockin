@@ -22,9 +22,7 @@ and open it there. New versions are downloaded and installed through **Check
 for Updates…** in Settings or the menu bar. Existing source-built installations
 need to install the first packaged version once; work history stays in place.
 
-The installer and updater are implemented locally; the first signed, notarized
-public release still needs to be published. Release setup, packaging commands,
-and verification are documented in [Mac releases](docs/macos-releases.md).
+Download the signed, Apple-notarized installer from the [Clockin website](https://clockin-for-mac.erdmncdr.chatgpt.site/) or the [Mac 1.1.0 release](https://github.com/ismailakdag/clockin/releases/tag/macos-v1.1.0). No Git, Xcode or Terminal is required to install or update it. Release setup, packaging commands and verification are documented in [Mac releases](docs/macos-releases.md).
 
 For development, with Xcode installed:
 
@@ -53,3 +51,7 @@ swiftc -swift-version 6 Sources/Clockin/Models.swift Sources/Clockin/ClockStore.
 ```
 
 Exchange rates come from the free [Frankfurter API](https://frankfurter.dev/).
+
+## License
+
+Clockin is available under the [MIT License](LICENSE). Development continues on GitHub; packaged Mac releases and their matching source are published with `macos-v*` tags.

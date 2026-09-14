@@ -13,13 +13,16 @@ preferences keep the existing `com.ismailakdag.clockin` bundle identifier.
 
 ## Current distribution status
 
-The update integration and local installation flow have been tested, but no
-public release or live appcast has been published by this change. Local test
-DMGs are ad-hoc signed, not notarized. They are not a Gatekeeper-ready public
-release. A Developer ID Application certificate has now been created, the
-stored GitHub connection was verified as `erdmncdr` with push access to
-`ismailakdag/clockin`, and version 1.1.0 (4) was submitted through the signed-in
-Xcode account for Apple notarization. Publication must wait for acceptance.
+Version **1.1.0 (4)** is publicly available for Apple Silicon and Intel. Its application bundle is Developer ID signed, notarized by Apple and stapled. The signed outer DMG contains the app, Applications shortcut and MIT license; the outer DMG is not separately notarized.
+
+- [Download the installer](https://github.com/ismailakdag/clockin/releases/download/macos-v1.1.0/Clockin-1.1.0-4.dmg)
+- [Signed update feed](https://github.com/ismailakdag/clockin/releases/download/macos-updates/appcast.xml)
+- [Source matching the app build](https://github.com/ismailakdag/clockin/tree/macos-v1.1.0)
+- [End-user website](https://clockin-for-mac.erdmncdr.chatgpt.site/)
+
+The public DMG and feed were downloaded anonymously and verified using the public key shipped in the application. Both feed and archive tampering were rejected. The downloaded app passed Gatekeeper and stapler validation, was installed to Applications, opened successfully and reported “You’re up to date” against the live feed. Existing work-data JSON remained semantically identical after installation; only its JSON serialization changed.
+
+Future releases must increment the build number, sign with the existing Developer ID identity and Sparkle key, pass notarization and verification, then publish their versioned DMG before updating the stable signed feed. Update the website’s pinned installer URL after the new download is verified. Never move the Mac feed to the repository’s generic latest-release URL.
 
 The feed uses the dedicated `macos-updates` release instead of `releases/latest`,
 so future iPhone or prerelease uploads do not break Mac update checks. Before
@@ -74,11 +77,14 @@ SIGNING_IDENTITY='Developer ID Application: Your Name (TEAMID)' \
 ```
 
 Open the resulting `dist/Clockin-1.1.0-4.xcarchive` in Xcode Organizer to see
-Apple's status. After approval:
+Apple's status. Opening an external archive imports a copy into
+`~/Library/Developer/Xcode/Archives/<date>/`. Use that Organizer copy for export,
+since it is the copy whose notarization status Xcode refreshes. After approval,
+use **Export Notarized App** in Organizer or its imported archive path:
 
 ```sh
 xcodebuild -exportNotarizedApp \
-  -archivePath dist/Clockin-1.1.0-4.xcarchive \
+  -archivePath "$HOME/Library/Developer/Xcode/Archives/2026-09-14/Clockin-1.1.0-4.xcarchive" \
   -exportPath dist/notarized-1.1.0-4
 
 SIGNING_IDENTITY='Developer ID Application: Your Name (TEAMID)' \
@@ -166,6 +172,11 @@ update flow, not public HTTPS delivery, notarization or Intel runtime behavior.
 
 The test feed allowed HTTP only for localhost in the copied test bundle; no
 transport exceptions are present in the shipping application plist.
+
+A second UI test upgraded that installation to a Developer ID signed test build
+(1.1.1, build 4), including download, Install and Relaunch, successful startup,
+and verification of team LU36PKDPT3 and hardened runtime in the installed copy.
+The session data checksum remained unchanged in this test too.
 
 References: [Sparkle setup](https://sparkle-project.org/documentation/),
 [Apple Mac distribution](https://developer.apple.com/macos/distribution/).

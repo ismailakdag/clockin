@@ -14,6 +14,7 @@ STAGING="$(mktemp -d "$PWD/dist/dmg-stage.XXXXXX")"
 trap 'rm -rf "$STAGING"' EXIT
 codesign --verify --deep --strict "$APP"
 ditto "$APP" "$STAGING/Clockin.app"
+cp LICENSE "$STAGING/LICENSE.txt"
 ln -s /Applications "$STAGING/Applications"
 hdiutil create -volname Clockin -srcfolder "$STAGING" -format UDZO -fs HFS+ "$OUTPUT"
 hdiutil verify "$OUTPUT"
