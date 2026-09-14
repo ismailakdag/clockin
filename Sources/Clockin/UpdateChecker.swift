@@ -1,126 +1,66 @@
-import Foundation
+import AppKit
+import Combine
+import Sparkle
 
-/// Yeni surum var mi diye GitHub'a sorar.
-///
-/// Proje yayinlanmis bir surum (release) uretmiyor; herkes kaynaktan
-/// derliyor. Dolayisiyla "indirilecek paket" yok. Bunun yerine derleme
-/// sirasinda paketin icine hangi commit'ten uretildigi yazilir ve burada
-/// deponun son haliyle karsilastirilir.
+/// Sparkle owns scheduling, signature verification, installation and relaunch.
+/// Keep one controller alive for the lifetime of this menu bar application.
 @MainActor
 final class UpdateChecker: ObservableObject {
     static let shared = UpdateChecker()
 
-    enum State: Equatable {
-        /// Paket bir commit bilgisi tasimiyor (elle yapilmis derleme).
-        case unknown
-        case checking
-        case upToDate
-        case behind(Int)
-        case failed(String)
-    }
-
-    @Published private(set) var state: State = .unknown
+    @Published private(set) var canCheckForUpdates = false
+    @Published private(set) var automaticallyChecksForUpdates = false
     @Published private(set) var lastChecked: Date?
+    @Published private(set) var startupError: String?
 
-    private static let repository = "ismailakdag/clockin"
-    /// Iki otomatik denetim arasindaki en kisa sure.
-    private static let automaticInterval: TimeInterval = 6 * 3600
+    private let controller: SPUStandardUpdaterController
+    private var started = false
 
-    /// build-app.sh tarafindan Info.plist'e yazilir.
-    let builtCommit: String? = {
-        guard let value = Bundle.main.object(forInfoDictionaryKey: "ClockinBuildCommit") as? String,
-              !value.isEmpty, value != "unknown" else { return nil }
-        return value
-    }()
+    var version: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—"
+    }
 
-    /// Guncelleme betiginin yolu; yine derleme sirasinda yazilir.
-    let updateScriptPath: String? = {
-        guard let value = Bundle.main.object(forInfoDictionaryKey: "ClockinUpdateScript") as? String,
-              !value.isEmpty, FileManager.default.fileExists(atPath: value) else { return nil }
-        return value
-    }()
-
-    /// Karsilastirma icin kullanilan nokta: derlemenin origin/main ile ortak
-    /// atasi. Yerel commitler tasiyan bir derlemede HEAD depoda bulunmaz.
-    let upstreamBase: String? = {
-        guard let value = Bundle.main.object(forInfoDictionaryKey: "ClockinUpstreamBase") as? String,
-              !value.isEmpty, value != "unknown" else { return nil }
-        return value
-    }()
-
-    var shortCommit: String? { builtCommit.map { String($0.prefix(7)) } }
-
-    /// Son otomatik denemenin zamani diskte tutulur ve basarisiz denemeler de
-    /// sayilir. Onceden yalnizca bellekteki basarili denetim sayiliyordu;
-    /// uygulama her acildiginda ya da ag hatasinda alti saat beklenmiyordu.
-    private static let lastAttemptKey = "Clockin.LastUpdateCheckAttempt"
-
-    func checkIfDue() async {
+    private init() {
+        // Preserve an existing user's opt-out exactly once. From here on,
+        // Sparkle is the sole owner of this preference and the update schedule.
         let defaults = UserDefaults.standard
-        if let last = defaults.object(forKey: Self.lastAttemptKey) as? Date,
-           Date().timeIntervalSince(last) < Self.automaticInterval { return }
-        await check()
-        // Ayarlardan cikinca iptal edilen deneme sayilmaz.
-        if !Task.isCancelled { defaults.set(Date(), forKey: Self.lastAttemptKey) }
+        if defaults.object(forKey: "SUEnableAutomaticChecks") == nil,
+           let previous = defaults.object(forKey: "Clockin.AutoCheckUpdates") as? Bool {
+            defaults.set(previous, forKey: "SUEnableAutomaticChecks")
+        }
+        defaults.removeObject(forKey: "Clockin.AutoCheckUpdates")
+        controller = SPUStandardUpdaterController(
+            startingUpdater: false, updaterDelegate: nil, userDriverDelegate: nil
+        )
+        controller.updater.publisher(for: \.canCheckForUpdates)
+            .assign(to: &$canCheckForUpdates)
+        controller.updater.publisher(for: \.automaticallyChecksForUpdates)
+            .assign(to: &$automaticallyChecksForUpdates)
+        controller.updater.publisher(for: \.lastUpdateCheckDate)
+            .assign(to: &$lastChecked)
     }
 
-    func check() async {
-        guard let base = upstreamBase ?? builtCommit else {
-            state = .unknown
-            return
-        }
-        let previous = state
-        state = .checking
-        let url = URL(string: "https://api.github.com/repos/\(Self.repository)/compare/\(base)...main")!
-        var request = URLRequest(url: url, timeoutInterval: 15)
-        request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+    func start() {
+        guard !started else { return }
         do {
-            let (data, response) = try await URLSession.shared.data(for: request)
-            guard let http = response as? HTTPURLResponse else {
-                state = .failed("No response")
-                return
-            }
-            // Derleme, deponun gecmisinde olmayan bir commit'ten yapilmis
-            // olabilir (yerel deneme dali gibi).
-            guard http.statusCode != 404 else {
-                state = .unknown
-                return
-            }
-            guard http.statusCode == 200 else {
-                state = .failed("GitHub returned \(http.statusCode)")
-                return
-            }
-            let parsed = try JSONDecoder().decode(Comparison.self, from: data)
-            lastChecked = Date()
-            state = parsed.ahead_by > 0 ? .behind(parsed.ahead_by) : .upToDate
+            try controller.updater.start()
+            started = true
+            startupError = nil
         } catch {
-            // Bu is Ayarlar'in `.task`'inda kosuyor; ekrandan cikmak onu iptal
-            // eder ve iptal bir ag hatasi degil.
-            if Task.isCancelled {
-                state = previous
-                return
-            }
-            state = .failed(error.localizedDescription)
+            startupError = error.localizedDescription
         }
     }
 
-    /// Guncelleme betigini calistirir. Betik uygulamayi kapatip yeniden
-    /// kurdugu icin burada beklemek anlamsiz.
-    func runUpdateScript() -> Bool {
-        guard let updateScriptPath else { return false }
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/open")
-        process.arguments = [updateScriptPath]
-        do {
-            try process.run()
-            return true
-        } catch {
-            state = .failed(error.localizedDescription)
-            return false
-        }
+    func setAutomaticallyChecksForUpdates(_ enabled: Bool) {
+        controller.updater.automaticallyChecksForUpdates = enabled
     }
 
-    private struct Comparison: Decodable {
-        let ahead_by: Int
+    func checkForUpdates() {
+        guard canCheckForUpdates else { return }
+        // Let MenuBarExtra dismiss before Sparkle presents its window.
+        DispatchQueue.main.async { [self] in
+            NSApp.activate(ignoringOtherApps: true)
+            controller.checkForUpdates(nil)
+        }
     }
 }

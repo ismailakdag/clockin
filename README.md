@@ -15,12 +15,21 @@ The two apps share the same data model, but each keeps its own data on its devic
 
 Lives in the menu bar, with a main window and an always-visible pinned timer. Keyboard shortcuts: ⌥⌘I clock in or resume, ⌥⌘P pause or resume, ⌥⌘O clock out, ⌥⌘E open the window.
 
-Requires macOS 14.
+Requires macOS 14. The packaged app supports both Apple Silicon and Intel.
+
+Packaged installation: open the Clockin DMG, drag Clockin into Applications,
+and open it there. New versions are downloaded and installed through **Check
+for Updates…** in Settings or the menu bar. Existing source-built installations
+need to install the first packaged version once; work history stays in place.
+
+The installer and updater are implemented locally; the first signed, notarized
+public release still needs to be published. Release setup, packaging commands,
+and verification are documented in [Mac releases](docs/macos-releases.md).
+
+For development, with Xcode installed:
 
 ```bash
-chmod +x build-app.sh
-./build-app.sh
-open dist/Clockin.app
+./script/build_and_run.sh --verify
 ```
 
 Data is stored at `~/Library/Application Support/Clockin/clockin.json`.
