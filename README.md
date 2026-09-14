@@ -11,6 +11,14 @@ A native time tracker for Mac and iPhone that shows what your work is earning wh
 
 The two apps share the same data model, but each keeps its own data on its device. They do not sync.
 
+## Download for Mac
+
+Get the signed, Apple-notarized installer from the [Clockin website](https://clockin-for-mac.erdmncdr.chatgpt.site/) or [GitHub Releases](https://github.com/ismailakdag/clockin/releases/tag/macos-v1.1.0). Supports macOS 14 or later on Apple Silicon and Intel.
+
+Open the DMG, drag Clockin into Applications, and open it there. Future versions are installed through **Check for Updates…** inside Clockin. No Git, Xcode or Terminal is needed. Existing work history stays in place.
+
+The packaged Mac app's matching source is tagged [macos-v1.1.0](https://github.com/ismailakdag/clockin/tree/macos-v1.1.0). The instructions below are for building from source.
+
 ## Mac
 
 Lives in the menu bar, with a main window and an always-visible pinned timer. Keyboard shortcuts: ⌥⌘I clock in or resume, ⌥⌘P pause or resume, ⌥⌘O clock out, ⌥⌘E open the window.
@@ -43,3 +51,7 @@ swiftc Sources/Clockin/Models.swift Sources/Clockin/ClockStore.swift Sources/Clo
 ```
 
 Exchange rates come from the free [Frankfurter API](https://frankfurter.dev/).
+
+## License
+
+Clockin is available under the [MIT License](LICENSE).
