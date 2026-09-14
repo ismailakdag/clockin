@@ -13,6 +13,7 @@ final class ClockinAppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         UIScale.migrateLegacyValueIfNeeded()
+        UpdateChecker.shared.start()
         DispatchQueue.main.async {
             let dependencies = AppDependencies.shared
             FocusChimeController.shared.start(store: dependencies.store)
@@ -51,6 +52,7 @@ struct ClockinApp: App {
     @StateObject private var store: ClockStore
     @StateObject private var exchangeRates: ExchangeRateStore
     @StateObject private var radio: RadioController
+    @StateObject private var updates = UpdateChecker.shared
     @AppStorage("Clockin.MinimalMode") private var minimalMode = false
 
     init() {
@@ -109,6 +111,9 @@ struct ClockinApp: App {
                     store.setPinned(shouldRestorePin)
                 }
             }
+            Divider()
+            Button("Check for Updates…") { updates.checkForUpdates() }
+                .disabled(!updates.canCheckForUpdates)
             Button("Quit Clockin") { NSApp.terminate(nil) }
         } label: {
             MenuBarStatusLabel(store: store, exchangeRates: exchangeRates)

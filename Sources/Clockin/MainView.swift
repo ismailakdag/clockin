@@ -463,14 +463,24 @@ struct MainView: View {
     private var mascotCard: some View {
         return HStack(spacing: S(12)) {
             ClockinMascotStage().environmentObject(store).frame(width: S(62), height: S(62))
-            VStack(alignment: .leading, spacing: S(4)) {
-                Text("FOCUS COMPANION").font(.system(size: S(8), weight: .black)).foregroundStyle(.secondary).tracking(S(1))
-                Text(store.running?.isPaused == true ? "Taking a reset break" : (store.running == nil ? "Ready when you are" : "You are doing great — keep going!"))
-                    .font(.system(size: S(11), weight: .semibold))
-                Text("Open Progress with the XP button for streaks and levels")
-                    .font(.system(size: S(8))).foregroundStyle(.tertiary)
+            Button { tab = .progress } label: {
+                HStack(spacing: S(8)) {
+                    VStack(alignment: .leading, spacing: S(4)) {
+                        Text("FOCUS COMPANION").font(.system(size: S(8), weight: .black)).foregroundStyle(.secondary).tracking(S(1))
+                        Text(store.running?.isPaused == true ? "Taking a reset break" : (store.running == nil ? "Ready when you are" : "You are doing great — keep going!"))
+                            .font(.system(size: S(11), weight: .semibold))
+                        Text("See your streak and progress")
+                            .font(.system(size: S(8))).foregroundStyle(theme.accent)
+                    }
+                    Spacer(minLength: 0)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: S(10), weight: .semibold)).foregroundStyle(.tertiary)
+                }
+                .contentShape(Rectangle())
             }
-            Spacer()
+            .buttonStyle(.plain)
+            .foregroundStyle(.primary)
+            .accessibilityHint("Opens Progress")
         }
         .padding(S(10)).background(cardBackground)
     }
