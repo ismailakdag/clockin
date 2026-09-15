@@ -24,7 +24,7 @@ struct ClockinMascotImage: View {
             if let image = Self.image(named: asset) {
                 Image(nsImage: image).resizable().interpolation(.none).scaledToFit()
             } else {
-                Image(systemName: "sparkles").resizable().scaledToFit()
+                Image(systemName: "face.smiling").resizable().scaledToFit()
                     .padding(S(18)).foregroundStyle(.cyan)
             }
         }

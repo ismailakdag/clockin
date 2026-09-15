@@ -225,7 +225,7 @@ struct SettingsView: View {
                 ClockinSwitch(isOn: $mascotEnabled)
             }
             ClockinRowDivider()
-            ClockinRow(icon: "sparkles", title: "Behaviour", subtitle: "More poses unlock as your hours add up.") {
+            ClockinRow(icon: "figure.stand", title: "Behaviour", subtitle: "More poses unlock as your hours add up.") {
                 ClockinSelect(selection: $mascotDefault, options: CompanionMode.allCases.map { mode in
                     let locked = !mode.isUnlocked(totalHours: totalHours)
                     return .init(value: mode.rawValue,

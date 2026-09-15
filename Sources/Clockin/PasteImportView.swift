@@ -60,7 +60,7 @@ struct PasteImportView: View {
                         Text("Page Approved: \(DurationText.compact(approvedSummary))")
                             .font(.system(size: S(10), weight: .semibold))
                         if abs(approvedSummary - previewDuration) > 60 {
-                            Text("Copied rows are partial — totals do not match.")
+                            Text("Copied rows are partial. Totals do not match.")
                                 .font(.system(size: S(10), weight: .bold)).foregroundStyle(.orange)
                         } else {
                             Text("Copied rows match the page Approved total.")

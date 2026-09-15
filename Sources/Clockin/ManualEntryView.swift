@@ -83,20 +83,17 @@ struct ManualEntryView: View {
             }
 
             field("Day") {
-                DatePicker("Day", selection: $day, displayedComponents: .date)
-                    .labelsHidden().datePickerStyle(.field).controlSize(.large)
+                ClockinDateField("Day", selection: $day, displayedComponents: .date, systemImage: "calendar")
                     .frame(minHeight: S(32))
             }
 
             HStack(spacing: S(12)) {
                 field("Start") {
-                    DatePicker("Start", selection: $startTime, displayedComponents: .hourAndMinute)
-                        .labelsHidden().datePickerStyle(.field).controlSize(.large)
+                    ClockinDateField("Start", selection: $startTime, displayedComponents: .hourAndMinute, systemImage: "clock")
                     .frame(minHeight: S(32))
                 }
                 field("End") {
-                    DatePicker("End", selection: $endTime, displayedComponents: .hourAndMinute)
-                        .labelsHidden().datePickerStyle(.field).controlSize(.large)
+                    ClockinDateField("End", selection: $endTime, displayedComponents: .hourAndMinute, systemImage: "clock")
                     .frame(minHeight: S(32))
                 }
             }
@@ -152,7 +149,7 @@ struct ManualEntryView: View {
     private func field<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: S(6)) {
             Text(title)
-                .font(.system(size: S(10), weight: .bold)).foregroundStyle(.secondary)
+                .font(ClockinFont.section).foregroundStyle(.secondary)
             content()
         }
     }

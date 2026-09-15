@@ -16,7 +16,6 @@ struct MainView: View {
     @State private var showManualEntry = false
     @State private var editingSession: WorkSession?
     @State private var pendingDelete: WorkSession?
-    @State private var shimmer = false
     @State private var confirmCancel = false
     @State private var showRateSchedule = false
     @State private var completedSummary: WorkSession?
@@ -187,15 +186,7 @@ struct MainView: View {
         // Varsayilan bosluk olcekle buyumez; %130'da diger her sey buyurken
         // bu aralik sabit kalirdi.
         return HStack(spacing: S(8)) {
-            HStack(spacing: S(9)) {
-                Image(systemName: "timer")
-                    .font(.system(size: S(16), weight: .bold))
-                    .foregroundStyle(theme.accent)
-                Text("CLOCKIN")
-                    .tracking(S(1.8))
-                    .font(.system(size: S(14), weight: .black, design: theme.fontDesign))
-
-            }
+            ClockinLogo(size: 22)
             Spacer()
             levelChip(stats)
             HStack(spacing: S(2)) {
@@ -227,53 +218,25 @@ struct MainView: View {
     private func levelChip(_ stats: ProgressStats) -> some View {
         let span = 500
         let progress = min(max(Double(stats.xp % span) / Double(span), 0), 1)
-        return HStack(spacing: S(5)) {
-            Image(systemName: "trophy.fill")
-                .font(.system(size: S(10)))
-            Text("LV \(stats.level)")
-                .font(.system(size: S(10), weight: .black, design: .monospaced))
-        }
-        .foregroundStyle(theme.accent)
-        .padding(.horizontal, S(9))
-        .frame(height: S(24))
-        .background {
-            ZStack(alignment: .leading) {
-                Capsule(style: .continuous).fill(theme.accent.opacity(0.12))
+        return Text("Level \(stats.level)")
+            .font(.system(size: S(11), weight: .semibold).monospacedDigit())
+            .foregroundStyle(theme.accent)
+            .padding(.horizontal, S(10))
+            .frame(height: S(26))
+            // Never squeezed: a capsule narrower than its text showed cut ends.
+            .fixedSize()
+            .background {
+                // The fill shows progress to the next level.
                 GeometryReader { geo in
-                    // Bant ve yol dolgunun genisligine oranlanir, kapsulunkine
-                    // degil: kapsule oranlandiginda ilerleme azken bant
-                    // dolgudan genis kaliyor ve akan isik yerine parlama gibi
-                    // goruunuyordu.
-                    let fill = geo.size.width * progress
-                    Capsule(style: .continuous)
-                        .fill(theme.accent.opacity(0.22))
-                        .frame(width: fill)
-                        .overlay {
-                            LinearGradient(
-                                colors: [.clear, Color.primary.opacity(0.30), .clear],
-                                startPoint: .leading, endPoint: .trailing
-                            )
-                            .frame(width: fill * 0.55)
-                            // Yol dolgunun dort kati. Dongu basa donerken bant
-                            // dolgunun disinda oldugu icin sicrama gorunmez;
-                            // duraklama da bu yoldan cikar, `delay` gerekmez —
-                            // `delay` zaten yalnizca ilk turu geciktirir.
-                            .offset(x: fill * (shimmer ? 2.7 : -1.4))
-                        }
-                        // Isik dolgunun yuvarlak ucunu asmasin.
-                        .clipShape(Capsule(style: .continuous))
+                    ZStack(alignment: .leading) {
+                        Rectangle().fill(theme.accent.opacity(0.12))
+                        Rectangle().fill(theme.accent.opacity(0.22)).frame(width: geo.size.width * progress)
+                    }
                 }
+                .clipShape(PillShape())
+                .overlay { PillShape().strokeBorder(theme.accent.opacity(0.28), lineWidth: 1) }
+
             }
-            .clipShape(Capsule(style: .continuous))
-            .overlay { Capsule(style: .continuous).stroke(theme.accent.opacity(0.26), lineWidth: 1) }
-        }
-        .onAppear {
-            // Sabit hiz: `easeInOut` isigi hizlandirip yavaslatiyordu, gecen
-            // bir isik icin dogal durmuyor.
-            withAnimation(.linear(duration: 5.2).repeatForever(autoreverses: false)) {
-                shimmer = true
-            }
-        }
         .help("Level \(stats.level) • \(stats.xp) XP • \(span - stats.xp % span) XP to next level")
     }
 
@@ -292,7 +255,6 @@ struct MainView: View {
                 Circle()
                     .fill(statusColor)
                     .frame(width: S(7), height: S(7))
-                    .shadow(color: statusColor.opacity(store.running?.isPaused == false ? 0.8 : 0), radius: 5)
                 Text(statusText)
                     .font(.system(size: S(10), weight: .bold, design: theme.fontDesign))
                     .foregroundStyle(.secondary)
@@ -336,10 +298,8 @@ struct MainView: View {
         let isEarning = store.running?.isPaused == false
         return VStack(spacing: S(8)) {
             HStack(spacing: S(9)) {
-                Image(systemName: isEarning ? "flame.fill" : "sparkles")
-                    .foregroundStyle(isEarning ? .orange : theme.accent)
                 VStack(alignment: .leading, spacing: S(2)) {
-                    Text(isEarning ? "Money momentum" : "Your earning power")
+                    Text(isEarning ? "Earning per second" : "Rate per second")
                         .font(.system(size: S(10), weight: .black, design: .rounded)).foregroundStyle(.secondary)
                     VStack(alignment: .leading, spacing: S(2)) {
                         Text("+\(perSecond.money(code: store.currencyCode, maxFractionDigits: 4))/sec")
@@ -465,7 +425,7 @@ struct MainView: View {
                 HStack(spacing: S(8)) {
                     VStack(alignment: .leading, spacing: S(4)) {
                         Text("Focus companion").font(ClockinFont.caption).foregroundStyle(Color.secondary)
-                        Text(store.running?.isPaused == true ? "Taking a reset break" : (store.running == nil ? "Ready when you are" : "Keep going!"))
+                        Text(store.running?.isPaused == true ? "Session paused" : (store.running == nil ? "No active session" : "Session in progress"))
                             .font(.system(size: S(11), weight: .semibold)).foregroundStyle(Color.primary)
                         Text("See your streak and progress")
                             .font(.system(size: S(10))).foregroundStyle(theme.accent)
@@ -604,7 +564,7 @@ struct MainView: View {
 
     private func sessionRow(_ session: WorkSession) -> some View {
         HStack(spacing: S(11)) {
-            Image(systemName: session.source == "Clockin" ? "bolt.fill" : "arrow.down.doc.fill")
+            Image(systemName: session.source == "Clockin" ? "clock" : "arrow.down.doc.fill")
                 .font(.system(size: S(11)))
                 .foregroundStyle(session.source == "Clockin" ? theme.accent : theme.secondary)
                 .frame(width: S(28), height: S(28))
@@ -673,7 +633,7 @@ struct MainView: View {
     }
 
     private var statusText: String {
-        guard let running = store.running else { return "Ready to focus" }
+        guard let running = store.running else { return "No active session" }
         return running.isPaused ? "Paused" : "Focus session"
     }
 

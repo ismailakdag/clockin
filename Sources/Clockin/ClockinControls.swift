@@ -32,6 +32,19 @@ extension ClockinPalette {
     var cardStroke: Color { colorScheme == .light ? .black.opacity(0.08) : .white.opacity(0.07) }
 }
 
+/// A pill. A stroked `Capsule` left small vertical marks at both ends when
+/// rendered; a rounded rectangle just short of fully round draws cleanly.
+struct PillShape: InsettableShape {
+    var inset: CGFloat = 0
+
+    func path(in rect: CGRect) -> Path {
+        let rect = rect.insetBy(dx: inset, dy: inset)
+        return RoundedRectangle(cornerRadius: max(0, rect.height / 2 - 0.75), style: .circular).path(in: rect)
+    }
+
+    func inset(by amount: CGFloat) -> PillShape { PillShape(inset: inset + amount) }
+}
+
 /// Reads the selected theme; controls use it instead of being passed a palette.
 private struct ThemeReader<Content: View>: View {
     @AppStorage("Clockin.Theme") private var themeRaw = ClockinThemeChoice.carbon.rawValue
@@ -410,6 +423,91 @@ struct ClockinTextField: View {
     }
 }
 
+/// A readable date or time field with the native editor in a popover.
+struct ClockinDateField: View {
+    let title: String
+    @Binding var selection: Date
+    var displayedComponents: DatePickerComponents
+    var systemImage: String?
+    private let bounds: ClosedRange<Date>
+    @Environment(\.locale) private var locale
+    @Environment(\.isEnabled) private var isEnabled
+    @State private var hovering = false
+    @State private var presented = false
+
+    init(_ title: String, selection: Binding<Date>,
+         in range: ClosedRange<Date>? = nil,
+         displayedComponents: DatePickerComponents = .date,
+         systemImage: String? = nil) {
+        self.title = title
+        _selection = selection
+        bounds = range ?? Date.distantPast...Date.distantFuture
+        self.displayedComponents = displayedComponents
+        self.systemImage = systemImage
+    }
+
+    init(_ title: String, selection: Binding<Date>, in range: PartialRangeFrom<Date>,
+         displayedComponents: DatePickerComponents = .date, systemImage: String? = nil) {
+        self.init(title, selection: selection, in: range.lowerBound...Date.distantFuture,
+                  displayedComponents: displayedComponents, systemImage: systemImage)
+    }
+
+    init(_ title: String, selection: Binding<Date>, in range: PartialRangeThrough<Date>,
+         displayedComponents: DatePickerComponents = .date, systemImage: String? = nil) {
+        self.init(title, selection: selection, in: Date.distantPast...range.upperBound,
+                  displayedComponents: displayedComponents, systemImage: systemImage)
+    }
+
+    private var formattedValue: String {
+        selection.formatted(Date.FormatStyle(
+            date: displayedComponents.contains(.date) ? .abbreviated : .omitted,
+            time: displayedComponents.contains(.hourAndMinute) ? .shortened : .omitted
+        ).locale(locale))
+    }
+
+    var body: some View {
+        Button { presented.toggle() } label: {
+            HStack(spacing: S(8)) {
+                if let systemImage { Image(systemName: systemImage).foregroundStyle(.secondary) }
+                Text(formattedValue).font(ClockinFont.body).lineLimit(1)
+                Spacer(minLength: S(4))
+                Image(systemName: "chevron.down")
+                    .font(.system(size: S(9), weight: .semibold)).foregroundStyle(.secondary)
+            }
+            .foregroundStyle(.primary)
+            .modifier(FieldChrome(focused: presented, hovering: hovering && isEnabled))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .opacity(isEnabled ? 1 : 0.45)
+        .modifier(PointerOnHover(hovering: $hovering))
+        .accessibilityLabel(title)
+        .accessibilityValue(formattedValue)
+        .popover(isPresented: $presented) {
+            ThemeReader { theme in
+                VStack(alignment: .leading, spacing: S(12)) {
+                    Text(title).font(ClockinFont.section)
+                    if displayedComponents.contains(.date) {
+                        picker.datePickerStyle(.graphical)
+                    } else {
+                        picker.datePickerStyle(.stepperField).controlSize(.large)
+                    }
+                    HStack { Spacer(); Button("Done") { presented = false }.buttonStyle(.clockin(.primary)) }
+                }
+                .padding(S(16))
+                .background(theme.background)
+                .preferredColorScheme(theme.colorScheme)
+            }
+        }
+    }
+
+    private var picker: some View {
+        DatePicker(title, selection: $selection, in: bounds, displayedComponents: displayedComponents)
+            .labelsHidden()
+            .accessibilityLabel(title)
+    }
+}
+
 /// Minus and plus buttons around a value.
 struct ClockinStepper: View {
     @Binding var value: Int
@@ -455,9 +553,9 @@ struct ClockinChip: View {
                 // Never squeezed: a narrower capsule than its text cut the ends off.
                 .fixedSize()
                 .foregroundStyle(isOn ? theme.accent : .secondary)
-                .background(isOn ? theme.accent.opacity(hovering ? 0.24 : 0.16) : (hovering ? theme.controlHover : theme.control), in: Capsule())
-                .overlay(Capsule().strokeBorder(isOn ? theme.accent.opacity(0.4) : theme.controlStroke, lineWidth: 1))
-                .contentShape(Capsule())
+                .background(isOn ? theme.accent.opacity(hovering ? 0.24 : 0.16) : (hovering ? theme.controlHover : theme.control), in: PillShape())
+                .overlay(PillShape().strokeBorder(isOn ? theme.accent.opacity(0.4) : theme.controlStroke, lineWidth: 1))
+                .contentShape(PillShape())
                 .opacity(isEnabled ? 1 : 0.45)
             }
             .buttonStyle(.plain)
@@ -499,9 +597,9 @@ private struct ClockinSwitchBody: View {
                 HStack(spacing: S(8)) {
                     configuration.label
                     ZStack(alignment: on ? .trailing : .leading) {
-                        Capsule()
+                        PillShape()
                             .fill(on ? theme.accent : (hovering ? theme.controlHover : theme.control))
-                            .overlay(Capsule().strokeBorder(on ? Color.white.opacity(0.18) : theme.controlStroke, lineWidth: 1))
+                            .overlay(PillShape().strokeBorder(on ? Color.white.opacity(0.18) : theme.controlStroke, lineWidth: 1))
                         Circle()
                             .fill(Color.white)
                             .shadow(color: .black.opacity(0.28), radius: S(1.5), y: S(1))
@@ -624,6 +722,32 @@ struct ClockinScreenHeader<Trailing: View>: View {
 extension ClockinScreenHeader where Trailing == EmptyView {
     init(title: String) {
         self.init(title: title) { EmptyView() }
+    }
+}
+
+// MARK: Brand
+
+/// The Clockin mark: the mascot's head, as in the menu bar, with the name.
+struct ClockinLogo: View {
+    var size: CGFloat = 22
+    var showsName = true
+
+    var body: some View {
+        ThemeReader { theme in
+            HStack(spacing: S(size * 0.32)) {
+                Image(nsImage: MenuBarIcon.image(.running, pointSize: S(size)))
+                    .renderingMode(.template)
+                    .foregroundStyle(theme.accent)
+                    .accessibilityHidden(true)
+                if showsName {
+                    Text("Clockin")
+                        .font(.system(size: S(size * 0.7), weight: .bold, design: theme.fontDesign))
+                        .foregroundStyle(.primary)
+                }
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("Clockin")
+        }
     }
 }
 

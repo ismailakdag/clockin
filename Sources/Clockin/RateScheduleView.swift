@@ -36,6 +36,7 @@ struct RateScheduleView: View {
                     }
                 }
             }
+            .frame(height: min(S(240), CGFloat(store.rateRules.count) * S(142)))
 
             Divider().opacity(0.3)
             Text("Add rate period").font(ClockinFont.section).foregroundStyle(.secondary)
@@ -43,15 +44,13 @@ struct RateScheduleView: View {
                 HStack {
                 Text("From").font(ClockinFont.body)
                 Spacer()
-                DatePicker("From", selection: $newDate, displayedComponents: .date)
-                    .labelsHidden().datePickerStyle(.field).controlSize(.large).frame(minHeight: S(32))
+                ClockinDateField("From", selection: $newDate, displayedComponents: .date, systemImage: "calendar")
                 }
                 HStack {
-                Toggle("Until", isOn: $newHasEnd).toggleStyle(.checkbox)
+                ClockinChip(title: "Until", isOn: $newHasEnd)
                 Spacer()
                 if newHasEnd {
-                    DatePicker("Until", selection: $newEndDate, in: newDate..., displayedComponents: .date)
-                        .labelsHidden().datePickerStyle(.field).controlSize(.large).frame(minHeight: S(32))
+                    ClockinDateField("Until", selection: $newEndDate, in: newDate..., displayedComponents: .date, systemImage: "calendar")
                 }
                 }
                 HStack {
@@ -67,7 +66,9 @@ struct RateScheduleView: View {
             }
         }
         .padding(S(18))
-        .frame(width: S(390), height: S(560))
+        .frame(width: S(390))
+        .onChange(of: newDate) { _, date in newEndDate = max(newEndDate, date) }
+        .onChange(of: newHasEnd) { _, enabled in if enabled { newEndDate = max(newEndDate, newDate) } }
         .scrollBounceBehavior(.basedOnSize)
         .background(theme.background)
         .fontDesign(theme.fontDesign)
@@ -101,17 +102,15 @@ private struct RateRuleRow: View {
             HStack {
                 Text("From").font(ClockinFont.body)
                 Spacer()
-                DatePicker("From", selection: $date, displayedComponents: .date)
-                    .labelsHidden().datePickerStyle(.field).controlSize(.large)
+                ClockinDateField("From", selection: $date, displayedComponents: .date, systemImage: "calendar")
                     .onChange(of: date) { _, newDate in commit(date: newDate) }
             }
             HStack {
-                Toggle("Until", isOn: $hasEnd).toggleStyle(.checkbox)
+                ClockinChip(title: "Until", isOn: $hasEnd)
                     .onChange(of: hasEnd) { _, _ in commit(date: date) }
                 Spacer()
                 if hasEnd {
-                    DatePicker("Until", selection: $endDate, in: date..., displayedComponents: .date)
-                        .labelsHidden().datePickerStyle(.field).controlSize(.large)
+                    ClockinDateField("Until", selection: $endDate, in: date..., displayedComponents: .date, systemImage: "calendar")
                         .onChange(of: endDate) { _, _ in commit(date: date) }
                 }
             }.frame(minHeight: S(32))
@@ -142,6 +141,7 @@ private struct RateRuleRow: View {
             rateText = String(format: "%.2f", rule.hourlyRate)
             return
         }
+        endDate = max(endDate, date)
         store.updateRateRule(id: rule.id, effectiveFrom: date, effectiveUntil: hasEnd ? endDate : nil, hourlyRate: value)
         rateText = String(format: "%.2f", value)
     }

@@ -135,13 +135,13 @@ struct PinnedTimerView: View {
             Circle()
                 .fill(store.running == nil ? Color.secondary : (store.running?.isPaused == true ? .orange : theme.accent))
                 .frame(width: 8, height: 8)
-                .shadow(color: store.running?.isPaused == false ? theme.accent.opacity(0.8) : .clear, radius: 5)
+
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(store.running == nil ? "READY" : (store.running?.isPaused == true ? "PAUSED" : "CLOCKED IN"))
-                    .font(.system(size: 9, weight: .bold, design: .rounded))
+                Text(store.running == nil ? "Ready" : (store.running?.isPaused == true ? "Paused" : "Clocked in"))
+                    .font(.system(size: S(9), weight: .bold, design: .rounded))
                     .foregroundStyle(.secondary)
-                    .tracking(1.2)
+
                 Text(DurationText.clock(store.elapsed(at: now)))
                     .font(.system(size: 23, weight: .medium, design: .monospaced))
                     .contentTransition(.numericText())
@@ -152,7 +152,7 @@ struct PinnedTimerView: View {
                     .font(.system(size: 13, weight: .semibold, design: .rounded)).foregroundStyle(theme.accent)
                 if store.currencyCode == "USD", let rate = exchangeRates.latestRate {
                     Text((store.currentEarnings(at: now) * rate).money(code: "TRY"))
-                        .font(.system(size: 9, weight: .medium, design: .rounded)).foregroundStyle(.secondary)
+                        .font(.system(size: S(9), weight: .medium, design: .rounded)).foregroundStyle(.secondary)
                 }
             }
         }
@@ -168,9 +168,9 @@ struct PinnedTimerView: View {
             HStack {
                 HStack(spacing: 7) {
                     Circle().fill(isEarning ? theme.accent : (store.running == nil ? .secondary : .orange))
-                        .frame(width: 7, height: 7).shadow(color: isEarning ? theme.accent : .clear, radius: 4)
-                    Text(store.running == nil ? "READY" : (isEarning ? "MONEY IS MOVING" : "PAUSED"))
-                        .font(.system(size: 8, weight: .black, design: .rounded)).foregroundStyle(.secondary).tracking(1)
+                        .frame(width: 7, height: 7)
+                    Text(store.running == nil ? "Ready" : (isEarning ? "Earning" : "Paused"))
+                        .font(.system(size: S(9), weight: .black, design: .rounded)).foregroundStyle(.secondary)
                 }
                 Spacer()
                 Text(DurationText.clock(store.elapsed(at: now)))
@@ -182,7 +182,7 @@ struct PinnedTimerView: View {
                 Spacer()
                 if store.currencyCode == "USD", let rate {
                     Text("\((usd * rate).money(code: "TRY"))")
-                        .font(.system(size: 15, weight: .semibold, design: .rounded)).foregroundStyle(.white)
+                        .font(.system(size: 15, weight: .semibold, design: .rounded)).foregroundStyle(.primary)
                 }
             }
             HStack {
@@ -192,7 +192,7 @@ struct PinnedTimerView: View {
                     Text("+\((perSecond * rate).money(code: "TRY", maxFractionDigits: 4))/sec")
                 }
             }
-            .font(.system(size: 8, weight: .semibold, design: .monospaced))
+            .font(.system(size: S(9), weight: .semibold, design: .monospaced))
             .foregroundStyle(isEarning ? theme.accent : .secondary)
         }
         .padding(.horizontal, 16).padding(.vertical, 11)
@@ -202,9 +202,9 @@ struct PinnedTimerView: View {
         let day = store.todayDuration(at: now) / 3600
         let month = store.monthDuration(at: now) / 3600
         return VStack(alignment: .leading, spacing: 9) {
-            HStack { Image(systemName: "target").foregroundStyle(theme.accent); Text("GOAL MODE").font(.system(size: 9, weight: .black)).tracking(1); Spacer(); Text(DurationText.clock(store.elapsed(at: now))).font(.system(size: 14, design: .monospaced)) }
-            goalGauge("TODAY", value: day, goal: dailyGoalHours)
-            goalGauge("MONTH", value: month, goal: monthlyGoalHours)
+            HStack { Image(systemName: "target").foregroundStyle(theme.accent); Text("Goals").font(.system(size: S(9), weight: .black)); Spacer(); Text(DurationText.clock(store.elapsed(at: now))).font(.system(size: 14, design: .monospaced)) }
+            goalGauge("Today", value: day, goal: dailyGoalHours)
+            goalGauge("Month", value: month, goal: monthlyGoalHours)
         }
         .padding(14)
     }
@@ -216,12 +216,12 @@ struct PinnedTimerView: View {
         let perSecond = active ? store.currentRate(at: now) / 3600 : 0
         let day = store.todayDuration(at: now) / 3600
         let month = store.monthDuration(at: now) / 3600
-        return VStack(alignment: .leading, spacing: 10) {
+        return VStack(alignment: .leading, spacing: 6) {
             HStack {
                 HStack(spacing: 6) {
                     Circle().fill(active ? theme.accent : (store.running == nil ? .secondary : .orange)).frame(width: 7, height: 7)
-                    Text(store.running == nil ? "READY" : (active ? "MONEY IS MOVING" : "PAUSED"))
-                        .font(.system(size: 8, weight: .black)).foregroundStyle(.secondary).tracking(1)
+                    Text(store.running == nil ? "Ready" : (active ? "Earning" : "Paused"))
+                        .font(.system(size: S(9), weight: .black)).foregroundStyle(.secondary)
                 }
                 Spacer()
                 Text(DurationText.clock(store.elapsed(at: now))).font(.system(size: 16, design: .monospaced))
@@ -229,31 +229,31 @@ struct PinnedTimerView: View {
             HStack(alignment: .firstTextBaseline) {
                 Text(earning.money(code: store.currencyCode)).font(.system(size: 23, weight: .bold, design: .rounded)).foregroundStyle(theme.accent)
                 Spacer()
-                if store.currencyCode == "USD", let rate { Text("\((earning * rate).money(code: "TRY"))").font(.system(size: 14, weight: .semibold)).foregroundStyle(.white) }
+                if store.currencyCode == "USD", let rate { Text("\((earning * rate).money(code: "TRY"))").font(.system(size: 14, weight: .semibold)).foregroundStyle(.primary) }
             }
             HStack {
-                Label("+\(perSecond.money(code: store.currencyCode, maxFractionDigits: 4))/sec", systemImage: "bolt.fill")
+                Text("+\(perSecond.money(code: store.currencyCode, maxFractionDigits: 4))/sec")
                 Spacer()
                 Text("Today \(hoursText(day))").foregroundStyle(theme.secondary)
             }
-            .font(.system(size: 8, weight: .semibold, design: .monospaced))
+            .font(.system(size: S(9), weight: .semibold, design: .monospaced))
             HStack(spacing: 6) {
                 let averages = allTimeAverages(at: now)
-                averageChip("DAY", hours: averages.day)
-                averageChip("WEEK", hours: averages.week)
-                averageChip("MONTH", hours: averages.month)
+                averageChip("Day", hours: averages.day)
+                averageChip("Week", hours: averages.week)
+                averageChip("Month", hours: averages.month)
             }
-            if dailyGoalHours > 0 { goalGauge("DAY", value: day, goal: dailyGoalHours) }
-            if monthlyGoalHours > 0 { goalGauge("MONTH", value: month, goal: monthlyGoalHours) }
+            if dailyGoalHours > 0 { goalGauge("Day", value: day, goal: dailyGoalHours) }
+            if monthlyGoalHours > 0 { goalGauge("Month", value: month, goal: monthlyGoalHours) }
             HStack(spacing: 7) {
                 Image(systemName: radio.isPlaying ? "music.note.list" : "music.note").foregroundStyle(radio.isPlaying ? theme.accent : .secondary)
-                Text(radio.isPlaying ? "FOCUS RADIO ON" : "FOCUS RADIO OFF").font(.system(size: 8, weight: .bold, design: .monospaced))
+                Text(radio.isPlaying ? "Radio on" : "Radio off").font(.system(size: S(9), weight: .bold, design: .monospaced))
                 Spacer()
                 Button { if radio.isPlaying { radio.stop() } else { radio.play(station: radio.stations[0]) } } label: { Image(systemName: radio.isPlaying ? "stop.fill" : "play.fill") }.buttonStyle(.hitTarget)
                 Slider(value: $radio.volume, in: 0...1).frame(width: 65).tint(theme.accent)
             }
         }
-        .padding(15)
+        .padding(12)
     }
 
     private var totalContent: some View {
@@ -266,8 +266,8 @@ struct PinnedTimerView: View {
         return VStack(alignment: .leading, spacing: 9) {
             HStack(spacing: 6) {
                 Circle().fill(active ? theme.accent : (store.running == nil ? .secondary : .orange)).frame(width: 7, height: 7)
-                Text(active ? "TOTAL IS MOVING" : "ALL-TIME TOTAL")
-                    .font(.system(size: 8, weight: .black, design: .rounded)).foregroundStyle(.secondary).tracking(1)
+                Text(active ? "Total earned" : "Total earned")
+                    .font(.system(size: S(9), weight: .black, design: .rounded)).foregroundStyle(.secondary)
                 Spacer()
                 Text(DurationText.clock(store.elapsed(at: now))).font(.system(size: 13, design: .monospaced))
             }
@@ -277,13 +277,13 @@ struct PinnedTimerView: View {
                 Spacer()
                 if store.currencyCode == "USD", let rate {
                     Text("\((total * rate).money(code: "TRY"))")
-                        .font(.system(size: 13, weight: .semibold)).foregroundStyle(.white)
+                        .font(.system(size: 13, weight: .semibold)).foregroundStyle(.primary)
                 }
             }
             HStack(spacing: 6) {
-                totalChip("TOTAL", DurationText.compact(totalDuration))
-                totalChip("TODAY", today.money(code: store.currencyCode))
-                totalChip("NOW", current.money(code: store.currencyCode))
+                totalChip("Total", DurationText.compact(totalDuration))
+                totalChip("Today", today.money(code: store.currencyCode))
+                totalChip("Session", current.money(code: store.currencyCode))
             }
         }
         .padding(14)
@@ -291,8 +291,8 @@ struct PinnedTimerView: View {
 
     private func totalChip(_ label: String, _ value: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(label).font(.system(size: 7, weight: .bold)).foregroundStyle(.secondary)
-            Text(value).font(.system(size: 9, weight: .semibold, design: .monospaced)).lineLimit(1).minimumScaleFactor(0.75)
+            Text(label).font(.system(size: S(9), weight: .bold)).foregroundStyle(.secondary)
+            Text(value).font(.system(size: S(9), weight: .semibold, design: .monospaced)).lineLimit(1).minimumScaleFactor(0.75)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.vertical, 5).padding(.horizontal, 6)
@@ -302,9 +302,28 @@ struct PinnedTimerView: View {
     private func goalGauge(_ label: String, value: Double, goal: Double) -> some View {
         let progress = goal > 0 ? min(max(value / goal, 0), 1) : 0
         return VStack(alignment: .leading, spacing: 3) {
-            HStack { Text(label).font(.system(size: 8, weight: .bold)).foregroundStyle(.secondary); Spacer(); Text(goal > 0 ? "\(hoursText(value)) / \(hoursText(goal))" : "Set in Settings").font(.system(size: 9, weight: .semibold, design: .monospaced)) }
-            ProgressView(value: progress).tint(progress >= 1 ? .green : theme.accent).scaleEffect(y: 0.8)
-            if goal > 0 { Text(progress >= 1 ? "GOAL REACHED" : "\(hoursText(max(0, goal - value))) remaining").font(.system(size: 8, weight: .bold)).foregroundStyle(progress >= 1 ? .green : theme.accent) }
+            HStack {
+                Text(label).font(.system(size: S(9), weight: .medium)).foregroundStyle(.secondary)
+                Spacer()
+                Text(goal > 0 ? "\(hoursText(value)) / \(hoursText(goal))" : "Set in Settings")
+                    .font(.system(size: S(9), weight: .semibold, design: .monospaced))
+            }
+            HStack(spacing: 8) {
+                GeometryReader { geometry in
+                    Capsule().fill(theme.control)
+                    Capsule().fill(progress >= 1 ? Color.green : theme.accent)
+                        .frame(width: geometry.size.width * progress)
+                }
+                .frame(height: 4)
+                .accessibilityLabel("\(label) goal")
+                .accessibilityValue("\(Int(progress * 100)) percent")
+                if goal > 0 {
+                    Text(progress >= 1 ? "Goal reached" : "\(hoursText(max(0, goal - value))) left")
+                        .font(.system(size: S(9), weight: .medium))
+                        .foregroundStyle(progress >= 1 ? .green : theme.accent)
+                        .fixedSize()
+                }
+            }
         }
     }
 
@@ -312,8 +331,8 @@ struct PinnedTimerView: View {
 
     private func averageChip(_ label: String, hours: Double) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text("AVG \(label)").font(.system(size: 7, weight: .bold)).foregroundStyle(.secondary)
-            Text(hoursText(hours)).font(.system(size: 8, weight: .semibold, design: .monospaced))
+            Text("Avg \(label.lowercased())").font(.system(size: S(9), weight: .bold)).foregroundStyle(.secondary)
+            Text(hoursText(hours)).font(.system(size: S(9), weight: .semibold, design: .monospaced))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.vertical, 4).padding(.horizontal, 6)

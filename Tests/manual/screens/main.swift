@@ -51,7 +51,7 @@ app.finishLaunching()
 let output = URL(fileURLWithPath: ProcessInfo.processInfo.environment["CLOCKIN_SCREEN_OUTPUT"] ?? "Tests/manual/screens/out", isDirectory: true)
 try? FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
 
-@MainActor func capture(_ name: String, _ view: some View, size: CGSize = CGSize(width: 390, height: 650)) {
+@MainActor func capture(_ name: String, _ view: some View, size: CGSize = CGSize(width: 390, height: 650), clickAt: CGPoint? = nil) {
     if let filter = ProcessInfo.processInfo.environment["CLOCKIN_SCREEN_FILTER"],
        !filter.split(separator: ",").contains(Substring(name)) { return }
     let root = view
@@ -67,12 +67,41 @@ try? FileManager.default.createDirectory(at: output, withIntermediateDirectories
     window.contentView = hosting
     window.orderFrontRegardless()
     spin(1.5)
+    if let point = clickAt {
+        let location = CGPoint(x: point.x, y: size.height - point.y)
+        for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
+            let event = NSEvent.mouseEvent(with: type, location: location, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+                windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1)!
+            window.sendEvent(event)
+        }
+        spin(0.5)
+        guard let popover = app.windows.first(where: { $0 !== window && $0.isVisible && $0.className.contains("Popover") }),
+              let content = popover.contentView,
+              let popoverRep = content.bitmapImageRepForCachingDisplay(in: content.bounds) else {
+            fatalError("\(name): date field did not open a popover")
+        }
+        content.cacheDisplay(in: content.bounds, to: popoverRep)
+        let popoverURL = output.appendingPathComponent("\(theme.rawValue)-\(name)-popover.png")
+        try! popoverRep.representation(using: .png, properties: [:])!.write(to: popoverURL)
+        print("verified \(name): native picker popover opened")
+        popover.orderOut(nil)
+    }
     let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(size.width * 2), pixelsHigh: Int(size.height * 2), bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)!
     rep.size = size
     hosting.cacheDisplay(in: hosting.bounds, to: rep)
     let url = output.appendingPathComponent("\(theme.rawValue.replacingOccurrences(of: " ", with: ""))-\(name).png")
     try! rep.representation(using: .png, properties: [:])!.write(to: url)
     print("wrote \(url.path) \(rep.pixelsWide)x\(rep.pixelsHigh)")
+    if ProcessInfo.processInfo.environment["CLOCKIN_LAYER_CAPTURE"] != nil, let layer = hosting.layer {
+        // Second opinion from the layer tree, to tell capture artifacts from real ones.
+        let ctx = CGContext(data: nil, width: Int(size.width * 2), height: Int(size.height * 2), bitsPerComponent: 8, bytesPerRow: 0,
+                            space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+        ctx.scaleBy(x: 2, y: 2)
+        if hosting.isFlipped { ctx.translateBy(x: 0, y: size.height); ctx.scaleBy(x: 1, y: -1) }
+        layer.render(in: ctx)
+        let layerURL = url.deletingPathExtension().appendingPathExtension("layer.png")
+        try! NSBitmapImageRep(cgImage: ctx.makeImage()!).representation(using: .png, properties: [:])!.write(to: layerURL)
+    }
     window.orderOut(nil)
 }
 
@@ -85,8 +114,14 @@ capture("timer", MainView(), size: CGSize(width: 390, height: 1400))
 
 // The actual sheet roots, at their production sizes, in real AppKit windows.
 capture("rates", RateScheduleView(), size: CGSize(width: 390, height: 560))
+let originalRule = store.rateRules[0]
+store.updateRateRule(id: originalRule.id, effectiveFrom: originalRule.effectiveFrom, effectiveUntil: now, hourlyRate: originalRule.hourlyRate)
+capture("rates-bounded", RateScheduleView(), size: CGSize(width: 390, height: 560))
+store.updateRateRule(id: originalRule.id, effectiveFrom: originalRule.effectiveFrom, effectiveUntil: originalRule.effectiveUntil, hourlyRate: originalRule.hourlyRate)
 capture("manual-entry", ManualEntryView(), size: CGSize(width: 390, height: 420))
 capture("edit-entry", ManualEntryView(editing: sessions.last), size: CGSize(width: 390, height: 420))
+capture("date-field", ManualEntryView(), size: CGSize(width: 390, height: 420), clickAt: CGPoint(x: 150, y: 154))
+capture("time-field", ManualEntryView(), size: CGSize(width: 390, height: 420), clickAt: CGPoint(x: 120, y: 222))
 capture("manual-start", ManualStartView(), size: CGSize(width: 390, height: 420))
 capture("session-summary", SessionSummaryView(session: sessions.last!), size: CGSize(width: 350, height: 340))
 capture("share", ShareStatsView())
@@ -101,6 +136,10 @@ func previewPreference(_ key: String, _ value: Any) {
     var values = UserDefaults.standard.volatileDomain(forName: UserDefaults.argumentDomain)
     values[key] = value
     UserDefaults.standard.setVolatileDomain(values, forName: UserDefaults.argumentDomain)
+}
+for (mode, width, height) in [("Compact", 246.0, 72.0), ("Money", 320.0, 112.0), ("Goal", 300.0, 116.0), ("All", 370.0, 230.0), ("Total", 340.0, 156.0)] {
+    previewPreference("Clockin.PinnedMode", mode)
+    capture("timer-pinned-\(mode.lowercased())", PinnedTimerView(), size: CGSize(width: width, height: height))
 }
 previewPreference("Clockin.HistoryGroupByDay", false)
 capture("history-sessions", HistoryView(), size: CGSize(width: 390, height: 1100))
