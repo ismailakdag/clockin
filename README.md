@@ -56,6 +56,9 @@ swiftc -swift-version 6 Sources/Clockin/Models.swift Sources/Clockin/MenuBarStat
 swiftc -swift-version 6 Sources/Clockin/MenuBarIcon.swift Tests/manual/menubaricon/main.swift -o /tmp/clockin-menubaricon-tests && /tmp/clockin-menubaricon-tests
 swiftc -swift-version 6 Sources/Clockin/Models.swift Sources/Clockin/MenuBarStatus.swift Sources/Clockin/MenuBarIcon.swift Sources/Clockin/MenuBarController.swift Tests/manual/menubarpanelhost/main.swift -o /tmp/clockin-menubarpanelhost-tests && /tmp/clockin-menubarpanelhost-tests
 bash Tests/manual/menubarpanel/render
+swiftc -swift-version 6 Sources/Clockin/MascotMotion.swift Tests/manual/mascotmotion/main.swift -o /tmp/clockin-mascotmotion-tests && /tmp/clockin-mascotmotion-tests
+swiftc -swift-version 6 Tests/manual/mascotassets/main.swift -o /tmp/clockin-mascotassets-tests && /tmp/clockin-mascotassets-tests
+bash Tests/manual/mascotview/run
 ```
 
 Exchange rates come from the free [Frankfurter API](https://frankfurter.dev/).

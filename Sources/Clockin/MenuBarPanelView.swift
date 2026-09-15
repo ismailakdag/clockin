@@ -90,7 +90,14 @@ struct MenuBarPanelView: View {
     private var header: some View {
         HStack(spacing: 12) {
             if mascotEnabled {
-                ClockinMascotStage().environmentObject(store)
+                Group {
+                    // ImageRenderer cannot draw the layer-backed mascot.
+                    if previewSolidBackground {
+                        ClockinMascotStill(mood: store.running == nil ? .hello : (paused ? .coffee : .working))
+                    } else {
+                        ClockinMascotStage().environmentObject(store)
+                    }
+                }
                     .frame(width: 44, height: 44)
                     .allowsHitTesting(false)
                     .accessibilityHidden(true)
