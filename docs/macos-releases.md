@@ -13,16 +13,20 @@ preferences keep the existing `com.ismailakdag.clockin` bundle identifier.
 
 ## Current distribution status
 
-Version **1.1.0 (4)** is publicly available for Apple Silicon and Intel. Its application bundle is Developer ID signed, notarized by Apple and stapled. The signed outer DMG contains the app, Applications shortcut and MIT license; the outer DMG is not separately notarized.
+The current version is **1.1.1 (5)**, for Apple Silicon and Intel. The app and the DMG are both Developer ID signed, notarized by Apple and stapled. The DMG contains the app, an Applications shortcut and the MIT license.
 
-- [Download the installer](https://github.com/ismailakdag/clockin/releases/download/macos-v1.1.0/Clockin-1.1.0-4.dmg)
+- [Website](https://getclockin.netlify.app) (Netlify project `getclockin`), which hosts its own copy of the DMG
+- [GitHub releases](https://github.com/ismailakdag/clockin/releases); each version is `macos-v<version>`, and its tag is the exact source of that build
 - [Signed update feed](https://github.com/ismailakdag/clockin/releases/download/macos-updates/appcast.xml)
-- [Source matching the app build](https://github.com/ismailakdag/clockin/tree/macos-v1.1.0)
-- [End-user website](https://clockin-for-mac.erdmncdr.chatgpt.site/)
 
-The public DMG and feed were downloaded anonymously and verified using the public key shipped in the application. Both feed and archive tampering were rejected. The downloaded app passed Gatekeeper and stapler validation, was installed to Applications, opened successfully and reported “You’re up to date” against the live feed. Existing work-data JSON remained semantically identical after installation; only its JSON serialization changed.
+| Version | Build | Released | Notes |
+|---|---|---|---|
+| 1.1.1 | 5 | 2026-09-15 | First release made with `scripts/publish-mac.sh`. Offers to move to Applications; focus companion matches the iPhone app. DMG notarized too. |
+| 1.1.0 | 4 | 2026-09-14 | First packaged release with Sparkle updates. App notarized through Xcode; the outer DMG was signed but not notarized. |
 
-Future releases must increment the build number, sign with the existing Developer ID identity and Sparkle key, pass notarization and verification, then publish their versioned DMG before updating the stable signed feed. Update the website’s pinned installer URL after the new download is verified. Never move the Mac feed to the repository’s generic latest-release URL.
+After 1.1.1 was published, the live feed, the GitHub DMG and the website DMG were downloaded anonymously. They matched the build byte for byte, and the DMG and app passed `spctl` and `stapler validate`.
+
+New releases use [Release with one command](#release-with-one-command). It raises the build number, signs with the existing Developer ID identity and Sparkle key, notarizes, and publishes the DMG and website before the feed. The manual sections further down describe the same steps individually; their examples are from the 1.1.0 release. Never move the Mac feed to the repository's generic latest-release URL.
 
 The feed uses the dedicated `macos-updates` release instead of `releases/latest`,
 so future iPhone or prerelease uploads do not break Mac update checks. Before
@@ -33,8 +37,8 @@ Do not publish this app's feed into an unrelated project's release.
 ## Release with one command
 
 ```sh
-scripts/publish-mac.sh 1.1.1 --dry-run   # local rehearsal, nothing committed or published
-scripts/publish-mac.sh 1.1.1             # the real release
+scripts/publish-mac.sh 1.1.2 --dry-run   # local rehearsal, nothing committed or published
+scripts/publish-mac.sh 1.1.2             # the real release
 ```
 
 Write `docs/release-notes-<version>.md` first. The script picks the next build
@@ -83,7 +87,11 @@ The updater requires both signed feeds and signed archives and verifies archives
 before extraction. Signature failures do not expire. Release verification reads
 only the embedded public key and never requests the private key from Keychain.
 
-## Build and package locally
+## Manual steps
+
+The release script runs these for you. Use them to debug a failed release or to work on the release tooling itself.
+
+### Build and package locally
 
 ```sh
 ./build-app.sh
@@ -103,7 +111,7 @@ Output: `dist/releases/1.1.0-3/` containing the DMG, signed appcast, checksums a
 Build numbers must increase for every distributed build, including rebuilds of
 the same marketing version. Existing release files are never overwritten.
 
-## Notarize using the existing Xcode account
+### Notarize using the existing Xcode account
 
 This path uses the account already signed into Xcode and does not need a separate
 app-specific password. Start with a new version/build number:
@@ -139,7 +147,7 @@ outer DMG is signed but not separately notarized. The app itself must pass
 Gatekeeper and ticket validation before this script packages anything. To
 notarize and staple the outer DMG too, use the notarytool path below.
 
-## Prepare a production release with notarytool
+### Prepare a production release with notarytool
 
 One-time setup on the release Mac:
 
@@ -173,7 +181,7 @@ For a secured CI environment, `SPARKLE_PRIVATE_KEY_FILE` can point to an ephemer
 secret file instead of Keychain. Do not commit that file. Otherwise signing uses
 `SPARKLE_KEY_ACCOUNT` (default `com.ismailakdag.clockin`).
 
-## Publish
+### Publish
 
 Using the repository you control:
 
@@ -195,7 +203,7 @@ Only replacing the signed feed makes an update visible to existing users. Do
 not hand-edit signed XML, release notes or archives after signing. Do not raise
 the minimum OS version without retaining a compatible feed entry for older Macs.
 
-## Verification
+### Verification
 
 ```sh
 ./scripts/test-release-verification.sh dist/releases/1.1.0-3
