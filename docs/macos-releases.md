@@ -13,7 +13,7 @@ preferences keep the existing `com.ismailakdag.clockin` bundle identifier.
 
 ## Current distribution status
 
-The current version is **1.1.1 (5)**, for Apple Silicon and Intel. The app and the DMG are both Developer ID signed, notarized by Apple and stapled. The DMG contains the app, an Applications shortcut and the MIT license.
+The current version is **1.1.2 (6)**, for Apple Silicon and Intel. The app and the DMG are both Developer ID signed, notarized by Apple and stapled. The DMG contains the app, an Applications shortcut and the MIT license.
 
 - [Website](https://getclockin.netlify.app) (Netlify project `getclockin`), which hosts its own copy of the DMG
 - [GitHub releases](https://github.com/ismailakdag/clockin/releases); each version is `macos-v<version>`, and its tag is the exact source of that build
@@ -21,10 +21,11 @@ The current version is **1.1.1 (5)**, for Apple Silicon and Intel. The app and t
 
 | Version | Build | Released | Notes |
 |---|---|---|---|
+| 1.1.2 | 6 | 2026-09-15 | The menu-bar icon opens a panel that stays over full-screen apps; bold stopwatch icon, no status text while not clocked in. The release also deployed the pending website redesign in `website/dist`. |
 | 1.1.1 | 5 | 2026-09-15 | First release made with `scripts/publish-mac.sh`. Offers to move to Applications; focus companion matches the iPhone app. DMG notarized too. |
 | 1.1.0 | 4 | 2026-09-14 | First packaged release with Sparkle updates. App notarized through Xcode; the outer DMG was signed but not notarized. |
 
-After 1.1.1 was published, the live feed, the GitHub DMG and the website DMG were downloaded anonymously. They matched the build byte for byte, and the DMG and app passed `spctl` and `stapler validate`.
+After 1.1.1 and 1.1.2 were published, the live feed, the GitHub DMG and the website DMG were downloaded anonymously. They matched the build byte for byte, and the DMG and app passed `spctl` and `stapler validate`.
 
 New releases use [Release with one command](#release-with-one-command). It raises the build number, signs with the existing Developer ID identity and Sparkle key, notarizes, and publishes the DMG and website before the feed. The manual sections further down describe the same steps individually; their examples are from the 1.1.0 release. Never move the Mac feed to the repository's generic latest-release URL.
 
@@ -37,8 +38,8 @@ Do not publish this app's feed into an unrelated project's release.
 ## Release with one command
 
 ```sh
-scripts/publish-mac.sh 1.1.2 --dry-run   # local rehearsal, nothing committed or published
-scripts/publish-mac.sh 1.1.2             # the real release
+scripts/publish-mac.sh 1.1.3 --dry-run   # local rehearsal, nothing committed or published
+scripts/publish-mac.sh 1.1.3             # the real release
 ```
 
 Write `docs/release-notes-<version>.md` first. The script picks the next build
@@ -49,7 +50,9 @@ it runs unattended:
 2. builds, signs, notarizes and packages with `scripts/release.sh`, then checks
    that a tampered feed or DMG is rejected;
 3. publishes the GitHub release `macos-v<version>` on that commit;
-4. deploys the website to Netlify with the new DMG and download links;
+4. deploys the website to Netlify with the new DMG and download links. It uploads
+   the local `website/dist` as it is, so any unpublished site edits on that Mac
+   go live with the release;
 5. replaces the feed in `macos-updates`, which is when installed copies see the update.
 
 Each public step is downloaded again anonymously and compared with the built
