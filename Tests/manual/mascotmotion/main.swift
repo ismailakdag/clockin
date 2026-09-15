@@ -118,4 +118,39 @@ check(abs(combined.offsetY - (peak.offsetY + MascotMotion.sway(time: 1.3).offset
 check(MascotMotion.pose(hopProgress: nil, hopHeight: 1, swayTime: nil, swayWeight: 1, popProgress: nil) == .rest, "with nothing playing the mascot is at rest")
 check(MascotMood.allCases.allSatisfy { (0.8...0.9).contains($0.feet) }, "every mood's feet sit near the bottom of the frame")
 
+// Click reactions.
+var reactionRandom = SplitMix(state: 7)
+var lastReaction: MascotReaction?
+var seenReactions = Set<MascotReaction>()
+var repeatedReaction = false
+for _ in 0..<600 {
+    let next = MascotReaction.pick(after: lastReaction, using: &reactionRandom)
+    if next == lastReaction { repeatedReaction = true }
+    seenReactions.insert(next)
+    lastReaction = next
+}
+check(!repeatedReaction, "two clicks in a row never get the same reaction")
+check(seenReactions.count == MascotReaction.allCases.count && MascotReaction.allCases.count >= 6, "clicks cycle through all \(MascotReaction.allCases.count) reactions")
+check(MascotReaction.wave.mood(from: .working) == .hello && MascotReaction.wave.mood(from: .hello) == nil, "wave switches to the waving pose unless it is already waving")
+check(MascotReaction.busy.mood(from: .working) == .coffee && MascotReaction.busy.mood(from: .hello) == .working, "busy types, or has coffee while typing")
+check(MascotReaction.cheer.mood(from: .coffee) == .celebrate && MascotReaction.wiggle.mood(from: .coffee) == nil, "cheer celebrates; wiggle keeps the pose")
+if let data = try? Data(contentsOf: shipped) {
+    let real = try MascotLibrary(data: data)
+    var clipRandom = SplitMix(state: 3)
+    var everyReactionHasClip = true
+    for reaction in MascotReaction.allCases {
+        for current in MascotMood.allCases {
+            let target = reaction.mood(from: current) ?? current
+            if reaction.clip(in: target, clips: real[target], using: &clipRandom) == nil { everyReactionHasClip = false; print("no clip:", reaction, target) }
+        }
+    }
+    check(everyReactionHasClip, "every reaction has a drawn clip in every pose it can show")
+}
+let wiggleSamples = stride(from: 0.0, through: 1.0, by: 0.005).map { MascotMotion.wiggle(progress: $0) }
+check(abs(wiggleSamples.first!) < 1e-9 && abs(wiggleSamples.last!) < 1e-9 && wiggleSamples.map(abs).max()! > 5 && wiggleSamples.map(abs).max()! <= 9, "a wiggle swings up to 9° and ends at rest")
+let squashStart = MascotMotion.squash(progress: 0), squashEnd = MascotMotion.squash(progress: 1)
+let squashSamples = stride(from: 0.0, through: 1.0, by: 0.005).map { MascotMotion.squash(progress: $0) }
+check(abs(squashStart.scaleX - 1) < 1e-9 && abs(squashEnd.scaleX - 1) < 0.01 && abs(squashEnd.scaleY - 1) < 0.01, "a squash starts at rest and settles back")
+check(squashSamples.map(\.scaleY).min()! < 0.9 && squashSamples.map(\.scaleX).max()! > 1.08, "a squash visibly flattens and widens")
+
 print("\(passed) mascot motion checks passed")

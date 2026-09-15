@@ -41,39 +41,44 @@ struct ClockinMascotStage: View {
         guard let running = store.running else { return .idle }
         return running.isPaused ? .paused : .working
     }
-    /// A tap hops, then celebrates for a moment (site: hop, then change pose
-    /// in the air).
-    @State private var reaction = 0
-    @State private var celebrating = false
+    /// The latest click and the pose it asked for, if any.
+    @State private var tap: MascotTap?
+    @State private var reactionMood: MascotMood?
 
     var body: some View {
         // Esik burada da denetlenir: secildikten sonra oturumlar silinip toplam
         // sure esigin altina duserse kilitli mod acik kalmasin.
         let mode = CompanionMode.resolve(defaultMode, totalHours: (store.totalDuration + store.elapsed()) / 3600)
+        let current = mood(for: mode)
         return Group {
             // One view for every mood keeps its state, so a mood change pops
             // instead of cutting to a fresh mascot.
-            if let mood = celebrating ? .celebrate : mood(for: mode) {
-                ClockinMotionMascot(mood: mood, reaction: reaction)
+            if let mood = reactionMood ?? current {
+                ClockinMotionMascot(mood: mood, tap: tap)
             } else if let fixed = mode.fixedPoseIndex {
                 ClockinPoseMascot(index: fixed)
             }
         }
         .contentShape(Rectangle())
-        .onTapGesture { react() }
+        .onTapGesture { react(from: current) }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Focus companion")
         .accessibilityAddTraits(.isButton)
-        .accessibilityAction { react() }
-        .task(id: reaction) {
-            guard reaction > 0 else { return }
-            // A new tap cancels the previous wait, so the pose never ends early.
+        .accessibilityAction { react(from: current) }
+        .task(id: tap) {
+            guard let tap else { return }
+            // A new click cancels the previous wait, so a pose never ends early.
             do {
-                if !reduceMotion { try await Task.sleep(for: .milliseconds(330)) }
-                celebrating = true
-                try await Task.sleep(for: .seconds(2.6))
+                if let next = tap.reaction.mood(from: reactionMood ?? current ?? .hello) {
+                    // Like the site: hop first, change pose in the air.
+                    if !reduceMotion { try await Task.sleep(for: .milliseconds(330)) }
+                    reactionMood = next
+                    try await Task.sleep(for: .seconds(3.2))
+                } else {
+                    try await Task.sleep(for: .seconds(1.6))
+                }
             } catch { return }
-            celebrating = false
+            reactionMood = nil
         }
     }
 
@@ -94,9 +99,16 @@ struct ClockinMascotStage: View {
         }
     }
 
-    private func react() {
-        reaction += 1
+    private func react(from current: MascotMood?) {
+        var random = SystemRandomNumberGenerator()
+        tap = MascotTap(id: (tap?.id ?? 0) + 1, reaction: MascotReaction.pick(after: tap?.reaction, using: &random))
     }
+}
+
+/// One click on the mascot.
+struct MascotTap: Equatable {
+    let id: Int
+    let reaction: MascotReaction
 }
 
 /// A mood's rest frame as a plain image, for renders that cannot host layers.
@@ -163,8 +175,8 @@ final class MascotFrames {
 @MainActor
 struct ClockinMotionMascot: View {
     let mood: MascotMood
-    /// Changing this plays a reaction hop.
-    var reaction = 0
+    /// A new click plays its reaction.
+    var tap: MascotTap?
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var colorScheme
@@ -172,12 +184,24 @@ struct ClockinMotionMascot: View {
     @State private var hop = MascotLayerView.HopRequest(id: 0, height: 1)
     @State private var hopUntil = Date.distantPast
     @State private var pop = 0
+    @State private var wiggle = 0
+    @State private var squash = 0
+    /// A clip a click asked for, played before the regular events.
+    @State private var leadClip: LeadClip?
+    /// A click whose clip waits for the pose it switches to.
+    @State private var clipAfterPoseChange: MascotTap?
     @State private var lean = 0.0
     @State private var windowVisible = true
 
     private struct RunKey: Equatable {
         let mood: MascotMood
         let moving: Bool
+        let lead: Int?
+    }
+
+    private struct LeadClip: Equatable {
+        let id: Int
+        let name: String
     }
 
     private var moving: Bool { !reduceMotion && windowVisible }
@@ -191,6 +215,8 @@ struct ClockinMotionMascot: View {
                 swaying: moving && clips?.standing == true,
                 hop: hop,
                 pop: pop,
+                wiggle: wiggle,
+                squash: squash,
                 lean: moving ? lean : 0,
                 dark: colorScheme == .dark,
                 visibilityChanged: { visible in if windowVisible != visible { windowVisible = visible } }
@@ -203,14 +229,47 @@ struct ClockinMotionMascot: View {
             }
         }
         .accessibilityHidden(true)
-        .task(id: RunKey(mood: mood, moving: moving)) { await run() }
-        .onChange(of: mood) { _, _ in if moving { pop += 1 } }
-        .onChange(of: reaction) { _, _ in if moving { startHop(height: 1.15) } }
+        .task(id: RunKey(mood: mood, moving: moving, lead: leadClip?.id)) { await run() }
+        .onChange(of: mood) { _, newMood in
+            if moving { pop += 1 }
+            // A reaction that changes pose plays its clip once the pose is in.
+            if let waiting = clipAfterPoseChange {
+                clipAfterPoseChange = nil
+                queueClip(for: waiting, in: newMood)
+            }
+        }
+        .onChange(of: tap) { _, tap in
+            guard moving, let tap else { return }
+            switch tap.reaction.motion {
+            case .hop(let height): startHop(height: height, force: true)
+            case .doubleHop: startHop(height: 0.75, force: true)
+            case .wiggle: wiggle += 1
+            case .squash: squash += 1
+            }
+            if tap.reaction.mood(from: mood) == nil {
+                clipAfterPoseChange = nil
+                queueClip(for: tap, in: mood)
+            } else {
+                clipAfterPoseChange = tap
+            }
+        }
+        .task(id: tap) {
+            guard moving, let tap, tap.reaction.motion == .doubleHop else { return }
+            do { try await Task.sleep(for: .seconds(MascotMotion.hopDuration(height: 0.75) * 0.92)) } catch { return }
+            startHop(height: 0.95, force: true)
+        }
     }
 
-    private func startHop(height: Double) {
-        // One hop at a time, like the site.
-        guard Date() >= hopUntil else { return }
+    private func queueClip(for tap: MascotTap, in mood: MascotMood) {
+        guard moving, let clips = MascotFrames.shared.library?[mood] else { return }
+        var random = SystemRandomNumberGenerator()
+        guard let name = tap.reaction.clip(in: mood, clips: clips, using: &random) else { return }
+        leadClip = LeadClip(id: tap.id, name: name)
+    }
+
+    private func startHop(height: Double, force: Bool = false) {
+        // One hop at a time, like the site; a click may cut a hop short.
+        guard force || Date() >= hopUntil else { return }
         hopUntil = Date().addingTimeInterval(MascotMotion.hopDuration(height: height))
         hop = MascotLayerView.HopRequest(id: hop.id + 1, height: height)
     }
@@ -222,6 +281,10 @@ struct ClockinMotionMascot: View {
         await MascotFrames.shared.preload(mood)
         var director = MascotDirector(clips)
         var random = SystemRandomNumberGenerator()
+        if let lead = leadClip, let steps = clips.clips[lead.name] {
+            await play(steps)
+            if Task.isCancelled { return }
+        }
         while !Task.isCancelled {
             if let base = clips.base {
                 await play(base)
@@ -257,6 +320,8 @@ private struct MascotLayerRepresentable: NSViewRepresentable {
     let swaying: Bool
     let hop: MascotLayerView.HopRequest
     let pop: Int
+    let wiggle: Int
+    let squash: Int
     let lean: Double
     let dark: Bool
     let visibilityChanged: (Bool) -> Void
@@ -269,11 +334,12 @@ private struct MascotLayerRepresentable: NSViewRepresentable {
 
     func updateNSView(_ view: MascotLayerView, context: Context) {
         view.visibilityChanged = visibilityChanged
-        view.update(image: image, feet: feet, swaying: swaying, hop: hop, pop: pop, lean: lean, dark: dark)
+        view.update(image: image, feet: feet, swaying: swaying, hop: hop, pop: pop, wiggle: wiggle, squash: squash, lean: lean, dark: dark)
     }
 }
 
-/// The mascot's layers, like the site's rig: lean > shadow + sway > pop > body.
+/// The mascot's layers, like the site's rig: lean > shadow + sway > pop >
+/// click reaction > body.
 /// Every transform pivots on the feet.
 final class MascotLayerView: NSView {
     struct HopRequest: Equatable {
@@ -287,11 +353,14 @@ final class MascotLayerView: NSView {
     private let shadowLayer = CAGradientLayer()
     private let sway = CALayer()
     private let popLayer = CALayer()
+    private let reactLayer = CALayer()
     private let body = CALayer()
     private var feet = 0.88
     private var swaying = false
     private var lastHop: HopRequest?
     private var lastPop = 0
+    private var lastWiggle = 0
+    private var lastSquash = 0
     private var lean = 0.0
     private var dark: Bool?
     /// The sway is built in points, so it is rebuilt when the size changes.
@@ -310,7 +379,8 @@ final class MascotLayerView: NSView {
         shadowLayer.type = .radial
         shadowLayer.startPoint = CGPoint(x: 0.5, y: 0.5)
         shadowLayer.endPoint = CGPoint(x: 1, y: 1)
-        popLayer.addSublayer(body)
+        reactLayer.addSublayer(body)
+        popLayer.addSublayer(reactLayer)
         sway.addSublayer(popLayer)
         rig.addSublayer(shadowLayer)
         rig.addSublayer(sway)
@@ -326,9 +396,10 @@ final class MascotLayerView: NSView {
     /// The body's current on-screen transform, for checks.
     var presentedBodyTransform: CATransform3D { (body.presentation() ?? body).transform }
     var presentedSwayTransform: CATransform3D { (sway.presentation() ?? sway).transform }
+    var presentedReactionTransform: CATransform3D { (reactLayer.presentation() ?? reactLayer).transform }
     var bodyContents: CGImage? { body.contents.map { $0 as! CGImage } }
 
-    func update(image: CGImage?, feet: Double, swaying: Bool, hop: HopRequest, pop: Int, lean: Double, dark: Bool) {
+    func update(image: CGImage?, feet: Double, swaying: Bool, hop: HopRequest, pop: Int, wiggle: Int, squash: Int, lean: Double, dark: Bool) {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         if (body.contents as! CGImage?) !== image { body.contents = image }
@@ -357,6 +428,19 @@ final class MascotLayerView: NSView {
             lastPop = pop
             playPop()
         }
+        if wiggle != lastWiggle {
+            lastWiggle = wiggle
+            playReaction(duration: MascotMotion.wiggleDuration) { progress in
+                CATransform3DMakeRotation(-MascotMotion.wiggle(progress: progress) * .pi / 180, 0, 0, 1)
+            }
+        }
+        if squash != lastSquash {
+            lastSquash = squash
+            playReaction(duration: MascotMotion.squashDuration) { progress in
+                let scale = MascotMotion.squash(progress: progress)
+                return CATransform3DMakeScale(scale.scaleX, scale.scaleY, 1)
+            }
+        }
         if self.lean != lean {
             self.lean = lean
             let spring = CASpringAnimation(keyPath: "transform")
@@ -381,7 +465,7 @@ final class MascotLayerView: NSView {
         let square = CGRect(x: (bounds.width - side) / 2, y: (bounds.height - side) / 2, width: side, height: side)
         // Layers use a bottom-left origin: the feet sit at 1 - feet from the bottom.
         let anchor = CGPoint(x: 0.5, y: 1 - feet)
-        for layer in [rig, sway, popLayer] {
+        for layer in [rig, sway, popLayer, reactLayer] {
             layer.anchorPoint = anchor
             layer.bounds = CGRect(origin: .zero, size: square.size)
             layer.position = CGPoint(x: square.midX - square.minX, y: square.height * anchor.y)
@@ -399,7 +483,7 @@ final class MascotLayerView: NSView {
     override func viewDidChangeBackingProperties() {
         super.viewDidChangeBackingProperties()
         let scale = window?.backingScaleFactor ?? 2
-        [rig, shadowLayer, sway, popLayer, body].forEach { $0.contentsScale = scale }
+        [rig, shadowLayer, sway, popLayer, reactLayer, body].forEach { $0.contentsScale = scale }
     }
 
     private func leanTransform(_ lean: Double) -> CATransform3D {
@@ -458,6 +542,14 @@ final class MascotLayerView: NSView {
         fade.duration = duration
         shadowLayer.add(shadowAnimation, forKey: "hop")
         shadowLayer.add(fade, forKey: "hopFade")
+    }
+
+    /// A click's shake or squash, pivoting on the feet.
+    private func playReaction(duration: Double, _ transform: (Double) -> CATransform3D) {
+        let animation = CAKeyframeAnimation(keyPath: "transform")
+        animation.values = MascotMotion.samples(count: max(2, Int(duration * 120))) { NSValue(caTransform3D: transform($0)) }
+        animation.duration = duration
+        reactLayer.add(animation, forKey: "reaction")
     }
 
     private func playPop() {

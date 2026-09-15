@@ -64,11 +64,18 @@ struct ShareStatsView: View {
     private var bonusXP: Int {
         let daily = dailyGoalHours > 0 ? dailyDurations.values.filter { $0 >= dailyGoalHours * 3600 }.count * 100 : 0
         let double = dailyGoalHours > 0 ? dailyDurations.values.filter { $0 >= dailyGoalHours * 7200 }.count * 250 : 0
-        let calendar = Calendar.current
-        let monthly = monthlyGoalHours > 0
-            ? Dictionary(grouping: dailyDurations) { calendar.dateInterval(of: .month, for: $0.key)?.start ?? $0.key }
-                .values.map { $0.reduce(0) { $0 + $1.value } }.filter { $0 >= monthlyGoalHours * 3600 }.count * 500
-            : 0
+        // Split into typed steps: Swift 6.4 gave up type-checking this as one expression.
+        var monthly = 0
+        if monthlyGoalHours > 0 {
+            let calendar = Calendar.current
+            var monthTotals: [Date: TimeInterval] = [:]
+            for (day, duration) in dailyDurations {
+                let month = calendar.dateInterval(of: .month, for: day)?.start ?? day
+                monthTotals[month, default: 0] += duration
+            }
+            let goal = monthlyGoalHours * 3600
+            monthly = monthTotals.values.filter { $0 >= goal }.count * 500
+        }
         let streak = longestStreak
         let streakXP = [(3, 100), (7, 250), (14, 500), (30, 1_000), (60, 2_000)].filter { streak >= $0.0 }.reduce(0) { $0 + $1.1 }
         return daily + double + monthly + streakXP

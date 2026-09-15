@@ -123,6 +123,69 @@ struct MascotDirector {
     }
 }
 
+/// What the mascot does when it is clicked. Each click picks a different one
+/// than the last, so clicking again never repeats the same reaction.
+enum MascotReaction: String, CaseIterable, Sendable {
+    /// Hops and switches to the waving pose with a glow.
+    case wave
+    /// A high hop into the celebrating pose, swinging its hips.
+    case cheer
+    /// Two quick hops in the current pose.
+    case doubleHop
+    /// A shake from side to side with a blink.
+    case wiggle
+    /// A squash and stretch with an antenna dip.
+    case squash
+    /// A burst of typing, or a sip of coffee while typing.
+    case busy
+
+    enum Motion: Equatable, Sendable {
+        case hop(height: Double)
+        case doubleHop
+        case wiggle
+        case squash
+    }
+
+    var motion: Motion {
+        switch self {
+        case .wave, .busy: .hop(height: 0.9)
+        case .cheer: .hop(height: 1.3)
+        case .doubleHop: .doubleHop
+        case .wiggle: .wiggle
+        case .squash: .squash
+        }
+    }
+
+    /// The pose to show for a moment, or nil to keep the current one.
+    func mood(from current: MascotMood) -> MascotMood? {
+        switch self {
+        case .wave: current == .hello ? nil : .hello
+        case .cheer: .celebrate
+        case .busy: current == .working ? .coffee : .working
+        case .doubleHop, .wiggle, .squash: nil
+        }
+    }
+
+    /// The drawn clip to play right away in `mood`, if it has one.
+    func clip(in mood: MascotMood, clips: MascotMoodClips, using random: inout some RandomNumberGenerator) -> String? {
+        let wanted: [String]
+        switch self {
+        case .wave: wanted = ["glowAntennaDip", "glow"]
+        case .cheer: wanted = [Bool.random(using: &random) ? "hipLeft" : "hipRight"]
+        case .doubleHop: wanted = ["blinkAntennaDip", "blink"]
+        case .wiggle: wanted = ["blink"]
+        case .squash: wanted = ["antennaDip"]
+        case .busy: wanted = mood == .coffee ? ["action"] : ["keyPress"]
+        }
+        return wanted.first { clips.clips[$0] != nil }
+    }
+
+    /// A random reaction other than `last`.
+    static func pick(after last: MascotReaction?, using random: inout some RandomNumberGenerator) -> MascotReaction {
+        allCases.filter { $0 != last }.randomElement(using: &random)!
+    }
+}
+
 /// CSS `cubic-bezier(x1, y1, x2, y2)`.
 struct CubicBezier: Sendable {
     let x1, y1, x2, y2: Double
@@ -245,6 +308,25 @@ enum MascotMotion {
             return 0.9 + (1.035 - 0.9) * CubicBezier.out(progress / 0.6)
         }
         return 1.035 + (1 - 1.035) * CubicBezier.out((progress - 0.6) / 0.4)
+    }
+
+    /// Seconds a click wiggle lasts.
+    static let wiggleDuration = 0.7
+
+    /// A shake that fades out: three swings, up to 9° at the start.
+    static func wiggle(progress: Double) -> Double {
+        let progress = min(max(progress, 0), 1)
+        return 9 * sin(2 * .pi * 3 * progress) * (1 - progress) * (1 - progress)
+    }
+
+    /// Seconds a click squash lasts.
+    static let squashDuration = 0.62
+
+    /// A squash and stretch that settles like a spring, around the feet.
+    static func squash(progress: Double) -> (scaleX: Double, scaleY: Double) {
+        let progress = min(max(progress, 0), 1)
+        let wave = sin(2 * .pi * 1.75 * progress) * exp(-4.2 * progress)
+        return (1 + 0.14 * wave, 1 - 0.18 * wave)
     }
 
     /// Evenly spaced samples of a motion for a Core Animation keyframe

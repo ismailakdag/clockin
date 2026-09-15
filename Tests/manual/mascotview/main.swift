@@ -57,14 +57,15 @@ func cpuSeconds() -> Double {
 }
 
 @MainActor final class ReactionBox: ObservableObject {
-    @Published var value = 0
+    @Published var tap: MascotTap?
+    func click(_ reaction: MascotReaction) { tap = MascotTap(id: (tap?.id ?? 0) + 1, reaction: reaction) }
 }
 
 struct ReactionHost: View {
     let mood: MascotMood
     @ObservedObject var box: ReactionBox
     var body: some View {
-        ClockinMotionMascot(mood: mood, reaction: box.value)
+        ClockinMotionMascot(mood: mood, tap: box.tap)
             .frame(width: 120, height: 120)
     }
 }
@@ -113,8 +114,8 @@ for mood in MascotMood.allCases {
     info.append("\(mood.rawValue): \(String(format: "%.1f", cpu))% CPU while playing")
     check(cpu < 8, "\(mood): playing costs little CPU (\(String(format: "%.1f", cpu))%)")
 
-    // A tap hop, sampled at 60 fps.
-    box.value += 1
+    // A click hop (the wave reaction, height 0.9), sampled at 60 fps.
+    box.click(.wave)
     var lifts: [Double] = []
     var film: [CGImage] = []
     let hopStart = Date()
@@ -125,14 +126,33 @@ for mood in MascotMood.allCases {
     }
     strips.append(film)
     let peak = lifts.max() ?? 0
-    // 6.5% × 1.15 × 1.08 of 120 pt.
-    check(peak > 8 && peak < 11.5, "\(mood): a tap hop rises \(String(format: "%.1f", peak)) pt, about 8% of the mascot")
+    // 6.5% × 0.9 × 1.08 of 120 pt.
+    check(peak > 6.5 && peak < 9, "\(mood): a click hop rises \(String(format: "%.1f", peak)) pt, about 6% of the mascot")
     // The take-off is fast by design (about 150 pt/s at 120 pt); a jump would
     // show as a step far larger than that speed allows between samples.
     let steps = zip(lifts, lifts.dropFirst()).map { abs($0 - $1) }
     check((steps.max() ?? 0) < 3.5, "\(mood): the hop moves smoothly (largest step \(String(format: "%.2f", steps.max() ?? 0)) pt between 60 fps samples)")
     check(abs(lifts.last ?? 1) < 0.05, "\(mood): the mascot lands back on the ground")
     check(lifts.contains { $0 < -0.5 }, "\(mood): the hop dips into its landing squash")
+
+    // The other click motions: a shake, a squash and a double hop.
+    box.click(.wiggle)
+    var turns: [Double] = []
+    for _ in 0..<50 { spin(1.0 / 60); let t = layers.presentedReactionTransform; turns.append(atan2(t.m12, t.m11) * 180 / .pi) }
+    check((turns.map(abs).max() ?? 0) > 4, "\(mood): a wiggle click shakes the mascot (up to \(String(format: "%.1f", turns.map(abs).max() ?? 0))°)")
+    spin(0.3)
+    box.click(.squash)
+    var squashes: [Double] = []
+    for _ in 0..<45 { spin(1.0 / 60); squashes.append(layers.presentedReactionTransform.m22) }
+    check((squashes.min() ?? 1) < 0.92 && abs(layers.presentedReactionTransform.m22 - 1) < 0.02, "\(mood): a squash click flattens and settles")
+    spin(0.3)
+    box.click(.doubleHop)
+    var doubleLifts: [Double] = []
+    let doubleStart = Date()
+    while Date().timeIntervalSince(doubleStart) < 2.1 { spin(1.0 / 60); doubleLifts.append(layers.presentedBodyTransform.m42) }
+    var takeoffs = 0
+    for (a, b) in zip(doubleLifts, doubleLifts.dropFirst()) where a < 3 && b >= 3 { takeoffs += 1 }
+    check(takeoffs == 2, "\(mood): a double-hop click hops twice (\(takeoffs))")
 
     // Hidden: the drawn frames stop; shown again: they resume.
     window.orderOut(nil)
