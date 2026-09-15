@@ -60,6 +60,10 @@ puts the previous feed back.
 It must run on the Mac that holds the Developer ID certificate and the Sparkle
 key. The release is made from whatever branch is checked out; normally `main`.
 
+### Website-only changes
+
+For page changes between app releases, edit `website/dist` and run `scripts/deploy-site.sh`. It deploys the folder as it is, then downloads every file from the live site and compares it with the local copy. App releases don't need it; `publish-mac.sh` updates the site.
+
 ### One-time setup
 
 - **Notarization profile.** Run `xcrun notarytool store-credentials ClockinNotary`

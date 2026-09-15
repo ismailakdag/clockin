@@ -192,19 +192,7 @@ def publish_website(version, build, release_dir):
         if changed != 2:
             fail('Could not update the download links in index.html and _headers.')
 
-        archive = io.BytesIO()
-        with zipfile.ZipFile(archive, 'w', zipfile.ZIP_DEFLATED) as zipped:
-            for file in sorted(staging.rglob('*')):
-                if file.is_file():
-                    zipped.write(file, file.relative_to(staging).as_posix())
-        _, deploy = api_json('POST', f'https://api.netlify.com/api/v1/sites/{NETLIFY_SITE}/deploys', token,
-                             data=archive.getvalue(), content_type='application/zip')
-        deadline = time.time() + 600
-        while deploy.get('state') != 'ready':
-            if deploy.get('state') == 'error' or time.time() > deadline:
-                fail(f'Netlify deploy did not finish: {deploy.get("error_message") or deploy.get("state")}')
-            time.sleep(4)
-            _, deploy = api_json('GET', f'https://api.netlify.com/api/v1/deploys/{deploy["id"]}', token)
+        deploy_directory(staging, token)
 
         site = f'https://{NETLIFY_SITE}'
         print('Checking the live website')
@@ -221,6 +209,47 @@ def publish_website(version, build, release_dir):
         shutil.rmtree(WEBSITE)
         shutil.copytree(staging, WEBSITE)
     print(f'Live: {site}/downloads/{dmg.name}')
+
+
+def deploy_directory(directory, token):
+    """Uploads a folder to Netlify as a production deploy and waits until it is live."""
+    archive = io.BytesIO()
+    with zipfile.ZipFile(archive, 'w', zipfile.ZIP_DEFLATED) as zipped:
+        for file in sorted(directory.rglob('*')):
+            if file.is_file() and file.name != '.DS_Store':
+                zipped.write(file, file.relative_to(directory).as_posix())
+    _, deploy = api_json('POST', f'https://api.netlify.com/api/v1/sites/{NETLIFY_SITE}/deploys', token,
+                         data=archive.getvalue(), content_type='application/zip')
+    deadline = time.time() + 600
+    while deploy.get('state') != 'ready':
+        if deploy.get('state') == 'error' or time.time() > deadline:
+            fail(f'Netlify deploy did not finish: {deploy.get("error_message") or deploy.get("state")}')
+        time.sleep(4)
+        _, deploy = api_json('GET', f'https://api.netlify.com/api/v1/deploys/{deploy["id"]}', token)
+
+
+def publish_site_only():
+    """Deploys website/dist as it is, for page changes between app releases.
+    The DMG it links to must already be in website/dist/downloads."""
+    token = netlify_token()
+    if not token:
+        fail(f'No Netlify token in the Keychain (service "{NETLIFY_KEYCHAIN_SERVICE}").')
+    index = (WEBSITE / 'index.html').read_text()
+    links = set(DMG_NAME.findall(index))
+    if len(links) != 1 or not (WEBSITE / 'downloads' / next(iter(links))).exists():
+        fail('index.html must link to exactly one DMG that exists in website/dist/downloads.')
+    step(f'Deploying website/dist to {NETLIFY_SITE}')
+    deploy_directory(WEBSITE, token)
+    print('Checking every file on the live website')
+    site = f'https://{NETLIFY_SITE}'
+    for file in sorted(WEBSITE.rglob('*')):
+        if not file.is_file() or file.name in ('.DS_Store', '_headers'):
+            continue
+        path = file.relative_to(WEBSITE).as_posix()
+        live, _ = anonymous_bytes(f'{site}/{urllib.parse.quote(path)}')
+        if sha256(live) != sha256(file.read_bytes()):
+            fail(f'The live {path} does not match the local file.')
+    print(f'Live: {site}')
 
 
 def publish_feed(version, build, release_dir, info_plist):
@@ -265,6 +294,8 @@ def main():
     command, *args = sys.argv[1:] or ['']
     if command == 'preflight':
         preflight(args[0], check_credentials=args[1] == 'with-credentials')
+    elif command == 'site':
+        publish_site_only()
     elif command == 'publish':
         version, build, release_dir, notes, commit, info_plist = args
         release_dir = pathlib.Path(release_dir)
@@ -275,7 +306,7 @@ def main():
         publish_website(version, build, release_dir)
         publish_feed(version, build, release_dir, info_plist)
     else:
-        fail('Usage: publish-mac-release.py preflight VERSION with-credentials|no-credentials | publish ...')
+        fail('Usage: publish-mac-release.py preflight VERSION with-credentials|no-credentials | site | publish ...')
 
 
 if __name__ == '__main__':
