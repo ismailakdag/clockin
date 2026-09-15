@@ -327,11 +327,6 @@ private struct MascotView: View {
     let now: Date
     let level: Int
     @AppStorage("Clockin.MascotEnabled") private var enabled = true
-    private var asset: String {
-        guard let running = store.running else { return "idle" }
-        if !running.isPaused && Int(now.timeIntervalSince1970) % 20 >= 17 { return "celebrate" }
-        return running.isPaused ? "paused" : "working"
-    }
     var body: some View {
         Group {
             ClockinMascotStage().environmentObject(store)
