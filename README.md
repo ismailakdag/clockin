@@ -13,11 +13,11 @@ The two apps share the same data model, but each keeps its own data on its devic
 
 ## Download for Mac
 
-Get the signed, Apple-notarized installer from the [Clockin website](https://clockin-for-mac.erdmncdr.chatgpt.site/) or [GitHub Releases](https://github.com/ismailakdag/clockin/releases/tag/macos-v1.1.0). Supports macOS 14 or later on Apple Silicon and Intel.
+Get the signed, Apple-notarized installer from the [Clockin website](https://getclockin.netlify.app) or [GitHub Releases](https://github.com/ismailakdag/clockin/releases). Supports macOS 14 or later on Apple Silicon and Intel.
 
-Open the DMG, drag Clockin into Applications, and open it there. Future versions are installed through **Check for Updates…** inside Clockin. No Git, Xcode or Terminal is needed. Existing work history stays in place.
+Open the DMG, drag Clockin into Applications, and open it there. If you open it straight from the DMG or from Downloads, Clockin offers to move itself to Applications. Future versions are installed through **Check for Updates…** inside Clockin. No Git, Xcode or Terminal is needed. Existing work history stays in place.
 
-The packaged Mac app's matching source is tagged [macos-v1.1.0](https://github.com/ismailakdag/clockin/tree/macos-v1.1.0). The instructions below are for building from source.
+Each packaged Mac version's matching source is tagged `macos-v<version>`, for example [macos-v1.1.1](https://github.com/ismailakdag/clockin/tree/macos-v1.1.1). The instructions below are for building from source.
 
 ## Mac
 
@@ -25,12 +25,7 @@ Lives in the menu bar, with a main window and an always-visible pinned timer. Ke
 
 Requires macOS 14. The packaged app supports both Apple Silicon and Intel.
 
-Packaged installation: open the Clockin DMG, drag Clockin into Applications,
-and open it there. New versions are downloaded and installed through **Check
-for Updates…** in Settings or the menu bar. Existing source-built installations
-need to install the first packaged version once; work history stays in place.
-
-Download the signed, Apple-notarized installer from the [Clockin website](https://clockin-for-mac.erdmncdr.chatgpt.site/) or the [Mac 1.1.0 release](https://github.com/ismailakdag/clockin/releases/tag/macos-v1.1.0). No Git, Xcode or Terminal is required to install or update it. Release setup, packaging commands and verification are documented in [Mac releases](docs/macos-releases.md).
+Installations built from source need to install the packaged app once (see [Download for Mac](#download-for-mac)); work history stays in place. Releases are published with one command, `scripts/publish-mac.sh <version>`; setup, packaging and verification are documented in [Mac releases](docs/macos-releases.md).
 
 For development, with Xcode installed:
 
