@@ -21,7 +21,7 @@ trap 'rm -rf "$preview_dir"' EXIT
 sources=()
 for source in Sources/Clockin/*.swift; do
     case "$source" in */ClockinApp.swift|*/MenuBarController.swift) continue ;; esac
-    cp "$source" "$preview_dir/$(basename "$source")"
+    sed 's/UserDefaults\.standard/ScreenDefaults.shared/g' "$source" > "$preview_dir/$(basename "$source")"
     sources+=("$preview_dir/$(basename "$source")")
 done
 swiftc -disable-sandbox -swift-version 6 -target "$(uname -m)-apple-macosx14.0" \

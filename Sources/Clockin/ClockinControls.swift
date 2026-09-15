@@ -27,6 +27,10 @@ extension ClockinPalette {
     var control: Color { colorScheme == .light ? .black.opacity(0.06) : .white.opacity(0.075) }
     var controlHover: Color { colorScheme == .light ? .black.opacity(0.1) : .white.opacity(0.12) }
     var controlStroke: Color { colorScheme == .light ? .black.opacity(0.12) : .white.opacity(0.1) }
+    /// Secondary and tertiary text. The system's own are too light on the
+    /// Daylight theme's cards: roughly 3:1 contrast.
+    var secondaryText: Color { colorScheme == .light ? .black.opacity(0.66) : .white.opacity(0.72) }
+    var tertiaryText: Color { colorScheme == .light ? .black.opacity(0.5) : .white.opacity(0.55) }
     /// The grouped card behind a section's rows.
     var card: Color { colorScheme == .light ? .white.opacity(0.75) : .white.opacity(0.04) }
     var cardStroke: Color { colorScheme == .light ? .black.opacity(0.08) : .white.opacity(0.07) }
@@ -62,15 +66,25 @@ private struct ThemeReader<Content: View>: View {
 private struct PointerOnHover: ViewModifier {
     @Environment(\.isEnabled) private var isEnabled
     @Binding var hovering: Bool
+    @State private var cursorPushed = false
 
     func body(content: Content) -> some View {
         content
             .onHover { inside in
-                guard inside != hovering else { return }
                 hovering = inside
-                if inside && isEnabled { NSCursor.pointingHand.push() } else { NSCursor.pop() }
+                updateCursor(inside && isEnabled)
             }
-            .onDisappear { if hovering { hovering = false; NSCursor.pop() } }
+            .onChange(of: isEnabled) { _, enabled in updateCursor(hovering && enabled) }
+            .onDisappear {
+                hovering = false
+                updateCursor(false)
+            }
+    }
+
+    private func updateCursor(_ needed: Bool) {
+        guard needed != cursorPushed else { return }
+        cursorPushed = needed
+        if needed { NSCursor.pointingHand.push() } else { NSCursor.pop() }
     }
 }
 
@@ -275,6 +289,7 @@ struct ClockinSelect<Value: Hashable>: View {
         let label: String
         var systemImage: String?
         var disabled = false
+        var help: String?
         var id: Value { value }
     }
 
@@ -304,6 +319,7 @@ struct ClockinSelect<Value: Hashable>: View {
                     }
                 }
                 .disabled(option.disabled)
+                .help(option.help ?? option.label)
             }
         } label: {
             HStack(spacing: S(8)) {
@@ -345,6 +361,7 @@ struct ClockinSegmented<Value: Hashable>: View {
     @Binding var selection: Value
     let options: [(value: Value, label: String)]
     @Namespace private var indicator
+    @FocusState private var focused: Bool
 
     var body: some View {
         ThemeReader { theme in
@@ -357,8 +374,28 @@ struct ClockinSegmented<Value: Hashable>: View {
             }
             .padding(S(3))
             .background(theme.control, in: RoundedRectangle(cornerRadius: S(10), style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: S(10), style: .continuous).strokeBorder(theme.controlStroke, lineWidth: 1))
+            .overlay(RoundedRectangle(cornerRadius: S(10), style: .continuous)
+                .strokeBorder(focused ? theme.accent.opacity(0.9) : theme.controlStroke, lineWidth: focused ? 2 : 1))
+            // Arrow keys move through the choices, like a native segmented control.
+            .focusable()
+            .focused($focused)
+            .onMoveCommand { direction in
+                switch direction {
+                case .left, .up: move(by: -1)
+                case .right, .down: move(by: 1)
+                default: break
+                }
+            }
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("Choose")
         }
+    }
+
+    private func move(by step: Int) {
+        guard let index = options.firstIndex(where: { $0.value == selection }) else { return }
+        let next = min(max(index + step, 0), options.count - 1)
+        guard next != index else { return }
+        withAnimation(.snappy(duration: 0.22)) { selection = options[next].value }
     }
 
     private struct SegmentButton: View {
@@ -420,6 +457,23 @@ struct ClockinTextField: View {
         .modifier(FieldChrome(focused: focused))
         .contentShape(Rectangle())
         .onTapGesture { focused = true }
+    }
+}
+
+/// Keeps the native numeric field's locale parsing and editing/commit semantics.
+struct ClockinIntegerField: View {
+    let title: String
+    @Binding var value: Int
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        TextField("0", value: $value, format: .number)
+            .textFieldStyle(.plain)
+            .font(.system(size: S(12.5), weight: .semibold).monospacedDigit())
+            .multilineTextAlignment(.center)
+            .focused($focused)
+            .modifier(FieldChrome(focused: focused))
+            .accessibilityLabel(title)
     }
 }
 
@@ -569,10 +623,12 @@ struct ClockinChip: View {
 /// keeps the theme colour in windows that are not key (the menu bar panel,
 /// the pinned timer) and in every theme.
 struct ClockinSwitch: View {
+    let title: String
     @Binding var isOn: Bool
 
     var body: some View {
         Toggle("", isOn: $isOn).labelsHidden().toggleStyle(ClockinSwitchStyle())
+            .accessibilityLabel(title)
     }
 }
 
@@ -612,7 +668,7 @@ private struct ClockinSwitchBody: View {
             }
             .buttonStyle(.plain)
             .modifier(PointerOnHover(hovering: $hovering))
-            .accessibilityElement(children: .ignore)
+            .accessibilityElement(children: .combine)
             .accessibilityAddTraits(.isToggle)
             .accessibilityValue(on ? "On" : "Off")
         }
@@ -722,6 +778,23 @@ struct ClockinScreenHeader<Trailing: View>: View {
 extension ClockinScreenHeader where Trailing == EmptyView {
     init(title: String) {
         self.init(title: title) { EmptyView() }
+    }
+}
+
+extension View {
+    /// Applies the theme's text colours to every `.secondary` and `.tertiary`
+    /// in a window's content. Sheets need it too: they start a new host.
+    func clockinTextStyles() -> some View {
+        modifier(ClockinTextStyles())
+    }
+}
+
+private struct ClockinTextStyles: ViewModifier {
+    @AppStorage("Clockin.Theme") private var themeRaw = ClockinThemeChoice.carbon.rawValue
+
+    func body(content: Content) -> some View {
+        let theme = ClockinThemeChoice.selected(themeRaw).palette
+        return content.foregroundStyle(Color.primary, theme.secondaryText, theme.tertiaryText)
     }
 }
 

@@ -1,15 +1,41 @@
 // From the repository root: bash Tests/manual/screens/run [theme]
 // Opens each main-window screen in a throwaway window with sample data and
 // writes a 2x PNG per screen to Tests/manual/screens/out/<theme>-<screen>.png.
-// Process-only defaults (NSArgumentDomain) keep the real preferences untouched.
+// Process-only defaults keep the real preferences untouched.
 import AppKit
 import SwiftUI
+
+// The snapshot compiler redirects explicit UserDefaults.standard references here;
+// defaultAppStorage below also covers SwiftUI property wrappers. All writes stay
+// in a volatile domain. The lock protects read-modify-write across callers.
+final class ScreenDefaults: UserDefaults, @unchecked Sendable {
+    static let suite = "Clockin.ScreenReview.\(UUID().uuidString)"
+    static let shared = ScreenDefaults(suiteName: suite)!
+    private let writeLock = NSRecursiveLock()
+
+    override func set(_ value: Any?, forKey key: String) {
+        writeLock.lock()
+        defer { writeLock.unlock() }
+        var values = volatileDomain(forName: UserDefaults.argumentDomain)
+        values[key] = value
+        setVolatileDomain(values, forName: UserDefaults.argumentDomain)
+    }
+    override func set(_ value: Bool, forKey key: String) { set(value as Any, forKey: key) }
+    override func set(_ value: Int, forKey key: String) { set(value as Any, forKey: key) }
+    override func set(_ value: Float, forKey key: String) { set(value as Any, forKey: key) }
+    override func set(_ value: Double, forKey key: String) { set(value as Any, forKey: key) }
+    override func set(_ value: URL?, forKey key: String) { set(value?.absoluteString as Any?, forKey: key) }
+    override func removeObject(forKey key: String) { set(nil as Any?, forKey: key) }
+}
+
+let fixtureDirectory = FileManager.default.temporaryDirectory.appendingPathComponent("clockin-screens-data-\(UUID().uuidString)", isDirectory: true)
+try! FileManager.default.createDirectory(at: fixtureDirectory, withIntermediateDirectories: true)
+defer { try? FileManager.default.removeItem(at: fixtureDirectory) }
 
 @MainActor
 final class AppDependencies {
     static let shared = AppDependencies()
-    let store = ClockStore(fileURL: FileManager.default.temporaryDirectory
-        .appendingPathComponent("screens-deps-\(UUID().uuidString).json"))
+    let store = ClockStore(fileURL: fixtureDirectory.appendingPathComponent("dependencies/clockin.json"))
     let exchangeRates = ExchangeRateStore()
 }
 
@@ -19,8 +45,8 @@ let themeName = CommandLine.arguments.dropFirst().first ?? "Carbon"
 let theme = ClockinThemeChoice(rawValue: themeName) ?? .carbon
 let now = Date()
 let calendar = Calendar.current
-UserDefaults.standard.setVolatileDomain([
-    UIScale.key: 100, "Clockin.HistoryGroupByDay": true, "Clockin.HeatmapRange": "All", "Clockin.PinVisible": false, "Clockin.Theme": theme.rawValue, "Clockin.MascotEnabled": true, "Clockin.MascotDefault": "Auto",
+ScreenDefaults.shared.setVolatileDomain([
+    UIScale.key: Int(ProcessInfo.processInfo.environment["CLOCKIN_SCREEN_SCALE"] ?? "100") ?? 100, "Clockin.HistoryGroupByDay": true, "Clockin.HeatmapRange": "All", "Clockin.PinVisible": false, "Clockin.Theme": theme.rawValue, "Clockin.MascotEnabled": true, "Clockin.MascotDefault": "Auto",
     "Clockin.GoalDailyHours": 8.0, "Clockin.GoalMonthlyHours": 160.0, "Clockin.MinimalMode": false,
     "Clockin.USDTRYRates.v1": try! JSONEncoder().encode(["2026-09-15": 41.2]),
 ], forName: UserDefaults.argumentDomain)
@@ -39,9 +65,19 @@ for day in 0..<60 where day % 7 != 5 {
 }
 data.sessions = sessions
 data.running = RunningSession(start: now.addingTimeInterval(-4062), accumulated: 4062, resumedAt: now, note: "")
-let file = FileManager.default.temporaryDirectory.appendingPathComponent("screens-\(UUID().uuidString).json")
+let file = fixtureDirectory.appendingPathComponent("clockin.json")
 try! JSONEncoder().encode(data).write(to: file)
 let store = ClockStore(fileURL: file)
+// Cover every requested UTC day, including today, so MainView.task returns
+// without contacting a rate service or writing URLSession's disk cache.
+let rateFormatter = DateFormatter()
+rateFormatter.locale = Locale(identifier: "en_US_POSIX")
+rateFormatter.timeZone = TimeZone(secondsFromGMT: 0)
+rateFormatter.dateFormat = "yyyy-MM-dd"
+let rateDays = sessions.map(\.start) + [now]
+let fixtureRates = Dictionary(rateDays.map { (rateFormatter.string(from: $0), 41.2) }, uniquingKeysWith: { first, _ in first })
+ScreenDefaults.shared.set(try! JSONEncoder().encode(fixtureRates), forKey: "Clockin.USDTRYRates.v1")
+ScreenDefaults.shared.set(now, forKey: "Clockin.USDTRYRatesUpdated.v1")
 let rates = ExchangeRateStore()
 
 let app = NSApplication.shared
@@ -51,10 +87,12 @@ app.finishLaunching()
 let output = URL(fileURLWithPath: ProcessInfo.processInfo.environment["CLOCKIN_SCREEN_OUTPUT"] ?? "Tests/manual/screens/out", isDirectory: true)
 try? FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
 
-@MainActor func capture(_ name: String, _ view: some View, size: CGSize = CGSize(width: 390, height: 650), clickAt: CGPoint? = nil) {
+@MainActor func capture(_ name: String, _ view: some View, size: CGSize = CGSize(width: 390, height: 650), clickAt: CGPoint? = nil, scaleWindow: Bool = true) {
     if let filter = ProcessInfo.processInfo.environment["CLOCKIN_SCREEN_FILTER"],
        !filter.split(separator: ",").contains(Substring(name)) { return }
+    let size = scaleWindow ? CGSize(width: S(size.width), height: S(size.height)) : size
     let root = view
+        .defaultAppStorage(ScreenDefaults.shared)
         .environmentObject(store).environmentObject(rates)
         .environmentObject(RadioController.shared).environmentObject(UpdateChecker.shared)
         .frame(width: size.width, height: size.height)
@@ -68,7 +106,7 @@ try? FileManager.default.createDirectory(at: output, withIntermediateDirectories
     window.orderFrontRegardless()
     spin(1.5)
     if let point = clickAt {
-        let location = CGPoint(x: point.x, y: size.height - point.y)
+        let location = CGPoint(x: S(point.x), y: size.height - S(point.y))
         for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
             let event = NSEvent.mouseEvent(with: type, location: location, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
                 windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1)!
@@ -103,6 +141,7 @@ try? FileManager.default.createDirectory(at: output, withIntermediateDirectories
         try! NSBitmapImageRep(cgImage: ctx.makeImage()!).representation(using: .png, properties: [:])!.write(to: layerURL)
     }
     window.orderOut(nil)
+    window.contentView = nil
 }
 
 capture("history", HistoryView())
@@ -133,13 +172,13 @@ let panelActions = MenuBarPanelActions(openApp: {}, close: {}, checkForUpdates: 
 capture("menubar", MenuBarPanelView(actions: panelActions), size: CGSize(width: 320, height: 380))
 // Volatile preferences and initializer fixtures cover secondary screen states.
 func previewPreference(_ key: String, _ value: Any) {
-    var values = UserDefaults.standard.volatileDomain(forName: UserDefaults.argumentDomain)
+    var values = ScreenDefaults.shared.volatileDomain(forName: UserDefaults.argumentDomain)
     values[key] = value
-    UserDefaults.standard.setVolatileDomain(values, forName: UserDefaults.argumentDomain)
+    ScreenDefaults.shared.setVolatileDomain(values, forName: UserDefaults.argumentDomain)
 }
 for (mode, width, height) in [("Compact", 246.0, 72.0), ("Money", 320.0, 112.0), ("Goal", 300.0, 116.0), ("All", 370.0, 230.0), ("Total", 340.0, 156.0)] {
     previewPreference("Clockin.PinnedMode", mode)
-    capture("timer-pinned-\(mode.lowercased())", PinnedTimerView(), size: CGSize(width: width, height: height))
+    capture("timer-pinned-\(mode.lowercased())", PinnedTimerView(), size: CGSize(width: width, height: height), scaleWindow: false)
 }
 previewPreference("Clockin.HistoryGroupByDay", false)
 capture("history-sessions", HistoryView(), size: CGSize(width: 390, height: 1100))
@@ -159,4 +198,6 @@ capture("menubar-paused", MenuBarPanelView(actions: panelActions), size: CGSize(
 store.cancelRunning()
 capture("timer-idle", MainView())
 capture("menubar-idle", MenuBarPanelView(actions: panelActions), size: CGSize(width: 320, height: 240))
-try? FileManager.default.removeItem(at: file)
+precondition(ScreenDefaults.shared.persistentDomain(forName: ScreenDefaults.suite)?.isEmpty != false,
+             "Screen preferences must never be persisted")
+print("verified: preferences stayed process-only; session data and backups are isolated")

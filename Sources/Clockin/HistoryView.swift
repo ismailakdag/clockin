@@ -39,14 +39,15 @@ struct HistoryView: View {
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
+            let chartPoints = points(at: context.date)
             VStack(spacing: S(0)) {
                 header
                 ScrollView {
                     VStack(alignment: .leading, spacing: S(20)) {
                         summary(at: context.date)
                     ClockinSegmented(selection: $range, options: HistoryRange.allCases.map { (value: $0, label: $0 == .all ? "All" : $0.rawValue) })
-                    chartCard(at: context.date)
-                    averagesStrip(points(at: context.date))
+                    chartCard(chartPoints)
+                    averagesStrip(chartPoints)
                     HStack {
                         Text(groupByDay
                              ? "By day • \(filteredDays.count)"
@@ -74,6 +75,7 @@ struct HistoryView: View {
             }
         }
         .fontDesign(theme.fontDesign)
+        .clockinTextStyles()
         .sheet(isPresented: $showManualEntry) {
             ManualEntryView().environmentObject(store)
         }
@@ -149,8 +151,7 @@ struct HistoryView: View {
         return (completedDuration + running.elapsed(at: date), completedEarnings + store.currentEarnings(at: date), true)
     }
 
-    private func chartCard(at date: Date) -> some View {
-        let chartPoints = points(at: date)
+    private func chartCard(_ chartPoints: [DailyEarning]) -> some View {
         return VStack(alignment: .leading, spacing: S(10)) {
             HStack {
                 Text("Daily earnings").font(ClockinFont.section).foregroundStyle(.secondary)

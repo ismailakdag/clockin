@@ -209,6 +209,7 @@ struct ShareStatsView: View {
         .scrollBounceBehavior(.basedOnSize)
         .background(theme.background)
         .fontDesign(theme.fontDesign)
+        .clockinTextStyles()
         .preferredColorScheme(theme.colorScheme)
         .onReceive(timer) { now = $0 }
     }

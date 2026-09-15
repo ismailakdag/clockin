@@ -87,6 +87,7 @@ struct ImportComparisonView: View {
         .scrollBounceBehavior(.basedOnSize)
         .background(theme.background)
         .fontDesign(theme.fontDesign)
+        .clockinTextStyles()
         .preferredColorScheme(theme.colorScheme)
         .task {
             let computed = store.compareImportedSessions(sessions)

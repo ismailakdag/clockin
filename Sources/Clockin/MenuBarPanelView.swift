@@ -19,6 +19,7 @@ struct MenuBarPanelView: View {
     @EnvironmentObject private var radio: RadioController
     @EnvironmentObject private var updates: UpdateChecker
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @AppStorage(UIScale.key) private var uiScale = UIScale.defaultPercent
     @AppStorage("Clockin.Theme") private var themeRaw = ClockinThemeChoice.carbon.rawValue
     @AppStorage("Clockin.MascotEnabled") private var mascotEnabled = true
     @AppStorage("Clockin.GoalDailyHours") private var dailyGoalHours = 0.0
@@ -30,7 +31,7 @@ struct MenuBarPanelView: View {
     private var paused: Bool { store.running?.isPaused == true }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: S(12)) {
             if let version = updates.pendingVersion { updateReminder(version) }
             header
             if store.running != nil { earnings }
@@ -47,22 +48,23 @@ struct MenuBarPanelView: View {
             Divider()
             footer
         }
-        .font(.system(size: 12))
-        .padding(14)
-        .frame(width: 320)
+        .font(.system(size: S(12)))
+        .padding(S(14))
+        .frame(width: S(320))
         .fixedSize(horizontal: false, vertical: true)
         .background {
-            let shape = RoundedRectangle(cornerRadius: 14, style: .continuous)
+            let shape = RoundedRectangle(cornerRadius: S(14), style: .continuous)
             if previewSolidBackground { shape.fill(theme.background) }
             else { shape.fill(.regularMaterial) }
         }
         .overlay {
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
+            RoundedRectangle(cornerRadius: S(14), style: .continuous)
                 .strokeBorder(theme.surfaceStroke, lineWidth: 0.5)
                 .allowsHitTesting(false)
         }
         .preferredColorScheme(theme.colorScheme)
         .fontDesign(theme.fontDesign)
+        .clockinTextStyles()
         .tint(theme.accent)
         .onReceive(timer) { if store.running != nil { now = $0 } }
         .onChange(of: store.running == nil) { _, _ in
@@ -74,21 +76,21 @@ struct MenuBarPanelView: View {
     /// A background check found an update and left it for the user to open.
     private func updateReminder(_ version: String) -> some View {
         Button(action: actions.checkForUpdates) {
-            HStack(spacing: 8) {
+            HStack(spacing: S(8)) {
                 Image(systemName: "arrow.down.circle.fill").foregroundStyle(theme.accent)
                 Text("Clockin \(version) is available")
-                Spacer(minLength: 0)
+                Spacer(minLength: S(0))
                 Text("Install").fontWeight(.semibold).foregroundStyle(theme.accent)
             }
-            .padding(.horizontal, 10).padding(.vertical, 8)
-            .background(theme.surface, in: RoundedRectangle(cornerRadius: 9))
+            .padding(.horizontal, S(10)).padding(.vertical, S(8))
+            .background(theme.surface, in: RoundedRectangle(cornerRadius: S(9)))
         }
         .buttonStyle(.clockin(.secondary, size: .small))
         .accessibilityLabel("Install Clockin \(version)")
     }
 
     private var header: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: S(12)) {
             if mascotEnabled {
                 Group {
                     // ImageRenderer cannot draw the layer-backed mascot.
@@ -98,37 +100,37 @@ struct MenuBarPanelView: View {
                         ClockinMascotStage().environmentObject(store)
                     }
                 }
-                    .frame(width: 44, height: 44)
+                    .frame(width: S(44), height: S(44))
                     .allowsHitTesting(false)
                     .accessibilityHidden(true)
             }
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 6) {
+            VStack(alignment: .leading, spacing: S(4)) {
+                HStack(spacing: S(6)) {
                     Circle().fill(store.running == nil ? Color.secondary : (paused ? .orange : theme.accent))
-                        .frame(width: 6, height: 6).accessibilityHidden(true)
+                        .frame(width: S(6), height: S(6)).accessibilityHidden(true)
                     Text(store.running == nil ? "Not clocked in" : (paused ? "Paused" : "Clocked in"))
                         .foregroundStyle(store.running == nil ? .primary : .secondary)
-                        .font(store.running == nil ? .system(size: 17, weight: .semibold) : nil)
+                        .font(store.running == nil ? .system(size: S(17), weight: .semibold) : nil)
                 }
                 if store.running != nil {
                     Text(DurationText.clock(store.elapsed(at: now)))
-                        .font(.system(size: 30, weight: .medium)).monospacedDigit()
+                        .font(.system(size: S(30), weight: .medium)).monospacedDigit()
                         .contentTransition(.numericText())
                         .accessibilityLabel("Session time, \(DurationText.clock(store.elapsed(at: now)))")
                 }
                 // Idle, today's total is in the strip below; repeating it here
                 // read as a stopped timer.
             }
-            Spacer(minLength: 0)
+            Spacer(minLength: S(0))
         }
     }
 
     private var earnings: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
+        HStack(alignment: .firstTextBaseline, spacing: S(8)) {
             Text(store.currentEarnings(at: now).money(code: store.currencyCode))
-                .font(.system(size: 20, weight: .semibold)).foregroundStyle(theme.accent)
+                .font(.system(size: S(20), weight: .semibold)).foregroundStyle(theme.accent)
                 .accessibilityLabel("Session earnings, \(store.currentEarnings(at: now).money(code: store.currencyCode))")
-            Spacer(minLength: 0)
+            Spacer(minLength: S(0))
             if store.currencyCode == "USD", let rate = exchangeRates.latestRate {
                 Text((store.currentEarnings(at: now) * rate).money(code: "TRY"))
                     .foregroundStyle(.secondary)
@@ -138,11 +140,11 @@ struct MenuBarPanelView: View {
     }
 
     private var today: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: S(8)) {
             HStack {
                 Text("Today").foregroundStyle(.secondary)
                 Text(DurationText.compact(store.todayDuration(at: now)))
-                Spacer(minLength: 4)
+                Spacer(minLength: S(4))
                 Text(store.todayEarnings(at: now).money(code: store.currencyCode))
             }
             .monospacedDigit().lineLimit(1).minimumScaleFactor(0.8)
@@ -154,21 +156,21 @@ struct MenuBarPanelView: View {
                     .accessibilityLabel("Daily goal")
                     .accessibilityValue("\(DurationText.compact(duration)) of \(DurationText.compact(goal))")
                 Text(duration >= goal ? "Daily goal reached" : "\(DurationText.compact(max(0, goal - duration))) to daily goal")
-                    .font(.system(size: 11)).foregroundStyle(.secondary)
+                    .font(.system(size: S(11))).foregroundStyle(.secondary)
             }
         }
-        .padding(10)
-        .background(theme.surface, in: RoundedRectangle(cornerRadius: 9))
+        .padding(S(10))
+        .background(theme.surface, in: RoundedRectangle(cornerRadius: S(9)))
     }
 
     private var primaryActions: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: S(10)) {
             if store.running == nil {
                 Button("Clock in") { change { store.clockIn() } }
                     .buttonStyle(.clockin(.primary, size: .large, fullWidth: true))
                     .accessibilityLabel("Clock in")
             } else {
-                HStack(spacing: 10) {
+                HStack(spacing: S(10)) {
                     Button(paused ? "Resume" : "Pause") {
                         change { if paused { store.resume() } else { store.pause() } }
                     }
@@ -179,9 +181,9 @@ struct MenuBarPanelView: View {
                         .accessibilityLabel("Clock out and save session")
                 }
                 if confirmingDiscard {
-                    HStack(spacing: 10) {
+                    HStack(spacing: S(10)) {
                         Text("Discard this session?").foregroundStyle(.secondary)
-                        Spacer(minLength: 0)
+                        Spacer(minLength: S(0))
                         Button("Discard", role: .destructive) { change { store.cancelRunning() } }
                             .buttonStyle(.clockin(.destructive, size: .small))
                             .accessibilityLabel("Discard current session without saving")
@@ -199,16 +201,16 @@ struct MenuBarPanelView: View {
     }
 
     private var footer: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: S(6)) {
             Button("Open Clockin", action: actions.openApp)
                 .accessibilityLabel("Open Clockin main window")
             if !minimalMode {
                 Button(store.pinVisible ? "Unpin timer" : "Pin timer") { store.setPinned(!store.pinVisible) }
                     .accessibilityLabel(store.pinVisible ? "Unpin timer" : "Pin timer")
             }
-            Spacer(minLength: 0)
+            Spacer(minLength: S(0))
             if previewSolidBackground {
-                Image(systemName: "ellipsis").frame(width: 24, height: 20)
+                Image(systemName: "ellipsis").frame(width: S(24), height: S(20))
                     .accessibilityLabel("More Clockin options")
             } else {
             Menu {
@@ -221,13 +223,13 @@ struct MenuBarPanelView: View {
                 Divider()
                 Button("Quit Clockin", action: actions.quit)
             } label: {
-                Image(systemName: "ellipsis").frame(width: 24, height: 20)
+                Image(systemName: "ellipsis").frame(width: S(24), height: S(20))
             }
             .menuIndicator(.hidden).menuStyle(.button).buttonStyle(.clockinIcon(size: 28)).fixedSize()
             .accessibilityLabel("More Clockin options").help("More Clockin options")
             }
         }
-        .font(.system(size: 11)).foregroundStyle(.secondary).buttonStyle(.clockin(.secondary, size: .small))
+        .font(.system(size: S(11))).foregroundStyle(.secondary).buttonStyle(.clockin(.secondary, size: .small))
     }
 
     private func change(_ operation: () -> Void) {
@@ -265,6 +267,6 @@ private struct PanelGoalStyle: ProgressViewStyle {
                         .frame(width: geometry.size.width * (configuration.fractionCompleted ?? 0))
                 }
         }
-        .frame(height: 4)
+        .frame(height: S(4))
     }
 }

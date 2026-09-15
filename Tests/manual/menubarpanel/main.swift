@@ -31,6 +31,7 @@ let sessionStart = todayStart
 let defaults = UserDefaults.standard
 let cachedRates = try JSONEncoder().encode(["2026-09-15": 41.2])
 defaults.setVolatileDomain([
+    UIScale.key: 100,
     "Clockin.Theme": "Carbon", "Clockin.MascotEnabled": true,
     "Clockin.MascotDefault": "Auto", "Clockin.GoalDailyHours": 8.0,
     "Clockin.MinimalMode": false, "Clockin.USDTRYRates.v1": cachedRates
@@ -45,6 +46,7 @@ for index in 0..<4 {
     let theme = index == 3 ? ClockinThemeChoice.daylight : .carbon
     let suite = UserDefaults(suiteName: "panel-preview-\(UUID().uuidString)")!
     suite.setVolatileDomain([
+        UIScale.key: 100,
         "Clockin.Theme": theme.rawValue, "Clockin.MascotEnabled": true,
         "Clockin.MascotDefault": "Auto", "Clockin.GoalDailyHours": 8.0,
         "Clockin.MinimalMode": false

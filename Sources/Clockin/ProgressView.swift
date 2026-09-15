@@ -110,7 +110,8 @@ struct ProgressDashboardView: View {
                 .padding(.horizontal, S(16)).padding(.bottom, S(12))
             ScrollView { Group { if tab == 0 { overview } else if tab == 1 { badges } else if tab == 2 { records } else if tab == 3 { weekly } else { reports } }.padding(.horizontal, S(16)).padding(.bottom, S(16)) }
         }
-        .fontDesign(theme.fontDesign).onReceive(timer) { now = $0 }
+        .fontDesign(theme.fontDesign)
+        .clockinTextStyles().onReceive(timer) { now = $0 }
         .sheet(isPresented: $showShareStats) {
             ShareStatsView().environmentObject(store).environmentObject(AppDependencies.shared.exchangeRates)
         }
@@ -325,6 +326,7 @@ private struct BadgeDetailView: View {
         .frame(width: S(255), alignment: .leading)
         .background(theme.background)
         .fontDesign(theme.fontDesign)
+        .clockinTextStyles()
         .preferredColorScheme(theme.colorScheme)
     }
 }

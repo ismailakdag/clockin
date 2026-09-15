@@ -84,6 +84,7 @@ struct PasteImportView: View {
         .frame(width: S(390), height: S(480))
         .background(theme.background)
         .fontDesign(theme.fontDesign)
+        .clockinTextStyles()
         .preferredColorScheme(theme.colorScheme)
         .sheet(isPresented: $showComparison) {
             ImportComparisonView(sessions: preview, sourceTitle: "Pasted timecards") {

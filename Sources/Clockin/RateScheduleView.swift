@@ -67,11 +67,10 @@ struct RateScheduleView: View {
         }
         .padding(S(18))
         .frame(width: S(390))
-        .onChange(of: newDate) { _, date in newEndDate = max(newEndDate, date) }
-        .onChange(of: newHasEnd) { _, enabled in if enabled { newEndDate = max(newEndDate, newDate) } }
         .scrollBounceBehavior(.basedOnSize)
         .background(theme.background)
         .fontDesign(theme.fontDesign)
+        .clockinTextStyles()
         .preferredColorScheme(theme.colorScheme)
     }
 }
@@ -141,7 +140,6 @@ private struct RateRuleRow: View {
             rateText = String(format: "%.2f", rule.hourlyRate)
             return
         }
-        endDate = max(endDate, date)
         store.updateRateRule(id: rule.id, effectiveFrom: date, effectiveUntil: hasEnd ? endDate : nil, hourlyRate: value)
         rateText = String(format: "%.2f", value)
     }

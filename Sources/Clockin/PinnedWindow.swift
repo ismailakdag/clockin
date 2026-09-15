@@ -32,14 +32,33 @@ final class PinnedWindowController: NSObject, NSWindowDelegate {
         panel?.saveFrame(usingName: "ClockinPinnedTimer")
     }
 
+    /// The widget's text grows with the interface size, so the panel does too.
     private func defaultSize(for mode: String) -> NSSize {
-        switch mode {
-        case "Compact": return NSSize(width: 246, height: 72)
-        case "Goal": return NSSize(width: 300, height: 116)
-        case "All": return NSSize(width: 370, height: 230)
-        case "Total": return NSSize(width: 340, height: 156)
-        default: return NSSize(width: 320, height: 112)
+        let base: NSSize = switch mode {
+        case "Compact": NSSize(width: 246, height: 72)
+        case "Goal": NSSize(width: 300, height: 116)
+        case "All": NSSize(width: 370, height: 230)
+        case "Total": NSSize(width: 340, height: 156)
+        default: NSSize(width: 320, height: 112)
         }
+        return NSSize(width: S(base.width), height: S(base.height))
+    }
+
+    /// Grows the panel when the interface size changes, keeping a larger size
+    /// the user dragged to.
+    func applyScale() {
+        guard let panel else { return }
+        let mode = UserDefaults.standard.string(forKey: "Clockin.PinnedMode") ?? "Money"
+        let minimum = defaultSize(for: mode)
+        panel.minSize = NSSize(width: S(246), height: S(72))
+        panel.maxSize = NSSize(width: S(640), height: S(500))
+        let size = NSSize(width: max(panel.frame.width, minimum.width),
+                          height: max(panel.frame.height, minimum.height))
+        guard size != panel.frame.size else { return }
+        var frame = panel.frame
+        frame.origin.y += frame.height - size.height
+        frame.size = size
+        panel.setFrame(frame, display: true, animate: true)
     }
 
     private func savedSize(for mode: String) -> NSSize? {
@@ -63,7 +82,7 @@ final class PinnedWindowController: NSObject, NSWindowDelegate {
 
     private func makePanel(store: ClockStore) -> NSPanel {
         let savedMode = UserDefaults.standard.string(forKey: "Clockin.PinnedMode") ?? "Money"
-        let initialSize = savedMode == "Compact" ? NSSize(width: 246, height: 72) : (savedMode == "Goal" ? NSSize(width: 300, height: 116) : (savedMode == "All" ? NSSize(width: 370, height: 230) : (savedMode == "Total" ? NSSize(width: 340, height: 156) : NSSize(width: 320, height: 112))))
+        let initialSize = defaultSize(for: savedMode)
         let panel = NSPanel(
             contentRect: NSRect(origin: .zero, size: initialSize),
             styleMask: [.borderless, .nonactivatingPanel, .resizable],
@@ -77,8 +96,8 @@ final class PinnedWindowController: NSObject, NSWindowDelegate {
         panel.isMovableByWindowBackground = true
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
         panel.hidesOnDeactivate = false
-        panel.minSize = NSSize(width: 246, height: 72)
-        panel.maxSize = NSSize(width: 640, height: 500)
+        panel.minSize = NSSize(width: S(246), height: S(72))
+        panel.maxSize = NSSize(width: S(640), height: S(500))
         panel.setFrameAutosaveName("ClockinPinnedTimer")
         panel.delegate = self
         panel.contentView = NSHostingView(rootView:
@@ -127,6 +146,7 @@ struct PinnedTimerView: View {
         }
         .preferredColorScheme(theme.colorScheme)
         .fontDesign(theme.fontDesign)
+        .clockinTextStyles()
         .onReceive(timer) { now = $0 }
     }
 

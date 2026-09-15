@@ -161,6 +161,7 @@ struct HeatmapView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(theme.background)
         .fontDesign(theme.fontDesign)
+        .clockinTextStyles()
         .preferredColorScheme(theme.colorScheme)
         .onReceive(timer) {
             now = $0
@@ -195,10 +196,10 @@ struct HeatmapView: View {
 
     private var intro: some View {
         VStack(alignment: .leading, spacing: S(5)) {
-            Text("\(periodLabel) rhythm").font(ClockinFont.section).foregroundStyle(theme.accent)
+            Text(periodLabel).font(ClockinFont.section).foregroundStyle(theme.accent)
             ClockinSegmented(selection: $rangeRaw, options: HeatmapRange.allCases.map { (value: $0.rawValue, label: $0.rawValue) })
                 .padding(.vertical, S(5))
-            Text((selectedRange == .all ? "Each square is one day." : (selectedRange == .week ? "Each column is one week." : "Each column is one month.")) + " Scroll horizontally to pan.")
+            Text((selectedRange == .all ? "Each square is one day." : (selectedRange == .week ? "Each column is one week." : "Each column is one month.")) + " Scroll sideways for more.")
                 .font(.system(size: S(11), weight: .medium)).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -206,17 +207,18 @@ struct HeatmapView: View {
 
     private var summary: some View {
         HStack(spacing: S(8)) {
-            stat(periodLabel, DurationText.compact(totalHours * 3600))
+            stat("Total", DurationText.compact(totalHours * 3600))
             stat("Best day", bestDay.map { DurationText.compact($0.duration) } ?? "—")
             stat("Active days", "\(visibleDays.filter { stats(for: $0).duration > 0 }.count)")
         }
     }
 
+    /// Names the grid and its total, e.g. "Every day" and its hours.
     private var periodLabel: String {
         switch selectedRange {
-        case .week: return "Weekly"
-        case .month: return "Monthly"
-        case .all: return "Daily / all"
+        case .week: return "Every week"
+        case .month: return "Every month"
+        case .all: return "Every day"
         }
     }
 
@@ -300,12 +302,14 @@ struct HeatmapView: View {
 
     private func panControls<ID: Hashable>(proxy: ScrollViewProxy, firstID: ID, lastID: ID) -> some View {
         HStack(spacing: S(6)) {
-            Text("Pan").font(ClockinFont.section).foregroundStyle(.secondary)
+            Text("Jump to").font(ClockinFont.section).foregroundStyle(.secondary)
             Spacer()
-            Button("Start") { proxy.scrollTo(firstID, anchor: .leading) }
-                .buttonStyle(.clockin(.tinted, size: .small)).font(.system(size: S(10), weight: .semibold)).foregroundStyle(.secondary)
+            Button("Beginning") { proxy.scrollTo(firstID, anchor: .leading) }
+                .buttonStyle(.clockin(.secondary, size: .small))
+                .accessibilityLabel("Scroll to the beginning")
             Button("Today") { proxy.scrollTo(lastID, anchor: .trailing) }
-                .buttonStyle(.clockin(.tinted, size: .small)).font(.system(size: S(10), weight: .bold)).foregroundStyle(theme.accent)
+                .buttonStyle(.clockin(.tinted, size: .small))
+                .accessibilityLabel("Scroll to today")
         }
     }
 

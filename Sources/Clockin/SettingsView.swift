@@ -60,6 +60,7 @@ struct SettingsView: View {
             }
         }
         .fontDesign(theme.fontDesign)
+        .clockinTextStyles()
         .onAppear {
             rateText = String(format: "%.2f", store.hourlyRate)
             dailyGoalText = dailyGoalHours > 0 ? String(format: "%.2f", dailyGoalHours) : ""
@@ -73,7 +74,10 @@ struct SettingsView: View {
         }
         .onChange(of: dailyGoalText) { _, value in dailyGoalHours = parsedGoal(value) }
         .onChange(of: monthlyGoalText) { _, value in monthlyGoalHours = parsedGoal(value) }
-        .onChange(of: uiScale) { _, _ in MainWindowController.shared.applyScale() }
+        .onChange(of: uiScale) { _, _ in
+            MainWindowController.shared.applyScale()
+            PinnedWindowController.shared.applyScale()
+        }
         .onChange(of: pinnedMode) { _, value in PinnedWindowController.shared.applyPreset(value) }
         .onChange(of: mascotDefault) { _, value in
             if let required = CompanionMode(rawValue: value)?.requiredHours, totalHours < required { mascotDefault = "Auto" }
@@ -114,6 +118,7 @@ struct SettingsView: View {
             ClockinRow(icon: "dollarsign", title: "Hourly rate") {
                 HStack(spacing: S(6)) {
                     ClockinTextField(placeholder: "0.00", text: $rateText, width: 84)
+                        .accessibilityLabel("Hourly rate")
                     ClockinSelect(selection: Binding(get: { store.currencyCode }, set: { store.updateCurrency($0) }),
                                   values: ["USD", "EUR", "GBP", "TRY"], width: 82)
                 }
@@ -131,10 +136,12 @@ struct SettingsView: View {
         ClockinSection(title: "Goals", footer: "Measured in worked hours and updated live while you are clocked in. Leave empty to turn a goal off.") {
             ClockinRow(icon: "sun.max", title: "Daily goal") {
                 ClockinTextField(placeholder: "Off", text: $dailyGoalText, suffix: "h", width: 104)
+                    .accessibilityLabel("Daily goal in hours")
             }
             ClockinRowDivider()
             ClockinRow(icon: "calendar", title: "Monthly goal") {
                 ClockinTextField(placeholder: "Off", text: $monthlyGoalText, suffix: "h", width: 104)
+                    .accessibilityLabel("Monthly goal in hours")
             }
         }
     }
@@ -171,7 +178,7 @@ struct SettingsView: View {
         ClockinSection(title: "Menu bar & pinned timer") {
             ClockinRow(icon: "menubar.rectangle", title: "Minimal mode",
                        subtitle: "Hide the main window and pinned timer; keep everything in the menu bar.") {
-                ClockinSwitch(isOn: $minimalMode)
+                ClockinSwitch(title: "Minimal mode", isOn: $minimalMode)
             }
             if minimalMode {
                 HStack {
@@ -198,7 +205,7 @@ struct SettingsView: View {
                     ClockinChip(title: "Hours", isOn: $minimalShowHours)
                     ClockinChip(title: "Seconds", isOn: $minimalShowSeconds)
                         .disabled(!minimalShowHours)
-                        .help("Only affects the running timer.")
+                        .help("Only affects the running timer; today's total is shown in hours and minutes.")
                     ClockinChip(title: "Goal %", isOn: $minimalShowGoal)
                 }
                 HStack(spacing: S(6)) {
@@ -210,7 +217,7 @@ struct SettingsView: View {
             .padding(.leading, S(39))
             ClockinRowDivider()
             ClockinRow(icon: "pin", title: "Pinned timer", subtitle: "A small always-on-top timer.") {
-                ClockinSwitch(isOn: Binding(get: { store.pinVisible }, set: { store.setPinned($0) }))
+                ClockinSwitch(title: "Pinned timer", isOn: Binding(get: { store.pinVisible }, set: { store.setPinned($0) }))
             }
             ClockinRowDivider()
             ClockinRow(icon: "rectangle.3.group", title: "Pinned timer layout") {
@@ -222,7 +229,7 @@ struct SettingsView: View {
     private var companionSection: some View {
         ClockinSection(title: "Focus companion") {
             ClockinRow(icon: "figure.wave", title: "Show companion", subtitle: "The mascot on the timer, progress and menu bar panel.") {
-                ClockinSwitch(isOn: $mascotEnabled)
+                ClockinSwitch(title: "Show companion", isOn: $mascotEnabled)
             }
             ClockinRowDivider()
             ClockinRow(icon: "figure.stand", title: "Behaviour", subtitle: "More poses unlock as your hours add up.") {
@@ -240,7 +247,7 @@ struct SettingsView: View {
     private var chimeSection: some View {
         ClockinSection(title: "Focus chime") {
             ClockinRow(icon: chimeEnabled ? "bell.badge" : "bell.slash", title: "Chime while clocked in") {
-                ClockinSwitch(isOn: $chimeEnabled)
+                ClockinSwitch(title: "Chime while clocked in", isOn: $chimeEnabled)
             }
             ClockinRowDivider()
             ClockinRow(icon: "timer", title: "Every") {
@@ -267,7 +274,7 @@ struct SettingsView: View {
                 HStack(spacing: S(8)) {
                     rowIcon(radio.isPlaying ? "dot.radiowaves.left.and.right" : "radio")
                     ClockinSelect(selection: $selectedStationID, options: radio.stations.map {
-                        .init(value: $0.id, label: "\($0.name) · \($0.language)")
+                        .init(value: $0.id, label: "\($0.name) · \($0.language)", help: $0.description)
                     }, width: .infinity)
                     Button {
                         if let station = selectedStation { radio.toggle(station: station) }
@@ -340,7 +347,7 @@ struct SettingsView: View {
             }
             ClockinRowDivider()
             ClockinRow(icon: "arrow.clockwise", title: "Check automatically", subtitle: "Every six hours.") {
-                ClockinSwitch(isOn: Binding(
+                ClockinSwitch(title: "Check automatically", isOn: Binding(
                     get: { updates.automaticallyChecksForUpdates },
                     set: { updates.setAutomaticallyChecksForUpdates($0) }
                 ))

@@ -121,6 +121,7 @@ struct MainView: View {
         .scrollBounceBehavior(.basedOnSize)
         .background(theme.background)
         .fontDesign(theme.fontDesign)
+        .clockinTextStyles()
         .preferredColorScheme(theme.colorScheme)
         .onAppear {
             rateText = formattedRate
@@ -197,8 +198,8 @@ struct MainView: View {
                         .frame(width: S(28), height: S(28))
                 }
                 .buttonStyle(.clockinIcon(tint: store.pinVisible ? theme.accent : nil))
-                .accessibilityLabel(store.pinVisible ? "Hide floating timer" : "Pin timer to desktop")
-                .help(store.pinVisible ? "Hide floating timer" : "Pin timer to desktop")
+                .accessibilityLabel(store.pinVisible ? "Hide pinned timer" : "Pin timer to desktop")
+                .help(store.pinVisible ? "Hide pinned timer" : "Pin timer to desktop")
             }
             .padding(S(3))
             .background(theme.surface, in: RoundedRectangle(cornerRadius: S(9), style: .continuous))

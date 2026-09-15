@@ -56,6 +56,7 @@ struct ManualStartView: View {
         .frame(width: S(390), height: S(420))
         .background(theme.background)
         .fontDesign(theme.fontDesign)
+        .clockinTextStyles()
         .preferredColorScheme(theme.colorScheme)
     }
 
@@ -69,11 +70,11 @@ struct ManualStartView: View {
                 .buttonStyle(.clockinIcon(size: 28))
                 .disabled(value.wrappedValue <= range.lowerBound)
                 .help("Decrease \(title.lowercased())").accessibilityLabel("Decrease \(title.lowercased())")
-                ClockinTextField(placeholder: "0", text: Binding(
-                    get: { String(value.wrappedValue) },
-                    set: { if let number = Int($0) { value.wrappedValue = min(range.upperBound, max(range.lowerBound, number)) } }
-                ), alignment: .center)
-                .accessibilityLabel(title)
+                ClockinIntegerField(title: title, value: value)
+                    .onChange(of: value.wrappedValue) { _, newValue in
+                        let clamped = min(range.upperBound, max(range.lowerBound, newValue))
+                        if clamped != newValue { value.wrappedValue = clamped }
+                    }
                 Button { value.wrappedValue = min(range.upperBound, value.wrappedValue + 1) } label: {
                     Image(systemName: "plus")
                 }

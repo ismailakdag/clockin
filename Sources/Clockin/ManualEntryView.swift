@@ -136,6 +136,7 @@ struct ManualEntryView: View {
         .frame(width: S(390), height: S(420))
         .background(theme.background)
         .fontDesign(theme.fontDesign)
+        .clockinTextStyles()
         .preferredColorScheme(theme.colorScheme)
         .onAppear {
             guard let editing else { return }
