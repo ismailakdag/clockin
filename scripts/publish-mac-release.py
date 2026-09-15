@@ -250,10 +250,14 @@ def publish_feed(version, build, release_dir, info_plist):
         time.sleep(3)
     else:
         fail('The live feed does not match the new one yet. Check it before announcing the release.')
-    with tempfile.NamedTemporaryFile(suffix='.xml') as downloaded:
-        downloaded.write(live)
-        downloaded.flush()
-        subprocess.run(['swift', str(ROOT / 'scripts/verify-release.swift'), downloaded.name, info_plist], check=True)
+    # verify-release.swift checks the archive signature too and looks for the
+    # DMG next to the feed, so the downloaded feed needs the DMG beside it.
+    with tempfile.TemporaryDirectory() as temp:
+        pathlib.Path(temp, 'appcast.xml').write_bytes(live)
+        dmg = release_dir / f'Clockin-{version}-{build}.dmg'
+        shutil.copy2(dmg, pathlib.Path(temp, dmg.name))
+        subprocess.run(['swift', str(ROOT / 'scripts/verify-release.swift'),
+                        str(pathlib.Path(temp, 'appcast.xml')), info_plist], check=True)
     print(f'Live feed offers {version} ({build}): {FEED_URL}')
 
 
