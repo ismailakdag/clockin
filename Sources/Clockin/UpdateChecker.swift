@@ -8,10 +8,8 @@ import Sparkle
 final class UpdateChecker: ObservableObject {
     static let shared = UpdateChecker()
 
-    /// True once Sparkle has started. Checks stay available while an update
-    /// session runs: Sparkle then brings the open update to the front. Using
-    /// `canCheckForUpdates` here swallowed the click when a background check
-    /// had already found an update.
+    /// True once Sparkle has started. Keep actions available during background
+    /// work; a requested check waits until Sparkle can start or focus its UI.
     @Published private(set) var isReady = false
     /// A version a background check found and did not put in front of the
     /// user. The menu bar and Settings show it until the user opens it.
@@ -23,6 +21,8 @@ final class UpdateChecker: ObservableObject {
     private let controller: SPUStandardUpdaterController
     private let reminders = GentleUpdateReminders()
     private var started = false
+    private var checkRequested = false
+    private var checkAvailability: AnyCancellable?
 
     var version: String {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—"
@@ -41,6 +41,13 @@ final class UpdateChecker: ObservableObject {
             startingUpdater: false, updaterDelegate: nil, userDriverDelegate: reminders
         )
         reminders.onChange = { [weak self] version in self?.pendingVersion = version }
+        checkAvailability = controller.updater.publisher(for: \.canCheckForUpdates)
+            .sink { [weak self] available in
+                // Sparkle publishes on main. Defer until its state transition
+                // (and any gentle-reminder callback) has finished.
+                guard available else { return }
+                DispatchQueue.main.async { self?.performRequestedCheck() }
+            }
         controller.updater.publisher(for: \.automaticallyChecksForUpdates)
             .assign(to: &$automaticallyChecksForUpdates)
         controller.updater.publisher(for: \.lastUpdateCheckDate)
@@ -67,11 +74,20 @@ final class UpdateChecker: ObservableObject {
     /// to the front.
     func checkForUpdates() {
         guard started else { return }
+        checkRequested = true
         // Let the menu or panel close before Sparkle presents its window.
         DispatchQueue.main.async { [self] in
-            NSApp.activate(ignoringOtherApps: true)
-            controller.checkForUpdates(nil)
+            performRequestedCheck()
         }
+    }
+
+    private func performRequestedCheck() {
+        // False while a background appcast is loading; true again when an
+        // update is ready (even if hidden by gentle reminders), or work ends.
+        guard checkRequested, started, controller.updater.canCheckForUpdates else { return }
+        checkRequested = false
+        // Sparkle activates the app when presenting/focusing its own window.
+        controller.checkForUpdates(nil)
     }
 }
 
@@ -82,6 +98,7 @@ final class UpdateChecker: ObservableObject {
 /// the user opens it.
 @MainActor
 private final class GentleUpdateReminders: NSObject, @preconcurrency SPUStandardUserDriverDelegate {
+    // Sparkle's user driver invokes these callbacks on the main thread.
     var onChange: ((String?) -> Void)?
 
     var supportsGentleScheduledUpdateReminders: Bool { true }
