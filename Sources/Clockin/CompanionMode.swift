@@ -40,7 +40,7 @@ enum CompanionMode: String, CaseIterable, Identifiable, Sendable {
 
     /// Kilitli secenek listede esigiyle birlikte gorunur, secilemez.
     func menuLabel(totalHours: Double) -> String {
-        isUnlocked(totalHours: totalHours) ? rawValue : "🔒 \(rawValue) · \(Int(requiredHours))h"
+        isUnlocked(totalHours: totalHours) ? rawValue : "\(rawValue) · unlocks at \(Int(requiredHours))h"
     }
 
     /// Sabit poz gorselinin sirasi. `auto` oturumu takip ettigi icin,

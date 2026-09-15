@@ -22,59 +22,67 @@ struct ManualStartView: View {
                     .font(.system(size: S(11))).foregroundStyle(.secondary)
             }
 
-            HStack(spacing: S(12)) {
-                valueStepper(title: "HOURS", value: $hours, range: 0...999)
-                valueStepper(title: "MINUTES", value: $minutes, range: 0...59)
+            VStack(spacing: S(10)) {
+                valueStepper(title: "Hours", value: $hours, range: 0...999)
+                valueStepper(title: "Minutes", value: $minutes, range: 0...59)
             }
 
             VStack(alignment: .leading, spacing: S(6)) {
-                Text("NOTE (OPTIONAL)").font(.system(size: S(9), weight: .bold)).foregroundStyle(.secondary).tracking(S(1))
-                TextField("What are you working on?", text: $note)
-                    .textFieldStyle(.plain).padding(S(10))
-                    .background(theme.surface, in: RoundedRectangle(cornerRadius: S(9)))
+                Text("Note (optional)").font(ClockinFont.section).foregroundStyle(.secondary)
+                ClockinTextField(placeholder: "What are you working on?", text: $note, alignment: .leading)
             }
 
-            HStack {
+            VStack(alignment: .leading, spacing: S(12)) {
                 VStack(alignment: .leading, spacing: S(3)) {
                     Text("Starts at \(inferredStart.formatted(date: .omitted, time: .shortened))")
                         .font(.system(size: S(11), weight: .semibold))
                     Text("Initial earnings: \((elapsed / 3600 * store.effectiveRate(at: .now, fallback: store.hourlyRate)).money(code: store.currencyCode))")
                         .font(.system(size: S(10))).foregroundStyle(.secondary)
                 }
+                HStack {
                 Spacer()
-                Button("Cancel") { dismiss() }.buttonStyle(.hitTarget).foregroundStyle(.secondary)
+                Button("Cancel") { dismiss() }.buttonStyle(.clockin(.secondary)).foregroundStyle(.secondary)
                 Button("Start") {
                     store.clockIn(elapsed: elapsed, note: note)
                     dismiss()
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.clockin(.primary))
                 .tint(theme.accent)
-                .foregroundStyle(.black)
                 .disabled(elapsed <= 0)
+                }
             }
         }
         .padding(S(20))
-        .frame(width: S(430), height: S(330))
+        .frame(width: S(390), height: S(420))
         .background(theme.background)
         .fontDesign(theme.fontDesign)
+        .clockinTextStyles()
         .preferredColorScheme(theme.colorScheme)
     }
 
     private func valueStepper(title: String, value: Binding<Int>, range: ClosedRange<Int>) -> some View {
-        VStack(alignment: .leading, spacing: S(6)) {
-            Text(title).font(.system(size: S(9), weight: .bold)).foregroundStyle(.secondary).tracking(S(1))
-            HStack(spacing: S(8)) {
-                TextField("0", value: value, format: .number)
-                    .textFieldStyle(.roundedBorder)
-                    .font(.system(size: S(23), weight: .semibold, design: .monospaced))
-                    .multilineTextAlignment(.leading)
-                    .frame(width: S(78))
+        HStack(spacing: S(12)) {
+            Text(title).font(ClockinFont.body).frame(width: S(58), alignment: .leading)
+            HStack(spacing: S(6)) {
+                Button { value.wrappedValue = max(range.lowerBound, value.wrappedValue - 1) } label: {
+                    Image(systemName: "minus")
+                }
+                .buttonStyle(.clockinIcon(size: 28))
+                .disabled(value.wrappedValue <= range.lowerBound)
+                .help("Decrease \(title.lowercased())").accessibilityLabel("Decrease \(title.lowercased())")
+                ClockinIntegerField(title: title, value: value)
                     .onChange(of: value.wrappedValue) { _, newValue in
                         let clamped = min(range.upperBound, max(range.lowerBound, newValue))
                         if clamped != newValue { value.wrappedValue = clamped }
                     }
-                Stepper("", value: value, in: range).labelsHidden().controlSize(.small)
+                Button { value.wrappedValue = min(range.upperBound, value.wrappedValue + 1) } label: {
+                    Image(systemName: "plus")
+                }
+                .buttonStyle(.clockinIcon(size: 28))
+                .disabled(value.wrappedValue >= range.upperBound)
+                .help("Increase \(title.lowercased())").accessibilityLabel("Increase \(title.lowercased())")
             }
+
         }
         .padding(S(12)).frame(maxWidth: .infinity)
         .background(theme.surface, in: RoundedRectangle(cornerRadius: S(11)))
