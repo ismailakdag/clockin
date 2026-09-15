@@ -17,7 +17,7 @@ Get the signed, Apple-notarized installer from the [Clockin website](https://get
 
 Open the DMG, drag Clockin into Applications, and open it there. If you open it straight from the DMG or from Downloads, Clockin offers to move itself to Applications. Future versions are installed through **Check for Updates…** inside Clockin. No Git, Xcode or Terminal is needed. Existing work history stays in place.
 
-Each packaged Mac version's matching source is tagged `macos-v<version>`, for example [macos-v1.1.5](https://github.com/ismailakdag/clockin/tree/macos-v1.1.5). The instructions below are for building from source.
+Each packaged Mac version's matching source is tagged `macos-v<version>`, for example [macos-v1.1.6](https://github.com/ismailakdag/clockin/tree/macos-v1.1.6). The instructions below are for building from source.
 
 ## Mac
 
@@ -60,6 +60,10 @@ swiftc -swift-version 6 Sources/Clockin/MascotMotion.swift Tests/manual/mascotmo
 swiftc -swift-version 6 Tests/manual/mascotassets/main.swift -o /tmp/clockin-mascotassets-tests && /tmp/clockin-mascotassets-tests
 bash Tests/manual/mascotview/run
 ```
+
+Screens are reviewed by eye: `bash Tests/manual/screens/run Carbon` and
+`bash Tests/manual/screens/run Daylight` write 35 captures each to
+`Tests/manual/screens/out/`. See [`Tests/manual/screens/README.md`](Tests/manual/screens/README.md).
 
 Exchange rates come from the free [Frankfurter API](https://frankfurter.dev/).
 
