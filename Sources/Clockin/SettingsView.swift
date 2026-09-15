@@ -220,7 +220,7 @@ struct SettingsView: View {
             VStack(alignment: .leading, spacing: S(8)) {
                 Label("Minimal status fields", systemImage: "text.badge.checkmark")
                     .foregroundStyle(.secondary)
-                Text("Choose what appears beside the menu-bar icon while minimal mode is active.")
+                Text("Choose what appears beside the menu-bar icon while you are clocked in. When you are not, only the icon shows.")
                     .font(.system(size: S(8))).foregroundStyle(.tertiary)
                 HStack(spacing: S(12)) {
                     Toggle("Hours", isOn: $minimalShowHours)

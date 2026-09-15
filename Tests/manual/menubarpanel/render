@@ -1,0 +1,25 @@
+#!/bin/bash
+# Run from any directory. No app launch, updater start, or network refresh.
+set -euo pipefail
+cd "$(dirname "$0")/../../.."
+export CLANG_MODULE_CACHE_PATH="${TMPDIR:-/tmp}/clockin-panel-clang"
+export SWIFTPM_MODULECACHE_OVERRIDE="${TMPDIR:-/tmp}/clockin-panel-swift"
+build_dir="$(swift build --show-bin-path --disable-sandbox)"
+if [ ! -f "$build_dir/Clockin.build/DerivedSources/resource_bundle_accessor.swift" ]; then
+    swift build --disable-sandbox
+fi
+framework="$(find .build/artifacts -type d -name Sparkle.framework -print -quit)"
+framework_dir="$(dirname "$framework")"
+preview_dir="$(mktemp -d "${TMPDIR:-/tmp}/clockin-panel.XXXXXX")"
+trap 'rm -rf "$preview_dir"' EXIT
+sources=()
+for source in Sources/Clockin/*.swift; do
+    case "$source" in */ClockinApp.swift|*/MenuBarController.swift) continue ;; esac
+    sources+=("$source")
+done
+swiftc -swift-version 6 -target "$(uname -m)-apple-macosx14.0" \
+    -module-cache-path "$CLANG_MODULE_CACHE_PATH" \
+    -F "$framework_dir" -framework Sparkle -Xlinker -rpath -Xlinker "$PWD/$framework_dir" \
+    "${sources[@]}" "$build_dir/Clockin.build/DerivedSources/resource_bundle_accessor.swift" \
+    Tests/manual/menubarpanel/main.swift -o "$preview_dir/preview"
+"$preview_dir/preview"
