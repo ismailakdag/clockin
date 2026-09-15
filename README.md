@@ -21,7 +21,7 @@ Each packaged Mac version's matching source is tagged `macos-v<version>`, for ex
 
 ## Mac
 
-Lives in the menu bar, with a main window and an always-visible pinned timer. Keyboard shortcuts: ⌥⌘I clock in or resume, ⌥⌘P pause or resume, ⌥⌘O clock out, ⌥⌘E open the window.
+Lives in the menu bar. The icon opens a panel with the timer and clock-in controls, over full-screen apps too, and there is a main window and an always-visible pinned timer. Keyboard shortcuts: ⌥⌘I clock in or resume, ⌥⌘P pause or resume, ⌥⌘O clock out, ⌥⌘E open the window.
 
 Requires macOS 14. The packaged app supports both Apple Silicon and Intel.
 
@@ -54,6 +54,8 @@ swiftc -swift-version 6 Sources/Clockin/Models.swift Sources/Clockin/ClockStore.
 swiftc -swift-version 6 Sources/Clockin/ApplicationMover.swift Tests/manual/mover/main.swift -o /tmp/clockin-mover-tests && /tmp/clockin-mover-tests
 swiftc -swift-version 6 Sources/Clockin/Models.swift Sources/Clockin/MenuBarStatus.swift Tests/manual/menubar/main.swift -o /tmp/clockin-menubar-tests && /tmp/clockin-menubar-tests
 swiftc -swift-version 6 Sources/Clockin/MenuBarIcon.swift Tests/manual/menubaricon/main.swift -o /tmp/clockin-menubaricon-tests && /tmp/clockin-menubaricon-tests
+swiftc -swift-version 6 Sources/Clockin/Models.swift Sources/Clockin/MenuBarStatus.swift Sources/Clockin/MenuBarIcon.swift Sources/Clockin/MenuBarController.swift Tests/manual/menubarpanelhost/main.swift -o /tmp/clockin-menubarpanelhost-tests && /tmp/clockin-menubarpanelhost-tests
+bash Tests/manual/menubarpanel/render
 ```
 
 Exchange rates come from the free [Frankfurter API](https://frankfurter.dev/).

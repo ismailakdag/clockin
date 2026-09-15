@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import SwiftUI
 
 @MainActor
@@ -19,6 +20,7 @@ final class ClockinAppDelegate: NSObject, NSApplicationDelegate {
             return
         }
         UpdateChecker.shared.start()
+        MenuBarController.shared.start(.clockin(AppDependencies.shared))
         DispatchQueue.main.async {
             let dependencies = AppDependencies.shared
             FocusChimeController.shared.start(store: dependencies.store)
@@ -29,9 +31,9 @@ final class ClockinAppDelegate: NSObject, NSApplicationDelegate {
                     dependencies.store.setPinned(false)
                 } else {
                     MainWindowController.shared.show(store: dependencies.store, exchangeRates: dependencies.exchangeRates)
-                    // SwiftUI can finish installing MenuBarExtra after the
-                    // first presentation call. Re-present once the scene is
-                    // settled so a launch can never end up windowless.
+                    // SwiftUI can still be settling its scene after the first
+                    // presentation call. Re-present once it is settled so a
+                    // launch can never end up windowless.
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) {
                         if !UserDefaults.standard.bool(forKey: "Clockin.MinimalMode") {
                             MainWindowController.shared.show(store: dependencies.store, exchangeRates: dependencies.exchangeRates)
@@ -54,137 +56,110 @@ final class ClockinAppDelegate: NSObject, NSApplicationDelegate {
 @MainActor
 struct ClockinApp: App {
     @NSApplicationDelegateAdaptor(ClockinAppDelegate.self) private var appDelegate
-    @StateObject private var store: ClockStore
-    @StateObject private var exchangeRates: ExchangeRateStore
-    @StateObject private var radio: RadioController
-    @StateObject private var updates = UpdateChecker.shared
-    @AppStorage("Clockin.MinimalMode") private var minimalMode = false
 
     init() {
         // Preserve the interface-size preference written by pre-percent builds
         // before any view reads the new integer-backed AppStorage key.
         UIScale.migrateLegacyValueIfNeeded()
-        let dependencies = AppDependencies.shared
-        _store = StateObject(wrappedValue: dependencies.store)
-        _exchangeRates = StateObject(wrappedValue: dependencies.exchangeRates)
-        _radio = StateObject(wrappedValue: RadioController.shared)
     }
 
     var body: some Scene {
-        MenuBarExtra {
-            Button("Open Clockin") {
-                MainWindowController.shared.show(store: store, exchangeRates: exchangeRates)
-            }
-            Divider()
-            if minimalMode {
-                Text("MINIMAL MENU BAR MODE")
-                    .font(.system(size: 10, weight: .bold, design: .monospaced))
-                Divider()
-            }
-            if store.running == nil {
-                Button("Clock in") { store.clockIn() }
-            } else if store.running?.isPaused == true {
-                Button("Resume") { store.resume() }
-            } else {
-                Button("Pause") { store.pause() }
-            }
-            if store.running != nil {
-                Button("Clock out") { _ = store.clockOut() }
-                Button("Cancel session", role: .destructive) { store.cancelRunning() }
-            }
-            if radio.isPlaying {
-                Divider()
-                Button("Stop focus radio") { radio.stop() }
-            }
-            Divider()
-            if !minimalMode {
-                Button(store.pinVisible ? "Hide pinned timer" : "Show pinned timer") {
-                    store.setPinned(!store.pinVisible)
-                }
-            }
-            Button(minimalMode ? "Exit minimal mode" : "Use minimal menu bar mode") {
-                minimalMode.toggle()
-                if minimalMode {
-                    UserDefaults.standard.set(store.pinVisible, forKey: "Clockin.PinVisibleBeforeMinimal")
-                    NSApp.setActivationPolicy(.accessory)
-                    store.setPinned(false)
-                    MainWindowController.shared.hide()
-                } else {
-                    let shouldRestorePin = UserDefaults.standard.object(forKey: "Clockin.PinVisibleBeforeMinimal") as? Bool ?? true
-                    UserDefaults.standard.removeObject(forKey: "Clockin.PinVisibleBeforeMinimal")
-                    MainWindowController.shared.show(store: store, exchangeRates: exchangeRates)
-                    store.setPinned(shouldRestorePin)
-                }
-            }
-            Divider()
-            Button("Check for Updates…") { updates.checkForUpdates() }
-                .disabled(!updates.canCheckForUpdates)
-            Button("Quit Clockin") { NSApp.terminate(nil) }
-        } label: {
-            MenuBarStatusLabel(store: store, exchangeRates: exchangeRates)
-        }
-        .menuBarExtraStyle(.menu)
+        // The menu-bar item and its panel are AppKit (MenuBarController), so
+        // they can open over full-screen apps. An App needs a scene: an empty
+        // Settings scene opens no window, and its menu command is removed
+        // because settings live in the main window.
+        Settings { EmptyView() }
+            .commands { CommandGroup(replacing: .appSettings) {} }
     }
 }
 
-private struct MenuBarStatusLabel: View {
-    @ObservedObject var store: ClockStore
-    @ObservedObject var exchangeRates: ExchangeRateStore
-    @AppStorage("Clockin.MinimalMode") private var minimalMode = false
-    @AppStorage("Clockin.MinimalShowHours") private var showHours = true
-    @AppStorage("Clockin.MinimalShowEarnings") private var showEarnings = true
-    @AppStorage("Clockin.MinimalShowTRY") private var showTRY = true
-    @AppStorage("Clockin.MinimalShowGoal") private var showGoal = false
-    @AppStorage("Clockin.MinimalShowSeconds") private var showSeconds = false
-    @AppStorage("Clockin.GoalDailyHours") private var dailyGoalHours = 0.0
-    @AppStorage("Clockin.GoalMonthlyHours") private var monthlyGoalHours = 0.0
-    @State private var now = Date()
-    private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
-
-    var body: some View {
-        let status = currentStatus(at: now)
-        HStack(spacing: 5) {
-            // A bold drawn stopwatch: hollow and switched off when idle, solid
-            // while a session runs, with pause bars when paused.
-            Image(nsImage: MenuBarIcon.image(iconState(status.state)))
-                .renderingMode(.template)
-            if minimalMode {
-                if let text = status.text {
-                    Text(text)
-                        .font(.system(size: 12, weight: .semibold))
-                        .monospacedDigit()
-                        .lineLimit(1)
-                }
-            } else {
-                Text("Clockin")
-                    .font(.system(size: 12, weight: .semibold, design: .rounded))
-            }
+extension MenuBarController.Host {
+    static func clockin(_ dependencies: AppDependencies) -> Self {
+        let store = dependencies.store
+        let exchangeRates = dependencies.exchangeRates
+        @Sendable func flag(_ key: String, _ fallback: Bool) -> Bool {
+            UserDefaults.standard.object(forKey: key) as? Bool ?? fallback
         }
-        // Idle, nothing in the label changes, so the clock is ignored.
-        .onReceive(timer) { date in if store.running != nil { now = date } }
-    }
-
-    private func currentStatus(at date: Date) -> MenuBarStatus {
-        MenuBarStatus.make(
-            isRunning: store.running != nil,
-            isPaused: store.running?.isPaused == true,
-            sessionElapsed: store.elapsed(at: date),
-            sessionEarnings: store.currentEarnings(at: date),
-            currencyCode: store.currencyCode,
-            tryRate: exchangeRates.latestRate,
-            todayDuration: store.todayDuration(at: date),
-            monthDuration: store.monthDuration(at: date),
-            dailyGoalHours: dailyGoalHours,
-            monthlyGoalHours: monthlyGoalHours,
-            fields: .init(hours: showHours, seconds: showSeconds, earnings: showEarnings, tryEquivalent: showTRY, goal: showGoal)
+        let openApp: @MainActor () -> Void = {
+            MenuBarController.shared.close(animated: false)
+            MainWindowController.shared.show(store: store, exchangeRates: exchangeRates)
+        }
+        return Self(
+            status: {
+                // Idle there is nothing to compute: only the icon shows.
+                guard store.running != nil else { return MenuBarStatus(state: .idle, text: nil) }
+                let now = Date()
+                return MenuBarStatus.make(
+                    isRunning: true,
+                    isPaused: store.running?.isPaused == true,
+                    sessionElapsed: store.elapsed(at: now),
+                    sessionEarnings: store.currentEarnings(at: now),
+                    currencyCode: store.currencyCode,
+                    tryRate: exchangeRates.latestRate,
+                    todayDuration: store.todayDuration(at: now),
+                    monthDuration: store.monthDuration(at: now),
+                    dailyGoalHours: UserDefaults.standard.double(forKey: "Clockin.GoalDailyHours"),
+                    monthlyGoalHours: UserDefaults.standard.double(forKey: "Clockin.GoalMonthlyHours"),
+                    fields: .init(
+                        hours: flag("Clockin.MinimalShowHours", true),
+                        seconds: flag("Clockin.MinimalShowSeconds", false),
+                        earnings: flag("Clockin.MinimalShowEarnings", true),
+                        tryEquivalent: flag("Clockin.MinimalShowTRY", true),
+                        goal: flag("Clockin.MinimalShowGoal", false)
+                    )
+                )
+            },
+            minimalMode: { flag("Clockin.MinimalMode", false) },
+            changes: Publishers.Merge3(
+                store.objectWillChange.map { _ in () },
+                exchangeRates.objectWillChange.map { _ in () },
+                NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification).map { _ in () }
+            ).eraseToAnyPublisher(),
+            content: { close in
+                AnyView(
+                    MenuBarPanelView(actions: MenuBarPanelActions(
+                        openApp: openApp,
+                        close: close,
+                        checkForUpdates: {
+                            MenuBarController.shared.close(animated: false)
+                            UpdateChecker.shared.checkForUpdates()
+                        },
+                        quit: { NSApp.terminate(nil) }
+                    ))
+                    .environmentObject(store)
+                    .environmentObject(exchangeRates)
+                    .environmentObject(RadioController.shared)
+                    .environmentObject(UpdateChecker.shared)
+                )
+            },
+            menu: {
+                let menu = NSMenu()
+                menu.addItem(ClosureMenuItem("Open Clockin", action: openApp))
+                menu.addItem(.separator())
+                let updates = ClosureMenuItem("Check for Updates…") { UpdateChecker.shared.checkForUpdates() }
+                updates.isEnabled = UpdateChecker.shared.canCheckForUpdates
+                menu.addItem(updates)
+                menu.addItem(ClosureMenuItem("Quit Clockin") { NSApp.terminate(nil) })
+                menu.autoenablesItems = false
+                return menu
+            }
         )
     }
+}
 
-    private func iconState(_ state: MenuBarStatus.State) -> MenuBarIcon.State {
-        switch state {
-        case .idle: .idle
-        case .running: .running
-        case .paused: .paused
-        }
+/// An NSMenuItem that runs a closure.
+@MainActor
+final class ClosureMenuItem: NSMenuItem {
+    private let handler: @MainActor () -> Void
+
+    init(_ title: String, action handler: @escaping @MainActor () -> Void) {
+        self.handler = handler
+        super.init(title: title, action: #selector(run), keyEquivalent: "")
+        target = self
     }
+
+    @available(*, unavailable)
+    required init(coder: NSCoder) { fatalError("init(coder:) is not supported") }
+
+    @objc private func run() { handler() }
 }
