@@ -125,10 +125,10 @@ struct SettingsView: View {
                         .font(.system(size: S(9))).foregroundStyle(.tertiary)
                 }
                 Spacer()
-                Button("Check for Updates…") { updates.checkForUpdates() }
+                Button(updates.pendingVersion == nil ? "Check for Updates…" : "Install Update…") { updates.checkForUpdates() }
                     .buttonStyle(.hitTarget).foregroundStyle(theme.accent)
                     .font(.system(size: S(10), weight: .bold))
-                    .disabled(!updates.canCheckForUpdates)
+                    .disabled(!updates.isReady)
             }
             .padding(S(10)).background(card)
 
@@ -151,6 +151,7 @@ struct SettingsView: View {
 
     private var updateStatusText: String {
         if let error = updates.startupError { return "Updates unavailable: \(error)" }
+        if let version = updates.pendingVersion { return "Clockin \(version) is available." }
         if let checked = updates.lastChecked {
             return "Last checked \(checked.formatted(date: .abbreviated, time: .shortened))"
         }
