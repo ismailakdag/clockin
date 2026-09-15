@@ -17,7 +17,7 @@ Get the signed, Apple-notarized installer from the [Clockin website](https://get
 
 Open the DMG, drag Clockin into Applications, and open it there. If you open it straight from the DMG or from Downloads, Clockin offers to move itself to Applications. Future versions are installed through **Check for Updates…** inside Clockin. No Git, Xcode or Terminal is needed. Existing work history stays in place.
 
-Each packaged Mac version's matching source is tagged `macos-v<version>`, for example [macos-v1.1.4](https://github.com/ismailakdag/clockin/tree/macos-v1.1.4). The instructions below are for building from source.
+Each packaged Mac version's matching source is tagged `macos-v<version>`, for example [macos-v1.1.5](https://github.com/ismailakdag/clockin/tree/macos-v1.1.5). The instructions below are for building from source.
 
 ## Mac
 
