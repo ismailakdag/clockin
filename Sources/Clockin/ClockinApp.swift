@@ -142,59 +142,49 @@ private struct MenuBarStatusLabel: View {
     private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     var body: some View {
-        HStack(spacing: 4) {
-            Image(systemName: store.running?.isPaused == true ? "pause.circle.fill" : (store.running == nil ? "timer" : "timer.circle.fill"))
+        let status = currentStatus(at: now)
+        HStack(spacing: 5) {
+            // A bold drawn stopwatch: hollow and switched off when idle, solid
+            // while a session runs, with pause bars when paused.
+            Image(nsImage: MenuBarIcon.image(iconState(status.state)))
+                .renderingMode(.template)
             if minimalMode {
-                Text(status(at: now))
-                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                    .lineLimit(1)
+                if let text = status.text {
+                    Text(text)
+                        .font(.system(size: 12, weight: .semibold))
+                        .monospacedDigit()
+                        .lineLimit(1)
+                }
             } else {
                 Text("Clockin")
-                    .font(.system(size: 10, weight: .semibold, design: .rounded))
+                    .font(.system(size: 12, weight: .semibold, design: .rounded))
             }
         }
-        .onReceive(timer) { now = $0 }
+        // Idle, nothing in the label changes, so the clock is ignored.
+        .onReceive(timer) { date in if store.running != nil { now = date } }
     }
 
-    private func status(at date: Date) -> String {
-        let elapsed = store.running != nil ? store.elapsed(at: date) : store.todayDuration(at: date)
-        let earnings = store.running != nil ? store.currentEarnings(at: date) : store.todayEarnings(at: date)
-        var parts: [String] = []
-        if showHours {
-            parts.append(store.running != nil ? DurationText.clock(elapsed, includeSeconds: showSeconds) : "T " + DurationText.compact(elapsed))
-        }
-        if showEarnings {
-            parts.append(compactMoney(earnings, code: store.currencyCode))
-        }
-        if showTRY, store.currencyCode == "USD", let rate = exchangeRates.latestRate {
-            parts.append(compactMoney(earnings * rate, code: "TRY"))
-        }
-        if showGoal {
-            if dailyGoalHours > 0 {
-                parts.append("D \(goalPercent(elapsed: store.todayDuration(at: date), goal: dailyGoalHours))%")
-            }
-            if monthlyGoalHours > 0 {
-                parts.append("M \(goalPercent(elapsed: store.monthDuration(at: date), goal: monthlyGoalHours))%")
-            }
-        }
-        if parts.isEmpty {
-            return store.running == nil ? "Ready" : (store.running?.isPaused == true ? "Paused" : "Clocked in")
-        }
-        return parts.joined(separator: " · ")
+    private func currentStatus(at date: Date) -> MenuBarStatus {
+        MenuBarStatus.make(
+            isRunning: store.running != nil,
+            isPaused: store.running?.isPaused == true,
+            sessionElapsed: store.elapsed(at: date),
+            sessionEarnings: store.currentEarnings(at: date),
+            currencyCode: store.currencyCode,
+            tryRate: exchangeRates.latestRate,
+            todayDuration: store.todayDuration(at: date),
+            monthDuration: store.monthDuration(at: date),
+            dailyGoalHours: dailyGoalHours,
+            monthlyGoalHours: monthlyGoalHours,
+            fields: .init(hours: showHours, seconds: showSeconds, earnings: showEarnings, tryEquivalent: showTRY, goal: showGoal)
+        )
     }
 
-    private func goalPercent(elapsed: TimeInterval, goal: Double) -> Int {
-        guard goal > 0 else { return 0 }
-        return min(999, max(0, Int((elapsed / 3600 / goal * 100).rounded())))
-    }
-
-    private func compactMoney(_ value: Double, code: String) -> String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .currency
-        formatter.currencyCode = code
-        if code == "TRY" { formatter.currencySymbol = "₺" }
-        formatter.minimumFractionDigits = 0
-        formatter.maximumFractionDigits = 0
-        return formatter.string(from: NSNumber(value: value)) ?? "\(code) \(Int(value.rounded()))"
+    private func iconState(_ state: MenuBarStatus.State) -> MenuBarIcon.State {
+        switch state {
+        case .idle: .idle
+        case .running: .running
+        case .paused: .paused
+        }
     }
 }
