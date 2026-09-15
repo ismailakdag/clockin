@@ -82,28 +82,29 @@ struct ManualEntryView: View {
                     .font(.system(size: S(11))).foregroundStyle(.secondary)
             }
 
-            field("DAY") {
-                DatePicker("", selection: $day, displayedComponents: .date)
-                    .labelsHidden().datePickerStyle(.compact)
+            field("Day") {
+                DatePicker("Day", selection: $day, displayedComponents: .date)
+                    .labelsHidden().datePickerStyle(.field).controlSize(.large)
+                    .frame(minHeight: S(32))
             }
 
             HStack(spacing: S(12)) {
-                field("START") {
-                    DatePicker("", selection: $startTime, displayedComponents: .hourAndMinute)
-                        .labelsHidden().datePickerStyle(.compact)
+                field("Start") {
+                    DatePicker("Start", selection: $startTime, displayedComponents: .hourAndMinute)
+                        .labelsHidden().datePickerStyle(.field).controlSize(.large)
+                    .frame(minHeight: S(32))
                 }
-                field("END") {
-                    DatePicker("", selection: $endTime, displayedComponents: .hourAndMinute)
-                        .labelsHidden().datePickerStyle(.compact)
+                field("End") {
+                    DatePicker("End", selection: $endTime, displayedComponents: .hourAndMinute)
+                        .labelsHidden().datePickerStyle(.field).controlSize(.large)
+                    .frame(minHeight: S(32))
                 }
             }
 
             VStack(alignment: .leading, spacing: S(6)) {
-                Text("NOTE (OPTIONAL)")
-                    .font(.system(size: S(9), weight: .bold)).foregroundStyle(.secondary).tracking(S(1))
-                TextField("What were you working on?", text: $note)
-                    .textFieldStyle(.plain).padding(S(10))
-                    .background(theme.surface, in: RoundedRectangle(cornerRadius: S(9)))
+                Text("Note (optional)")
+                    .font(ClockinFont.section).foregroundStyle(.secondary)
+                ClockinTextField(placeholder: "What were you working on?", text: $note, alignment: .leading)
             }
 
             HStack {
@@ -118,7 +119,7 @@ struct ManualEntryView: View {
                 }
                 Spacer()
                 Button("Cancel") { dismiss() }
-                    .buttonStyle(.hitTarget).foregroundStyle(.secondary)
+                    .buttonStyle(.clockin(.secondary)).foregroundStyle(.secondary)
                 Button(editing == nil ? "Add entry" : "Save") {
                     let saved: Bool
                     if let editing {
@@ -129,14 +130,13 @@ struct ManualEntryView: View {
                     }
                     if saved { dismiss() }
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.clockin(.primary))
                 .tint(theme.accent)
-                .foregroundStyle(.black)
                 .disabled(duration <= 0)
             }
         }
         .padding(S(20))
-        .frame(width: S(430), height: S(400))
+        .frame(width: S(390), height: S(420))
         .background(theme.background)
         .fontDesign(theme.fontDesign)
         .preferredColorScheme(theme.colorScheme)
@@ -152,7 +152,7 @@ struct ManualEntryView: View {
     private func field<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: S(6)) {
             Text(title)
-                .font(.system(size: S(9), weight: .bold)).foregroundStyle(.secondary).tracking(S(1))
+                .font(.system(size: S(10), weight: .bold)).foregroundStyle(.secondary)
             content()
         }
     }

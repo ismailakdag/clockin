@@ -41,7 +41,7 @@ struct MenuBarPanelView: View {
                     Label("Stop focus radio", systemImage: "stop.circle")
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .buttonStyle(PanelTextStyle())
+                .buttonStyle(.clockin(.secondary, size: .small))
                 .accessibilityLabel("Stop focus radio")
             }
             Divider()
@@ -83,7 +83,7 @@ struct MenuBarPanelView: View {
             .padding(.horizontal, 10).padding(.vertical, 8)
             .background(theme.surface, in: RoundedRectangle(cornerRadius: 9))
         }
-        .buttonStyle(PanelTextStyle())
+        .buttonStyle(.clockin(.secondary, size: .small))
         .accessibilityLabel("Install Clockin \(version)")
     }
 
@@ -165,17 +165,17 @@ struct MenuBarPanelView: View {
         VStack(spacing: 10) {
             if store.running == nil {
                 Button("Clock in") { change { store.clockIn() } }
-                    .buttonStyle(PanelActionStyle(theme: theme, primary: true))
+                    .buttonStyle(.clockin(.primary, size: .large, fullWidth: true))
                     .accessibilityLabel("Clock in")
             } else {
                 HStack(spacing: 10) {
                     Button(paused ? "Resume" : "Pause") {
                         change { if paused { store.resume() } else { store.pause() } }
                     }
-                    .buttonStyle(PanelActionStyle(theme: theme, primary: false))
+                    .buttonStyle(.clockin(.secondary, size: .large, fullWidth: true))
                     .accessibilityLabel(paused ? "Resume session" : "Pause session")
                     Button("Clock out") { change { _ = store.clockOut() } }
-                        .buttonStyle(PanelActionStyle(theme: theme, primary: true))
+                        .buttonStyle(.clockin(.primary, size: .large, fullWidth: true))
                         .accessibilityLabel("Clock out and save session")
                 }
                 if confirmingDiscard {
@@ -183,14 +183,15 @@ struct MenuBarPanelView: View {
                         Text("Discard this session?").foregroundStyle(.secondary)
                         Spacer(minLength: 0)
                         Button("Discard", role: .destructive) { change { store.cancelRunning() } }
+                            .buttonStyle(.clockin(.destructive, size: .small))
                             .accessibilityLabel("Discard current session without saving")
                         Button("Keep") { change { confirmingDiscard = false } }
                             .accessibilityLabel("Keep current session")
                     }
-                    .buttonStyle(PanelTextStyle())
+                    .buttonStyle(.clockin(.secondary, size: .small))
                 } else {
                     Button("Cancel session") { change { confirmingDiscard = true } }
-                        .buttonStyle(PanelTextStyle()).foregroundStyle(.secondary)
+                        .buttonStyle(.clockin(.secondary, size: .small)).foregroundStyle(.secondary)
                         .accessibilityLabel("Cancel session, asks for confirmation")
                 }
             }
@@ -198,7 +199,7 @@ struct MenuBarPanelView: View {
     }
 
     private var footer: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 6) {
             Button("Open Clockin", action: actions.openApp)
                 .accessibilityLabel("Open Clockin main window")
             if !minimalMode {
@@ -222,11 +223,11 @@ struct MenuBarPanelView: View {
             } label: {
                 Image(systemName: "ellipsis").frame(width: 24, height: 20)
             }
-            .menuIndicator(.hidden).menuStyle(.borderlessButton).fixedSize()
+            .menuIndicator(.hidden).menuStyle(.button).buttonStyle(.clockinIcon(size: 28)).fixedSize()
             .accessibilityLabel("More Clockin options").help("More Clockin options")
             }
         }
-        .font(.system(size: 11)).foregroundStyle(.secondary).buttonStyle(PanelTextStyle())
+        .font(.system(size: 11)).foregroundStyle(.secondary).buttonStyle(.clockin(.secondary, size: .small))
     }
 
     private func change(_ operation: () -> Void) {
@@ -250,30 +251,6 @@ struct MenuBarPanelView: View {
             MainWindowController.shared.show(store: store, exchangeRates: AppDependencies.shared.exchangeRates)
             store.setPinned(restore)
         }
-    }
-}
-
-private struct PanelActionStyle: ButtonStyle {
-    let theme: ClockinPalette
-    let primary: Bool
-
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.system(size: 13, weight: .semibold))
-            .frame(maxWidth: .infinity).padding(.vertical, 11)
-            .foregroundStyle(primary ? theme.actionForeground : (theme.colorScheme == .light ? Color.black : .white))
-            .background(primary ? theme.accent : theme.surface, in: RoundedRectangle(cornerRadius: 9))
-            .opacity(configuration.isPressed ? 0.75 : 1)
-            .contentShape(RoundedRectangle(cornerRadius: 9))
-    }
-}
-
-private struct PanelTextStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .padding(.vertical, 3)
-            .contentShape(Rectangle())
-            .opacity(configuration.isPressed ? 0.6 : 1)
     }
 }
 

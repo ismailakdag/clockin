@@ -1,0 +1,34 @@
+#!/bin/bash
+# Renders the real main-window screens with sample data into Tests/manual/screens/out. No app launch, no real data.
+set -euo pipefail
+cd "$(dirname "$0")/../../.."
+export CLANG_MODULE_CACHE_PATH="${TMPDIR:-/tmp}/clockin-screens-clang"
+export SWIFTPM_MODULECACHE_OVERRIDE="${TMPDIR:-/tmp}/clockin-screens-swift"
+build_dir="$(swift build --show-bin-path --disable-sandbox)"
+# Xcode 27 builds into .build/out and keeps generated sources elsewhere.
+find_accessor() {
+    find .build -path '*Clockin*' -name resource_bundle_accessor.swift -print -quit 2>/dev/null
+}
+accessor="$(find_accessor)"
+if [ -z "$accessor" ]; then
+    swift build --disable-sandbox
+    accessor="$(find_accessor)"
+fi
+framework="$(find .build/artifacts -type d -name Sparkle.framework -print -quit)"
+framework_dir="$(dirname "$framework")"
+preview_dir="$(mktemp -d "${TMPDIR:-/tmp}/clockin-screens.XXXXXX")"
+trap 'rm -rf "$preview_dir"' EXIT
+sources=()
+for source in Sources/Clockin/*.swift; do
+    case "$source" in */ClockinApp.swift|*/MenuBarController.swift) continue ;; esac
+    cp "$source" "$preview_dir/$(basename "$source")"
+    sources+=("$preview_dir/$(basename "$source")")
+done
+swiftc -disable-sandbox -swift-version 6 -target "$(uname -m)-apple-macosx14.0" \
+    -module-cache-path "$CLANG_MODULE_CACHE_PATH" \
+    -F "$framework_dir" -framework Sparkle -Xlinker -rpath -Xlinker "$PWD/$framework_dir" \
+    "${sources[@]}" "$accessor" \
+    Tests/manual/screens/main.swift -o "$preview_dir/preview"
+# Newer accessors look for the bundle next to the executable.
+[ -d "$build_dir/Clockin_Clockin.bundle" ] && cp -R "$build_dir/Clockin_Clockin.bundle" "$preview_dir/"
+"$preview_dir/preview" "$@"

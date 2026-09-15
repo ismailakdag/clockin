@@ -40,9 +40,9 @@ struct ImportComparisonView: View {
 
             if let summary {
                 HStack(spacing: S(8)) {
-                    summaryCard("NEW", summary.newItems.count, color: theme.accent)
-                    summaryCard("UPDATES", summary.matchedItems.count, color: .blue)
-                    summaryCard("SKIP", summary.duplicateItems.count, color: .orange)
+                    summaryCard("New", summary.newItems.count, color: theme.accent)
+                    summaryCard("Updates", summary.matchedItems.count, color: .blue)
+                    summaryCard("Skip", summary.duplicateItems.count, color: .orange)
                 }
 
                 selectionBar
@@ -68,7 +68,7 @@ struct ImportComparisonView: View {
                                 }
                                 if skipped.count > 60 {
                                     Text("Showing first 60 of \(skipped.count) skipped")
-                                        .font(.system(size: S(9))).foregroundStyle(.tertiary)
+                                        .font(.system(size: S(10))).foregroundStyle(.secondary)
                                         .padding(.vertical, S(5))
                                 }
                             }
@@ -83,7 +83,7 @@ struct ImportComparisonView: View {
             footer
         }
         .padding(S(18))
-        .frame(width: S(560), height: S(560))
+        .frame(width: S(390), height: S(560))
         .scrollBounceBehavior(.basedOnSize)
         .background(theme.background)
         .fontDesign(theme.fontDesign)
@@ -105,14 +105,14 @@ struct ImportComparisonView: View {
             }
             Spacer()
             Button { dismiss() } label: { Image(systemName: "xmark").frame(width: S(28), height: S(28)) }
-                .buttonStyle(.hitTarget).foregroundStyle(.secondary)
+                .buttonStyle(.clockinIcon()).help("Close").accessibilityLabel("Close")
         }
     }
 
     private var selectionBar: some View {
         HStack {
-            Text("SELECTED")
-                .font(.system(size: S(9), weight: .bold)).foregroundStyle(.secondary).tracking(S(1))
+            Text("Selected")
+                .font(ClockinFont.section).foregroundStyle(.secondary)
             Spacer()
             Text("\(selected.count) of \(actionable.count) • \(DurationText.compact(selectedDuration))")
                 .font(.system(size: S(10), weight: .semibold, design: .monospaced))
@@ -122,7 +122,7 @@ struct ImportComparisonView: View {
                         ? []
                         : Set(actionable.map(\.id))
                 }
-                .buttonStyle(.hitTarget).foregroundStyle(theme.accent)
+                .buttonStyle(.clockin(.tinted, size: .small))
                 .font(.system(size: S(10), weight: .bold))
                 .padding(.leading, S(8))
             }
@@ -134,20 +134,20 @@ struct ImportComparisonView: View {
         Button { showSkipped.toggle() } label: {
             HStack(spacing: S(6)) {
                 Image(systemName: showSkipped ? "chevron.down" : "chevron.right")
-                    .font(.system(size: S(9), weight: .bold))
+                    .font(.system(size: S(10), weight: .bold))
                 Text("\(skipped.count) already imported")
-                    .font(.system(size: S(9), weight: .bold, design: .monospaced))
+                    .font(.system(size: S(10), weight: .bold, design: .monospaced))
                 Spacer()
             }
             .foregroundStyle(.secondary)
             .padding(.horizontal, S(9)).padding(.vertical, S(7))
         }
-        .buttonStyle(.hitTarget)
+        .buttonStyle(.clockin(.ghost, size: .small))
     }
 
     private var footer: some View {
         HStack {
-            Button("Cancel") { dismiss() }.buttonStyle(.bordered)
+            Button("Cancel") { dismiss() }.buttonStyle(.clockin(.secondary))
             Spacer()
             Button("Import \(selected.count) \(selected.count == 1 ? "entry" : "entries")") {
                 let chosen = actionable.filter { selected.contains($0.id) }.map(\.session)
@@ -155,7 +155,7 @@ struct ImportComparisonView: View {
                 onImported()
                 dismiss()
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.clockin(.primary))
             .tint(theme.accent)
             .foregroundStyle(.black)
             .disabled(selected.isEmpty)
@@ -164,7 +164,7 @@ struct ImportComparisonView: View {
 
     private func summaryCard(_ label: String, _ value: Int, color: Color) -> some View {
         VStack(alignment: .leading, spacing: S(4)) {
-            Text(label).font(.system(size: S(8), weight: .bold, design: .monospaced)).foregroundStyle(.secondary)
+            Text(label).font(.system(size: S(10), weight: .bold, design: .monospaced)).foregroundStyle(.secondary)
             Text("\(value)").font(.system(size: S(19), weight: .black, design: .monospaced)).foregroundStyle(color)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -174,7 +174,11 @@ struct ImportComparisonView: View {
 
     private func row(_ item: ImportComparisonItem, selectable: Bool) -> some View {
         let isOn = selected.contains(item.id)
-        return HStack(spacing: S(8)) {
+        return Button {
+            guard selectable else { return }
+            if isOn { selected.remove(item.id) } else { selected.insert(item.id) }
+        } label: {
+        HStack(spacing: S(8)) {
             if selectable {
                 Image(systemName: isOn ? "checkmark.square.fill" : "square")
                     .font(.system(size: S(12)))
@@ -182,38 +186,38 @@ struct ImportComparisonView: View {
             } else {
                 Image(systemName: "minus")
                     .font(.system(size: S(10)))
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(.secondary)
             }
+            VStack(alignment: .leading, spacing: S(4)) {
             Text(item.kind.title)
-                .font(.system(size: S(8), weight: .black, design: .monospaced))
+                .font(.system(size: S(10), weight: .black, design: .monospaced))
                 .foregroundStyle(item.kind == .new ? theme.accent : (item.kind == .matched ? .blue : .orange))
-                .frame(width: S(54), alignment: .leading)
+
             Text(item.session.start.formatted(.dateTime.month(.abbreviated).day().year()))
-                .font(.system(size: S(9), weight: .semibold, design: .monospaced))
-                .frame(width: S(112), alignment: .leading)
+                .font(.system(size: S(10), weight: .semibold, design: .monospaced))
+
             Text("\(item.session.start.formatted(.dateTime.hour().minute()))–\(item.session.end.formatted(.dateTime.hour().minute()))")
-                .font(.system(size: S(9), design: .monospaced))
+                .font(.system(size: S(10), design: .monospaced))
+            }
             Spacer()
             VStack(alignment: .trailing, spacing: S(2)) {
                 Text(DurationText.compact(item.session.duration))
-                    .font(.system(size: S(9), weight: .semibold, design: .monospaced))
+                    .font(.system(size: S(10), weight: .semibold, design: .monospaced))
                     .foregroundStyle(.secondary)
                 // Bir kaydi guncelliyorsa eski deger de gosterilir.
                 if let old = item.localMatch {
                     Text("was \(DurationText.compact(old.duration))")
-                        .font(.system(size: S(7), design: .monospaced))
+                        .font(.system(size: S(10), design: .monospaced))
                         .foregroundStyle(.blue.opacity(0.8))
                 }
             }
         }
         .opacity(selectable ? (isOn ? 1 : 0.45) : 0.5)
         .padding(.horizontal, S(9)).padding(.vertical, S(7))
-        .background(theme.surface, in: RoundedRectangle(cornerRadius: S(7)))
-        .contentShape(Rectangle())
-        .onTapGesture {
-            guard selectable else { return }
-            if isOn { selected.remove(item.id) } else { selected.insert(item.id) }
         }
+        .buttonStyle(.clockin(.secondary, size: .small, fullWidth: true))
+        .disabled(!selectable)
+        .accessibilityValue(isOn ? "Selected" : "Not selected")
     }
 
     private var card: some View {

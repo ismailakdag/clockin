@@ -99,11 +99,20 @@ struct ProgressDashboardView: View {
         Set(store.sessions.filter { [1, 7].contains(Calendar.current.component(.weekday, from: $0.start)) }.map { Calendar.current.startOfDay(for: $0.start) }).count
     }
 
+    /// Also lets previews render every section without changing user preferences.
+    init(initialTab: Int = 0) {
+        _tab = State(initialValue: initialTab)
+    }
+
     var body: some View {
         VStack(spacing: S(0)) {
-            HStack { Text("PROGRESS").font(.system(size: S(13), weight: .black)).tracking(S(1.3)); Spacer(); Button { showShareStats = true } label: { Image(systemName: "square.and.arrow.up").frame(width: S(28), height: S(28)) }.buttonStyle(.hitTarget).foregroundStyle(theme.accent).help("Share stats") }
-                .padding(.horizontal, S(15)).frame(height: S(50)).overlay(alignment: .bottom) { Divider().opacity(0.25) }
-            Picker("", selection: $tab) { Text("Overview").tag(0); Text("Badges").tag(1); Text("Records").tag(2); Text("Weekly").tag(3); Text("Reports").tag(4) }.pickerStyle(.segmented).padding(S(16))
+            ClockinScreenHeader(title: "Progress") {
+                Button { showShareStats = true } label: { Image(systemName: "square.and.arrow.up") }
+                    .buttonStyle(.clockinIcon(tint: theme.accent))
+                    .help("Share stats").accessibilityLabel("Share stats")
+            }
+            ClockinSegmented(selection: $tab, options: [(0, "Overview"), (1, "Badges"), (2, "Records"), (3, "Weekly"), (4, "Reports")])
+                .padding(.horizontal, S(16)).padding(.bottom, S(12))
             ScrollView { Group { if tab == 0 { overview } else if tab == 1 { badges } else if tab == 2 { records } else if tab == 3 { weekly } else { reports } }.padding(.horizontal, S(16)).padding(.bottom, S(16)) }
         }
         .fontDesign(theme.fontDesign).onReceive(timer) { now = $0 }
@@ -132,8 +141,8 @@ struct ProgressDashboardView: View {
 
     private var overview: some View {
         VStack(spacing: S(12)) {
-            HStack(spacing: S(14)) { if mascotEnabled { MascotView(store: store, now: now, level: level) }; VStack(alignment: .leading, spacing: S(4)) { Text("LEVEL \(level)").font(.system(size: S(18), weight: .black)); Text("\(xp) XP • \(500 - xp % 500) XP to next level").font(.system(size: S(10))).foregroundStyle(.secondary); ProgressView(value: levelProgress).tint(theme.accent).frame(width: S(180)); Text("Base \(baseXP) • Goal +\(goalBonusXP) • Streak +\(streakBonusXP)").font(.system(size: S(8), design: .monospaced)).foregroundStyle(theme.accent) }; Spacer() }.padding(S(16)).background(card)
-            HStack { stat("🔥", "STREAK", "\(streak) day\(streak == 1 ? "" : "s")"); Divider(); stat("⏱", "TOTAL", DurationText.compact(store.totalDuration + store.elapsed(at: now))); Divider(); stat("⚡", "XP RATE", "100 / hour + bonus") }.padding(S(13)).background(card)
+            HStack(spacing: S(14)) { if mascotEnabled { MascotView(store: store, now: now, level: level) }; VStack(alignment: .leading, spacing: S(4)) { Text("Level \(level)").font(.system(size: S(18), weight: .black)); Text("\(xp) XP • \(500 - xp % 500) XP to next level").font(.system(size: S(10))).foregroundStyle(.secondary); ProgressView(value: levelProgress).tint(theme.accent).frame(maxWidth: .infinity); Text("Base \(baseXP) • Goal +\(goalBonusXP) • Streak +\(streakBonusXP)").font(.system(size: S(10), design: .monospaced)).foregroundStyle(theme.accent) }; Spacer() }.padding(S(16)).background(card)
+            HStack { stat("🔥", "Streak", "\(streak) day\(streak == 1 ? "" : "s")"); Divider(); stat("⏱", "Total", DurationText.compact(store.totalDuration + store.elapsed(at: now))); Divider(); stat("⚡", "XP rate", "100 / hour + bonus") }.padding(S(13)).background(card)
             goalBonusCard
             goalETA
         }
@@ -141,16 +150,16 @@ struct ProgressDashboardView: View {
 
     private var goalBonusCard: some View {
         VStack(alignment: .leading, spacing: S(6)) {
-            Text("BONUS ENGINE").font(.system(size: S(9), weight: .bold)).foregroundStyle(.secondary).tracking(S(1))
+            Text("Bonus engine").font(ClockinFont.section).foregroundStyle(.secondary)
             if dailyGoalHours <= 0 && monthlyGoalHours <= 0 {
                 Text("Set daily or monthly goals to earn bonus XP.").font(.system(size: S(10))).foregroundStyle(.secondary)
             } else {
                 Text("+\(goalBonusXP) XP from goals • \(completedGoalDays) daily • \(doubleGoalDays) double-goal • \(completedGoalMonths) monthly")
                     .font(.system(size: S(10), weight: .semibold, design: .monospaced)).foregroundStyle(theme.accent)
                 Text("A completed day gives +100 XP; a 2× goal day gives an additional +250 XP.")
-                    .font(.system(size: S(8))).foregroundStyle(.tertiary)
+                    .font(.system(size: S(10))).foregroundStyle(.secondary)
             }
-        }.padding(S(12)).background(card)
+        }.frame(maxWidth: .infinity, alignment: .leading).padding(S(12)).background(card)
     }
 
     private var records: some View {
@@ -215,16 +224,16 @@ struct ProgressDashboardView: View {
                     VStack(spacing: S(7)) {
                     ZStack(alignment: .bottomTrailing) {
                         Image(systemName: badge.icon).font(.system(size: S(26), weight: .bold)).foregroundStyle(badge.unlocked ? badge.color : .secondary)
-                        if !badge.unlocked { Image(systemName: "lock.fill").font(.system(size: S(9), weight: .bold)).foregroundStyle(.secondary).padding(S(2)).background(.thinMaterial, in: Circle()) }
+                        if !badge.unlocked { Image(systemName: "lock.fill").font(.system(size: S(10), weight: .bold)).foregroundStyle(.secondary).padding(S(2)).background(.thinMaterial, in: Circle()) }
                     }
                     Text(badge.title).font(.system(size: S(10), weight: .bold))
                     Text(badge.unlocked ? "Unlocked • \(badge.requirement)" : badge.requirement)
-                        .font(.system(size: S(8))).foregroundStyle(badge.unlocked ? theme.accent : .secondary)
-                        .multilineTextAlignment(.center).lineLimit(2).minimumScaleFactor(0.78)
+                        .font(.system(size: S(10))).foregroundStyle(badge.unlocked ? theme.accent : .secondary)
+                        .multilineTextAlignment(.center).lineLimit(nil).fixedSize(horizontal: false, vertical: true)
                     }
-                    .frame(maxWidth: .infinity, minHeight: S(100)).padding(S(8)).background(card).opacity(badge.unlocked ? 1 : 0.65)
+                    .frame(maxWidth: .infinity, minHeight: S(112)).padding(.vertical, S(8)).opacity(badge.unlocked ? 1 : 0.75)
                 }
-                .buttonStyle(.hitTarget)
+                .buttonStyle(.clockin(.secondary, size: .small, fullWidth: true))
             }
         }
     }
@@ -244,13 +253,13 @@ struct ProgressDashboardView: View {
         let prior = store.sessions.filter { $0.start >= now.addingTimeInterval(-60 * 86_400) && $0.start < recentCutoff }.reduce(0) { $0 + $1.duration }
         let trend = prior > 0 ? (recent - prior) / prior : (recent > 0 ? 1 : 0)
         return VStack(spacing: S(9)) {
-            reportMetric("ACTIVE DAYS", "\(activeDays)")
-            reportMetric("AVERAGE SESSION", DurationText.compact(sessionAverage))
-            reportMetric("BEST WEEKDAY", bestWeekday)
-            reportMetric("BEST START HOUR", bestHour)
-            reportMetric("AVERAGE EARNINGS / HOUR", store.currencyCode == "USD" ? hourlyEarning.money(code: store.currencyCode) : hourlyEarning.money(code: store.currencyCode))
-            reportMetric("LAST 30D TREND", String(format: "%+.0f%%", trend * 100))
-            Text("Reports are calculated from completed sessions and update after each clock-out.").font(.system(size: S(9))).foregroundStyle(.tertiary).frame(maxWidth: .infinity, alignment: .leading).padding(S(10))
+            reportMetric("Active days", "\(activeDays)")
+            reportMetric("Average session", DurationText.compact(sessionAverage))
+            reportMetric("Best weekday", bestWeekday)
+            reportMetric("Best start hour", bestHour)
+            reportMetric("Average earnings / hour", store.currencyCode == "USD" ? hourlyEarning.money(code: store.currencyCode) : hourlyEarning.money(code: store.currencyCode))
+            reportMetric("Last 30d trend", String(format: "%+.0f%%", trend * 100))
+            Text("Reports are calculated from completed sessions and update after each clock-out.").font(.system(size: S(10))).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading).padding(S(10))
         }
     }
 
@@ -260,7 +269,7 @@ struct ProgressDashboardView: View {
         let previousStart = cal.date(byAdding: .day, value: -13, to: cal.startOfDay(for: now)) ?? now
         let previous = store.sessions.filter { $0.start >= previousStart && $0.start < start }.reduce(0) { $0 + $1.duration }
         let delta = previous > 0 ? (current - previous) / previous : 1
-        return VStack(spacing: S(12)) { reportMetric("THIS WEEK", DurationText.compact(current)); reportMetric("LAST WEEK", DurationText.compact(previous)); reportMetric("CHANGE", String(format: "%+.0f%%", delta * 100)); Text("Keep the streak alive and beat your previous week.").font(.system(size: S(11))).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading).padding(S(12)).background(card) }
+        return VStack(spacing: S(12)) { reportMetric("This week", DurationText.compact(current)); reportMetric("Last week", DurationText.compact(previous)); reportMetric("Change", String(format: "%+.0f%%", delta * 100)); Text("Keep the streak alive and beat your previous week.").font(.system(size: S(11))).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading).padding(S(12)).background(card) }
     }
 
     private var goalETA: some View {
@@ -268,7 +277,7 @@ struct ProgressDashboardView: View {
         let remaining = max(0, dailyGoalHours - today)
         let recent = store.sessions.filter { $0.start >= now.addingTimeInterval(-7 * 86_400) }.reduce(0) { $0 + $1.duration } / 3600 / 7
         return VStack(alignment: .leading, spacing: S(6)) {
-            Text("TARGET ETA").font(.system(size: S(9), weight: .bold)).foregroundStyle(.secondary).tracking(S(1))
+            Text("Target ETA").font(ClockinFont.section).foregroundStyle(.secondary)
             if dailyGoalHours <= 0 && monthlyGoalHours <= 0 { Text("Set a daily or monthly goal in Settings.").font(.system(size: S(11))).foregroundStyle(.secondary) }
             else if dailyGoalHours > 0 && remaining <= 0 { Text("Daily goal reached 🎉").font(.system(size: S(11), weight: .semibold)).foregroundStyle(theme.accent) }
             else if let running = store.running, !running.isPaused, dailyGoalHours > 0 {
@@ -276,13 +285,17 @@ struct ProgressDashboardView: View {
             } else if dailyGoalHours > 0, recent > 0 {
                 Text("At your 7-day average, today’s goal is about \(Int(ceil(remaining / recent))) day(s) away.").font(.system(size: S(11)))
             } else { Text("Start working to generate a live finish estimate.").font(.system(size: S(11))).foregroundStyle(.secondary) }
-        }.padding(S(12)).background(card)
+        }.frame(maxWidth: .infinity, alignment: .leading).padding(S(12)).background(card)
     }
-    private func stat(_ icon: String, _ title: String, _ value: String) -> some View { VStack(spacing: S(4)) { Text(icon); Text(title).font(.system(size: S(7), weight: .bold)).foregroundStyle(.secondary); Text(value).font(.system(size: S(10), weight: .semibold, design: .monospaced)) }.frame(maxWidth: .infinity) }
+    private func stat(_ icon: String, _ title: String, _ value: String) -> some View { VStack(spacing: S(4)) { Text(icon); Text(title).font(ClockinFont.section).foregroundStyle(.secondary); Text(value).font(.system(size: S(10), weight: .semibold, design: .monospaced)) }.frame(maxWidth: .infinity) }
     private func record(_ icon: String, _ title: String, _ value: String) -> some View { HStack { Image(systemName: icon).foregroundStyle(theme.accent).frame(width: S(22)); Text(title).font(.system(size: S(11), weight: .semibold)); Spacer(); Text(value).font(.system(size: S(11), weight: .bold, design: .monospaced)) }.padding(S(13)).background(card) }
-    private func reportMetric(_ title: String, _ value: String) -> some View { HStack { Text(title).font(.system(size: S(9), weight: .bold)).foregroundStyle(.secondary).tracking(S(1)); Spacer(); Text(value).font(.system(size: S(16), weight: .bold, design: .rounded)) }.padding(S(14)).background(card) }
+    private func reportMetric(_ title: String, _ value: String) -> some View { HStack { Text(title).font(ClockinFont.section).foregroundStyle(.secondary); Spacer(); Text(value).font(.system(size: S(16), weight: .bold, design: .rounded)) }.padding(S(14)).background(card) }
     private func progressText(_ current: String, _ target: String) -> String { current + " / " + target }
-    private var card: some ShapeStyle { .black.opacity(0.16) }
+    private var card: some View {
+        RoundedRectangle(cornerRadius: S(13), style: .continuous)
+            .fill(theme.card)
+            .overlay(RoundedRectangle(cornerRadius: S(13), style: .continuous).strokeBorder(theme.cardStroke))
+    }
 }
 
 private struct BadgeDetailView: View {
@@ -297,14 +310,14 @@ private struct BadgeDetailView: View {
                     .foregroundStyle(badge.unlocked ? badge.color : .secondary)
                 VStack(alignment: .leading, spacing: S(2)) {
                     Text(badge.title).font(.system(size: S(14), weight: .black))
-                    Text(badge.unlocked ? "UNLOCKED" : "LOCKED")
-                        .font(.system(size: S(8), weight: .bold, design: .monospaced))
+                    Text(badge.unlocked ? "Unlocked" : "Locked")
+                        .font(.system(size: S(10), weight: .bold, design: .monospaced))
                         .foregroundStyle(badge.unlocked ? theme.accent : .secondary)
                 }
             }
             Divider().opacity(0.2)
             Text(badge.unlocked ? "How you earned it" : "What's missing")
-                .font(.system(size: S(9), weight: .bold)).foregroundStyle(.secondary).tracking(S(0.8))
+                .font(.system(size: S(10), weight: .bold)).foregroundStyle(.secondary)
             Text(badge.requirement)
                 .font(.system(size: S(11), weight: .semibold))
                 .fixedSize(horizontal: false, vertical: true)

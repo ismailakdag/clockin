@@ -161,36 +161,30 @@ struct ShareStatsView: View {
         VStack(spacing: S(0)) {
             HStack {
                 VStack(alignment: .leading, spacing: S(3)) {
-                    Text("SHARE YOUR STATS").font(.system(size: S(13), weight: .black, design: theme.fontDesign)).tracking(S(1.2))
+                    Text("Share your stats").font(ClockinFont.title)
                     Text("A Clockin rewind card for your focus journey")
-                        .font(.system(size: S(9))).foregroundStyle(.secondary)
+                        .font(.system(size: S(10))).foregroundStyle(.secondary)
                 }
                 Spacer()
-                Button(action: { dismiss() }) { Image(systemName: "xmark").frame(width: S(26), height: S(26)) }.buttonStyle(.hitTarget)
+                Button(action: { dismiss() }) { Image(systemName: "xmark").frame(width: S(26), height: S(26)) }.buttonStyle(.clockinIcon()).help("Close").accessibilityLabel("Close")
             }
             .padding(.horizontal, S(15)).frame(height: S(54))
             .overlay(alignment: .bottom) { Divider().opacity(0.25) }
 
-            Picker("Privacy", selection: $visibility) {
-                ForEach(ShareVisibility.allCases) { Text($0.rawValue).tag($0) }
-            }
-            .pickerStyle(.segmented)
+            ClockinSegmented(selection: $visibility, options: ShareVisibility.allCases.map { (value: $0, label: $0.rawValue) })
             .padding(.horizontal, S(16)).padding(.top, S(12))
 
             HStack(spacing: S(12)) {
                 Button { page = max(0, page - 1) } label: { Image(systemName: "chevron.left") }
-                    .buttonStyle(.hitTarget).disabled(page == 0)
-                Text("PAGE \(page + 1) / 3 • \(["OVERVIEW", "RHYTHM", "MILESTONES"][page])")
-                    .font(.system(size: S(9), weight: .bold, design: .monospaced)).foregroundStyle(theme.accent)
+                    .buttonStyle(.clockinIcon()).disabled(page == 0).help("Previous page").accessibilityLabel("Previous page")
+                Text("Page \(page + 1) / 3 • \(["Overview", "Rhythm", "Milestones"][page])")
+                    .font(.system(size: S(10), weight: .bold, design: .monospaced)).foregroundStyle(theme.accent)
                 Button { page = min(2, page + 1) } label: { Image(systemName: "chevron.right") }
-                    .buttonStyle(.hitTarget).disabled(page == 2)
+                    .buttonStyle(.clockinIcon()).disabled(page == 2).help("Next page").accessibilityLabel("Next page")
             }
             .padding(.top, S(9))
 
-            Picker("Export", selection: $exportMode) {
-                ForEach(ShareExportMode.allCases) { Text($0.rawValue).tag($0) }
-            }
-            .pickerStyle(.segmented)
+            ClockinSegmented(selection: $exportMode, options: ShareExportMode.allCases.map { (value: $0, label: $0.rawValue) })
             .padding(.horizontal, S(16))
             .padding(.top, S(9))
 
@@ -201,14 +195,14 @@ struct ShareStatsView: View {
 
             HStack(spacing: S(9)) {
                 Button { copyPNG() } label: { Label("Copy", systemImage: "doc.on.doc") }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(.clockin(.secondary))
                 Button { savePNG() } label: { Label("Save PNG", systemImage: "arrow.down.to.line") }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(.clockin(.secondary))
                 Button { sharePNG() } label: { Label("Share", systemImage: "square.and.arrow.up") }
-                    .buttonStyle(RewindShareButtonStyle(background: theme.accent, foreground: theme.background))
+                    .buttonStyle(.clockin(.primary))
             }
             .padding(.horizontal, S(16)).padding(.bottom, S(8))
-            if let status { Text(status).font(.system(size: S(9))).foregroundStyle(.secondary).padding(.bottom, S(7)) }
+            if let status { Text(status).font(.system(size: S(10))).foregroundStyle(.secondary).padding(.bottom, S(7)) }
         }
         // Sheet olarak sunuluyor: kendi olcusunu bildirmeli.
         .frame(width: S(UIScale.base.width), height: S(UIScale.base.height))
@@ -244,9 +238,9 @@ struct ShareStatsView: View {
     private func renderPNG() -> URL? {
         let renderer: ImageRenderer<AnyView>
         if exportMode == .all {
-            renderer = ImageRenderer(content: AnyView(ShareStatsLongCard(snapshot: snapshot, visibility: visibility, theme: theme)))
+            renderer = ImageRenderer(content: AnyView(ShareStatsLongCard(snapshot: snapshot, visibility: visibility, theme: theme).environment(\.colorScheme, theme.colorScheme)))
         } else {
-            renderer = ImageRenderer(content: AnyView(ShareStatsPageCard(snapshot: snapshot, visibility: visibility, theme: theme, page: page)))
+            renderer = ImageRenderer(content: AnyView(ShareStatsPageCard(snapshot: snapshot, visibility: visibility, theme: theme, page: page).environment(\.colorScheme, theme.colorScheme)))
         }
         renderer.scale = 2
         guard let image = renderer.nsImage,
@@ -296,21 +290,6 @@ struct ShareStatsView: View {
     }
 }
 
-private struct RewindShareButtonStyle: ButtonStyle {
-    let background: Color
-    let foreground: Color
-
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.system(size: S(11), weight: .bold))
-            .padding(.horizontal, S(12))
-            .padding(.vertical, S(7))
-            .foregroundStyle(foreground)
-            .background(background.opacity(configuration.isPressed ? 0.72 : 1), in: RoundedRectangle(cornerRadius: S(8)))
-            .overlay(RoundedRectangle(cornerRadius: S(8)).stroke(.white.opacity(0.18)))
-    }
-}
-
 private struct ShareStatsRewindCard: View {
     let snapshot: ShareStatsSnapshot
     let visibility: ShareVisibility
@@ -320,7 +299,7 @@ private struct ShareStatsRewindCard: View {
         ZStack(alignment: .topLeading) {
             LinearGradient(colors: [theme.background, theme.background.opacity(0.88), theme.accent.opacity(0.34)], startPoint: .topLeading, endPoint: .bottomTrailing)
             Circle().fill(theme.accent.opacity(0.18)).frame(width: S(250), height: S(250)).blur(radius: 3).offset(x: 220, y: -110)
-            Circle().fill(.white.opacity(0.07)).frame(width: S(180), height: S(180)).blur(radius: 4).offset(x: -100, y: 500)
+            Circle().fill(Color.primary.opacity(0.07)).frame(width: S(180), height: S(180)).blur(radius: 4).offset(x: -100, y: 500)
             VStack(spacing: S(12)) {
                 hero
                 rhythm
@@ -330,44 +309,44 @@ private struct ShareStatsRewindCard: View {
         }
         .frame(width: S(350))
         .clipShape(RoundedRectangle(cornerRadius: S(26), style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: S(26), style: .continuous).stroke(.white.opacity(0.16)))
+        .overlay(RoundedRectangle(cornerRadius: S(26), style: .continuous).stroke(Color.primary.opacity(0.16)))
         .shadow(color: theme.accent.opacity(0.22), radius: 18, y: 8)
     }
 
     private var hero: some View {
         VStack(alignment: .leading, spacing: S(0)) {
             HStack {
-                Text("CLOCKIN").font(.system(size: S(13), weight: .black, design: theme.fontDesign)).tracking(S(2.4))
+                Text("CLOCKIN").font(.system(size: S(13), weight: .black, design: theme.fontDesign))
                 Spacer()
-                Text("STATS REWIND").font(.system(size: S(9), weight: .bold, design: .monospaced)).foregroundStyle(.white.opacity(0.7)).tracking(S(1.1))
+                Text("Stats rewind").font(.system(size: S(10), weight: .bold, design: .monospaced)).foregroundStyle(Color.primary.opacity(0.7))
             }
             Spacer().frame(height: S(38))
             Text(visibility == .publicStats ? "YOUR FOCUS\nIN NUMBERS" : "YOUR FOCUS\nJOURNEY")
-                .font(.system(size: S(29), weight: .black, design: theme.fontDesign)).tracking(-0.8).foregroundStyle(.white)
+                .font(.system(size: S(29), weight: .black, design: theme.fontDesign)).tracking(-0.8).foregroundStyle(Color.primary)
             Text(snapshot.generatedAt.formatted(.dateTime.month(.wide).day().year()))
-                .font(.system(size: S(10), weight: .semibold, design: .monospaced)).foregroundStyle(.white.opacity(0.65)).padding(.top, S(8))
+                .font(.system(size: S(10), weight: .semibold, design: .monospaced)).foregroundStyle(Color.primary.opacity(0.65)).padding(.top, S(8))
             Spacer().frame(height: S(30))
             if visibility == .publicStats { publicHero } else { privateHero }
             Spacer()
             HStack {
                 Text("LEVEL \(snapshot.level)").font(.system(size: S(11), weight: .black, design: .monospaced))
                 Spacer()
-                Text("\(snapshot.badges) BADGES").font(.system(size: S(10), weight: .bold, design: .monospaced)).foregroundStyle(.white.opacity(0.75))
+                Text("\(snapshot.badges) BADGES").font(.system(size: S(10), weight: .bold, design: .monospaced)).foregroundStyle(Color.primary.opacity(0.75))
             }
         }
         .padding(S(18))
         .frame(height: S(500), alignment: .top)
-        .background(.black.opacity(0.15), in: RoundedRectangle(cornerRadius: S(21), style: .continuous))
+        .background(theme.control, in: RoundedRectangle(cornerRadius: S(21), style: .continuous))
     }
 
     private var publicHero: some View {
         VStack(alignment: .leading, spacing: S(16)) {
-            stat("TIME INVESTED", DurationText.compact(snapshot.totalDuration), accent: true)
-            stat("EARNED", snapshot.earnings.money(code: snapshot.currencyCode), accent: false)
+            stat("Time invested", DurationText.compact(snapshot.totalDuration), accent: true)
+            stat("Earned", snapshot.earnings.money(code: snapshot.currencyCode), accent: false)
             HStack(spacing: S(22)) {
-                mini("SESSIONS", "\(snapshot.sessions)")
-                mini("ACTIVE DAYS", "\(snapshot.activeDays)")
-                mini("STREAK", "\(snapshot.currentStreak)d")
+                mini("Sessions", "\(snapshot.sessions)")
+                mini("Active days", "\(snapshot.activeDays)")
+                mini("Streak", "\(snapshot.currentStreak)d")
             }
         }
     }
@@ -376,13 +355,13 @@ private struct ShareStatsRewindCard: View {
         VStack(alignment: .leading, spacing: S(16)) {
             HStack(spacing: S(12)) {
                 Image(systemName: "sparkles").font(.system(size: S(22))).foregroundStyle(theme.accent)
-                Text("FOCUS JOURNEY").font(.system(size: S(12), weight: .black, design: .monospaced))
+                Text("Focus journey").font(.system(size: S(12), weight: .black, design: .monospaced))
             }
             Text("A private rewind of your momentum, milestones and rhythm.")
-                .font(.system(size: S(11), weight: .medium)).foregroundStyle(.white.opacity(0.7)).fixedSize(horizontal: false, vertical: true)
+                .font(.system(size: S(11), weight: .medium)).foregroundStyle(Color.primary.opacity(0.7)).fixedSize(horizontal: false, vertical: true)
             HStack(spacing: S(22)) {
-                mini("STREAK", "\(snapshot.currentStreak)d")
-                mini("BADGES", "\(snapshot.badges)")
+                mini("Streak", "\(snapshot.currentStreak)d")
+                mini("Badges", "\(snapshot.badges)")
                 mini("XP", "\(snapshot.xp)")
             }
         }
@@ -390,38 +369,38 @@ private struct ShareStatsRewindCard: View {
 
     private var rhythm: some View {
         VStack(alignment: .leading, spacing: S(12)) {
-            Text("RHYTHM REPORT").font(.system(size: S(9), weight: .black, design: .monospaced)).foregroundStyle(.white.opacity(0.65)).tracking(S(1.2))
+            Text("Rhythm report").font(.system(size: S(10), weight: .black, design: .monospaced)).foregroundStyle(Color.primary.opacity(0.65))
             HStack(spacing: S(7)) {
-                reportMetric("BEST DAY", bestDayText)
-                reportMetric("BEST STREAK", "\(snapshot.longestStreak)d")
-                reportMetric("ACTIVE DAYS", "\(snapshot.activeDays)")
+                reportMetric("Best day", bestDayText)
+                reportMetric("Best streak", "\(snapshot.longestStreak)d")
+                reportMetric("Active days", "\(snapshot.activeDays)")
             }
             HStack(spacing: S(7)) {
-                reportMetric("BEST WEEKDAY", snapshot.bestWeekday)
-                reportMetric("POWER HOUR", snapshot.bestStartHour)
+                reportMetric("Best weekday", snapshot.bestWeekday)
+                reportMetric("Power hour", snapshot.bestStartHour)
             }
         }
         .padding(S(14))
-        .background(.black.opacity(0.15), in: RoundedRectangle(cornerRadius: S(21), style: .continuous))
+        .background(theme.control, in: RoundedRectangle(cornerRadius: S(21), style: .continuous))
     }
 
     private var milestones: some View {
         VStack(alignment: .leading, spacing: S(12)) {
-            Text("MILESTONES & MOMENTUM").font(.system(size: S(9), weight: .black, design: .monospaced)).foregroundStyle(.white.opacity(0.65)).tracking(S(1.2))
+            Text("Milestones & momentum").font(.system(size: S(10), weight: .black, design: .monospaced)).foregroundStyle(Color.primary.opacity(0.65))
             HStack(spacing: S(7)) {
-                reportMetric("LEVEL", "\(snapshot.level)")
+                reportMetric("Level", "\(snapshot.level)")
                 reportMetric("XP", "\(snapshot.xp)")
-                reportMetric("BADGES", "\(snapshot.badges)")
+                reportMetric("Badges", "\(snapshot.badges)")
             }
             HStack(spacing: S(5)) {
-                reportMetric("GOAL DAYS", "\(snapshot.goalDays)")
-                reportMetric("2× DAYS", "\(snapshot.doubleGoalDays)")
-                reportMetric("MONTH GOALS", "\(snapshot.monthlyGoals)")
-                reportMetric("MOMENTUM", "\(snapshot.momentum >= 0 ? "+" : "")\(snapshot.momentum)%")
+                reportMetric("Goal days", "\(snapshot.goalDays)")
+                reportMetric("2× days", "\(snapshot.doubleGoalDays)")
+                reportMetric("Month goals", "\(snapshot.monthlyGoals)")
+                reportMetric("Momentum", "\(snapshot.momentum >= 0 ? "+" : "")\(snapshot.momentum)%")
             }
         }
         .padding(S(14))
-        .background(.black.opacity(0.15), in: RoundedRectangle(cornerRadius: S(21), style: .continuous))
+        .background(theme.control, in: RoundedRectangle(cornerRadius: S(21), style: .continuous))
     }
 
     private var bestDayText: String {
@@ -432,23 +411,23 @@ private struct ShareStatsRewindCard: View {
 
     private func reportMetric(_ label: String, _ value: String) -> some View {
         VStack(alignment: .leading, spacing: S(4)) {
-            Text(label).font(.system(size: S(7), weight: .bold, design: .monospaced)).foregroundStyle(.white.opacity(0.5))
-            Text(value).font(.system(size: S(11), weight: .black, design: .monospaced)).foregroundStyle(.white).lineLimit(1).minimumScaleFactor(0.65)
+            Text(label).font(.system(size: S(10), weight: .bold, design: .monospaced)).foregroundStyle(Color.primary.opacity(0.5))
+            Text(value).font(.system(size: S(11), weight: .black, design: .monospaced)).foregroundStyle(Color.primary).lineLimit(1).minimumScaleFactor(0.65)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func stat(_ label: String, _ value: String, accent: Bool) -> some View {
         VStack(alignment: .leading, spacing: S(4)) {
-            Text(label).font(.system(size: S(9), weight: .bold, design: .monospaced)).foregroundStyle(.white.opacity(0.62)).tracking(S(1))
-            Text(value).font(.system(size: accent ? 28 : 24, weight: .black, design: theme.fontDesign)).foregroundStyle(accent ? theme.accent : .white)
+            Text(label).font(.system(size: S(10), weight: .bold, design: .monospaced)).foregroundStyle(Color.primary.opacity(0.62))
+            Text(value).font(.system(size: accent ? 28 : 24, weight: .black, design: theme.fontDesign)).foregroundStyle(accent ? theme.accent : Color.primary)
         }
     }
 
     private func mini(_ label: String, _ value: String) -> some View {
         VStack(alignment: .leading, spacing: S(4)) {
-            Text(label).font(.system(size: S(8), weight: .bold, design: .monospaced)).foregroundStyle(.white.opacity(0.55))
-            Text(value).font(.system(size: S(16), weight: .black, design: .monospaced)).foregroundStyle(.white)
+            Text(label).font(.system(size: S(10), weight: .bold, design: .monospaced)).foregroundStyle(Color.primary.opacity(0.55))
+            Text(value).font(.system(size: S(16), weight: .black, design: .monospaced)).foregroundStyle(Color.primary)
         }
     }
 }
@@ -463,31 +442,31 @@ private struct ShareStatsPageCard: View {
         ZStack(alignment: .topLeading) {
             LinearGradient(colors: [theme.background, theme.background.opacity(0.88), theme.accent.opacity(0.34)], startPoint: .topLeading, endPoint: .bottomTrailing)
             Circle().fill(theme.accent.opacity(0.18)).frame(width: S(240), height: S(240)).blur(radius: 4).offset(x: 230, y: -90)
-            Circle().fill(.white.opacity(0.07)).frame(width: S(170), height: S(170)).blur(radius: 4).offset(x: -90, y: 390)
+            Circle().fill(Color.primary.opacity(0.07)).frame(width: S(170), height: S(170)).blur(radius: 4).offset(x: -90, y: 390)
             VStack(alignment: .leading, spacing: S(0)) {
                 HStack {
-                    Text("CLOCKIN").font(.system(size: S(13), weight: .black, design: theme.fontDesign)).tracking(S(2.4))
+                    Text("CLOCKIN").font(.system(size: S(13), weight: .black, design: theme.fontDesign))
                     Spacer()
-                    Text("\(String(format: "%02d", page + 1)) / 03").font(.system(size: S(9), weight: .bold, design: .monospaced)).foregroundStyle(.white.opacity(0.65))
+                    Text("\(String(format: "%02d", page + 1)) / 03").font(.system(size: S(10), weight: .bold, design: .monospaced)).foregroundStyle(Color.primary.opacity(0.65))
                 }
                 Spacer().frame(height: S(42))
-                Text(pageTitle).font(.system(size: S(30), weight: .black, design: theme.fontDesign)).tracking(-0.8).foregroundStyle(.white)
+                Text(pageTitle).font(.system(size: S(30), weight: .black, design: theme.fontDesign)).tracking(-0.8).foregroundStyle(Color.primary)
                 Text(snapshot.generatedAt.formatted(.dateTime.month(.wide).day().year()))
-                    .font(.system(size: S(10), weight: .semibold, design: .monospaced)).foregroundStyle(.white.opacity(0.65)).padding(.top, S(8))
+                    .font(.system(size: S(10), weight: .semibold, design: .monospaced)).foregroundStyle(Color.primary.opacity(0.65)).padding(.top, S(8))
                 Spacer().frame(height: S(36))
                 if page == 0 { overview } else if page == 1 { rhythm } else { milestones }
                 Spacer()
                 HStack {
-                    Text("CLOCKIN • STATS REWIND").font(.system(size: S(9), weight: .bold, design: .monospaced)).foregroundStyle(.white.opacity(0.55))
+                    Text("CLOCKIN • STATS REWIND").font(.system(size: S(10), weight: .bold, design: .monospaced)).foregroundStyle(Color.primary.opacity(0.55))
                     Spacer()
-                    Text(visibility == .publicStats ? "PUBLIC" : "PRIVATE").font(.system(size: S(8), weight: .black, design: .monospaced)).foregroundStyle(theme.accent)
+                    Text(visibility == .publicStats ? "Public" : "Private").font(.system(size: S(10), weight: .black, design: .monospaced)).foregroundStyle(theme.accent)
                 }
             }
             .padding(S(28))
         }
         .frame(width: S(350), height: S(500))
         .clipShape(RoundedRectangle(cornerRadius: S(26), style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: S(26), style: .continuous).stroke(.white.opacity(0.16)))
+        .overlay(RoundedRectangle(cornerRadius: S(26), style: .continuous).stroke(Color.primary.opacity(0.16)))
         .shadow(color: theme.accent.opacity(0.22), radius: 18, y: 8)
     }
 
@@ -502,39 +481,39 @@ private struct ShareStatsPageCard: View {
     private var overview: some View {
         VStack(alignment: .leading, spacing: S(18)) {
             if visibility == .publicStats {
-                stat("TIME INVESTED", DurationText.compact(snapshot.totalDuration), accent: true)
-                stat("EARNED", snapshot.earnings.money(code: snapshot.currencyCode), accent: false)
-                HStack(spacing: S(23)) { mini("SESSIONS", "\(snapshot.sessions)"); mini("ACTIVE DAYS", "\(snapshot.activeDays)"); mini("STREAK", "\(snapshot.currentStreak)d") }
+                stat("Time invested", DurationText.compact(snapshot.totalDuration), accent: true)
+                stat("Earned", snapshot.earnings.money(code: snapshot.currencyCode), accent: false)
+                HStack(spacing: S(23)) { mini("Sessions", "\(snapshot.sessions)"); mini("Active days", "\(snapshot.activeDays)"); mini("Streak", "\(snapshot.currentStreak)d") }
             } else {
-                HStack(spacing: S(12)) { Image(systemName: "sparkles").font(.system(size: S(23))).foregroundStyle(theme.accent); Text("FOCUS JOURNEY").font(.system(size: S(13), weight: .black, design: .monospaced)) }
-                Text("Momentum, milestones and rhythm — ready to share.").font(.system(size: S(12), weight: .medium)).foregroundStyle(.white.opacity(0.7)).fixedSize(horizontal: false, vertical: true)
-                HStack(spacing: S(23)) { mini("STREAK", "\(snapshot.currentStreak)d"); mini("BADGES", "\(snapshot.badges)"); mini("XP", "\(snapshot.xp)") }
+                HStack(spacing: S(12)) { Image(systemName: "sparkles").font(.system(size: S(23))).foregroundStyle(theme.accent); Text("Focus journey").font(.system(size: S(13), weight: .black, design: .monospaced)) }
+                Text("Momentum, milestones and rhythm — ready to share.").font(.system(size: S(12), weight: .medium)).foregroundStyle(Color.primary.opacity(0.7)).fixedSize(horizontal: false, vertical: true)
+                HStack(spacing: S(23)) { mini("Streak", "\(snapshot.currentStreak)d"); mini("Badges", "\(snapshot.badges)"); mini("XP", "\(snapshot.xp)") }
             }
         }
     }
 
     private var rhythm: some View {
         VStack(alignment: .leading, spacing: S(18)) {
-            metric("BEST DAY", bestDayText)
-            metric("BEST STREAK", "\(snapshot.longestStreak) days")
-            metric("ACTIVE DAYS", "\(snapshot.activeDays)")
+            metric("Best day", bestDayText)
+            metric("Best streak", "\(snapshot.longestStreak) days")
+            metric("Active days", "\(snapshot.activeDays)")
             Divider().opacity(0.18)
-            metric("BEST WEEKDAY", snapshot.bestWeekday)
-            metric("POWER HOUR", snapshot.bestStartHour)
-            metric("SESSIONS", "\(snapshot.sessions)")
+            metric("Best weekday", snapshot.bestWeekday)
+            metric("Power hour", snapshot.bestStartHour)
+            metric("Sessions", "\(snapshot.sessions)")
         }
     }
 
     private var milestones: some View {
         VStack(alignment: .leading, spacing: S(18)) {
-            metric("LEVEL", "\(snapshot.level)")
+            metric("Level", "\(snapshot.level)")
             metric("TOTAL XP", "\(snapshot.xp)")
             metric("BADGES UNLOCKED", "\(snapshot.badges)")
             Divider().opacity(0.18)
-            metric("GOAL DAYS", "\(snapshot.goalDays)")
+            metric("Goal days", "\(snapshot.goalDays)")
             metric("2× GOAL DAYS", "\(snapshot.doubleGoalDays)")
-            metric("MONTH GOALS", "\(snapshot.monthlyGoals)")
-            metric("MOMENTUM", "\(snapshot.momentum >= 0 ? "+" : "")\(snapshot.momentum)%")
+            metric("Month goals", "\(snapshot.monthlyGoals)")
+            metric("Momentum", "\(snapshot.momentum >= 0 ? "+" : "")\(snapshot.momentum)%")
         }
     }
 
@@ -546,23 +525,23 @@ private struct ShareStatsPageCard: View {
 
     private func stat(_ label: String, _ value: String, accent: Bool) -> some View {
         VStack(alignment: .leading, spacing: S(4)) {
-            Text(label).font(.system(size: S(9), weight: .bold, design: .monospaced)).foregroundStyle(.white.opacity(0.6)).tracking(S(1))
-            Text(value).font(.system(size: accent ? 28 : 24, weight: .black, design: theme.fontDesign)).foregroundStyle(accent ? theme.accent : .white)
+            Text(label).font(.system(size: S(10), weight: .bold, design: .monospaced)).foregroundStyle(Color.primary.opacity(0.6))
+            Text(value).font(.system(size: accent ? 28 : 24, weight: .black, design: theme.fontDesign)).foregroundStyle(accent ? theme.accent : Color.primary)
         }
     }
 
     private func metric(_ label: String, _ value: String) -> some View {
         HStack(alignment: .firstTextBaseline) {
-            Text(label).font(.system(size: S(9), weight: .bold, design: .monospaced)).foregroundStyle(.white.opacity(0.58)).tracking(S(0.8))
+            Text(label).font(.system(size: S(10), weight: .bold, design: .monospaced)).foregroundStyle(Color.primary.opacity(0.58))
             Spacer()
-            Text(value).font(.system(size: S(17), weight: .black, design: .monospaced)).foregroundStyle(.white).lineLimit(1).minimumScaleFactor(0.65)
+            Text(value).font(.system(size: S(17), weight: .black, design: .monospaced)).foregroundStyle(Color.primary).lineLimit(1).minimumScaleFactor(0.65)
         }
     }
 
     private func mini(_ label: String, _ value: String) -> some View {
         VStack(alignment: .leading, spacing: S(4)) {
-            Text(label).font(.system(size: S(8), weight: .bold, design: .monospaced)).foregroundStyle(.white.opacity(0.55))
-            Text(value).font(.system(size: S(16), weight: .black, design: .monospaced)).foregroundStyle(.white)
+            Text(label).font(.system(size: S(10), weight: .bold, design: .monospaced)).foregroundStyle(Color.primary.opacity(0.55))
+            Text(value).font(.system(size: S(16), weight: .black, design: .monospaced)).foregroundStyle(Color.primary)
         }
     }
 }

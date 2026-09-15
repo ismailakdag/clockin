@@ -21,11 +21,11 @@ struct RateScheduleView: View {
                         .font(.system(size: S(10))).foregroundStyle(.secondary)
                 }
                 Spacer()
-                Button("Done") { dismiss() }.buttonStyle(ClockinAccentButtonStyle(palette: theme))
+                Button("Done") { dismiss() }.buttonStyle(.clockin(.primary))
             }
 
             Text("A bounded period overrides the fallback rate only between its dates. Sessions keep their historical rate calculation.")
-                .font(.system(size: S(9))).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                .font(.system(size: S(10))).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                 .padding(S(10)).background(theme.surface, in: RoundedRectangle(cornerRadius: S(9)))
 
             ScrollView {
@@ -38,29 +38,36 @@ struct RateScheduleView: View {
             }
 
             Divider().opacity(0.3)
-            Text("ADD RATE PERIOD").font(.system(size: S(9), weight: .bold)).foregroundStyle(.secondary).tracking(S(1))
-            HStack(spacing: S(7)) {
+            Text("Add rate period").font(ClockinFont.section).foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: S(10)) {
+                HStack {
+                Text("From").font(ClockinFont.body)
+                Spacer()
                 DatePicker("From", selection: $newDate, displayedComponents: .date)
-                    .labelsHidden().controlSize(.small).font(.system(size: S(9), design: .monospaced)).frame(width: S(92))
-                Toggle("Until", isOn: $newHasEnd).toggleStyle(.checkbox).controlSize(.small)
-                if newHasEnd {
-                    DatePicker("", selection: $newEndDate, in: newDate..., displayedComponents: .date)
-                        .labelsHidden().controlSize(.small).font(.system(size: S(9), design: .monospaced)).frame(width: S(92))
+                    .labelsHidden().datePickerStyle(.field).controlSize(.large).frame(minHeight: S(32))
                 }
-                TextField("Hourly rate", text: $newRateText)
-                    .textFieldStyle(.plain).font(.system(size: S(11), design: .monospaced)).padding(S(7)).frame(width: S(85))
-                    .background(theme.surface, in: RoundedRectangle(cornerRadius: S(8)))
+                HStack {
+                Toggle("Until", isOn: $newHasEnd).toggleStyle(.checkbox)
+                Spacer()
+                if newHasEnd {
+                    DatePicker("Until", selection: $newEndDate, in: newDate..., displayedComponents: .date)
+                        .labelsHidden().datePickerStyle(.field).controlSize(.large).frame(minHeight: S(32))
+                }
+                }
+                HStack {
+                ClockinTextField(placeholder: "Hourly rate", text: $newRateText, suffix: "/ hr", alignment: .leading)
                 Button("Add") {
                     let normalized = newRateText.replacingOccurrences(of: ",", with: ".")
                     guard let value = Double(normalized), value >= 0 else { return }
                     store.addRateRule(effectiveFrom: newDate, effectiveUntil: newHasEnd ? newEndDate : nil, hourlyRate: value)
                     newRateText = ""
                 }
-                .buttonStyle(ClockinAccentButtonStyle(palette: theme))
+                .buttonStyle(.clockin(.primary))
+                }
             }
         }
         .padding(S(18))
-        .frame(width: S(560), height: S(520))
+        .frame(width: S(390), height: S(560))
         .scrollBounceBehavior(.basedOnSize)
         .background(theme.background)
         .fontDesign(theme.fontDesign)
@@ -90,26 +97,26 @@ private struct RateRuleRow: View {
     }
 
     var body: some View {
-        HStack(spacing: S(8)) {
-            Image(systemName: "calendar.badge.clock").foregroundStyle(.secondary)
-            VStack(alignment: .leading, spacing: S(4)) {
-                HStack(spacing: S(5)) {
-                    Text("FROM").font(.system(size: S(7), weight: .bold)).foregroundStyle(.tertiary)
-                    DatePicker("", selection: $date, displayedComponents: .date)
-                        .labelsHidden().controlSize(.small).font(.system(size: S(9), design: .monospaced)).frame(width: S(92))
-                        .onChange(of: date) { _, newDate in commit(date: newDate) }
-                    Toggle("Until", isOn: $hasEnd).toggleStyle(.checkbox).controlSize(.small)
-                        .onChange(of: hasEnd) { _, _ in commit(date: date) }
-                    if hasEnd {
-                        DatePicker("", selection: $endDate, in: date..., displayedComponents: .date)
-                            .labelsHidden().controlSize(.small).font(.system(size: S(9), design: .monospaced)).frame(width: S(92))
-                            .onChange(of: endDate) { _, _ in commit(date: date) }
-                    }
-                }
+        VStack(alignment: .leading, spacing: S(8)) {
+            HStack {
+                Text("From").font(ClockinFont.body)
+                Spacer()
+                DatePicker("From", selection: $date, displayedComponents: .date)
+                    .labelsHidden().datePickerStyle(.field).controlSize(.large)
+                    .onChange(of: date) { _, newDate in commit(date: newDate) }
             }
-            Spacer(minLength: 4)
-            TextField("Rate", text: $rateText)
-                .textFieldStyle(.plain).font(.system(size: S(11), design: .monospaced)).multilineTextAlignment(.trailing).frame(width: S(65))
+            HStack {
+                Toggle("Until", isOn: $hasEnd).toggleStyle(.checkbox)
+                    .onChange(of: hasEnd) { _, _ in commit(date: date) }
+                Spacer()
+                if hasEnd {
+                    DatePicker("Until", selection: $endDate, in: date..., displayedComponents: .date)
+                        .labelsHidden().datePickerStyle(.field).controlSize(.large)
+                        .onChange(of: endDate) { _, _ in commit(date: date) }
+                }
+            }.frame(minHeight: S(32))
+            HStack(spacing: S(10)) {
+            ClockinTextField(placeholder: "Rate", text: $rateText, suffix: "/ hr", alignment: .leading)
                 .onSubmit { commit(date: date) }
                 .onChange(of: rateText) { _, newText in
                     let normalized = newText.replacingOccurrences(of: ",", with: ".")
@@ -118,11 +125,12 @@ private struct RateRuleRow: View {
                           abs(value - stored.hourlyRate) > 0.000_001 else { return }
                     store.updateRateRule(id: rule.id, effectiveFrom: date, effectiveUntil: hasEnd ? endDate : nil, hourlyRate: value)
                 }
-            Text("/ hr").font(.system(size: S(10))).foregroundStyle(.secondary)
             Button { store.deleteRateRule(id: rule.id) } label: {
                 Image(systemName: "trash").foregroundStyle(canDelete ? .secondary : .tertiary)
             }
-            .buttonStyle(.hitTarget).disabled(!canDelete)
+            .buttonStyle(.clockinIcon(destructive: true)).disabled(!canDelete)
+            .help("Delete rate period").accessibilityLabel("Delete rate period")
+            }
         }
         .padding(S(11))
         .background(theme.surface, in: RoundedRectangle(cornerRadius: S(10)))

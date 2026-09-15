@@ -11,14 +11,14 @@ struct GuideView: View {
         VStack(spacing: S(0)) {
             HStack {
                 VStack(alignment: .leading, spacing: S(3)) {
-                    Text("HOW TO USE CLOCKIN")
-                        .font(.system(size: S(14), weight: .black, design: theme.fontDesign)).tracking(S(1.2))
+                    Text("How to use Clockin")
+                        .font(.system(size: S(14), weight: .black, design: theme.fontDesign))
                     Text("A quick guide for tracking, importing and reviewing your time")
-                        .font(.system(size: S(9))).foregroundStyle(.secondary)
+                        .font(.system(size: S(10))).foregroundStyle(.secondary)
                 }
                 Spacer()
                 Button { dismiss() } label: { Image(systemName: "xmark").frame(width: S(28), height: S(28)) }
-                    .buttonStyle(.hitTarget).foregroundStyle(.secondary)
+                    .buttonStyle(.clockinIcon()).help("Close").accessibilityLabel("Close")
             }
             .padding(.horizontal, S(16)).frame(height: S(58))
             .overlay(alignment: .bottom) { Divider().opacity(0.25) }
@@ -39,7 +39,7 @@ struct GuideView: View {
                 .padding(S(16))
             }
         }
-        .frame(width: S(590), height: S(670))
+        .frame(width: S(390), height: S(670))
         .scrollBounceBehavior(.basedOnSize)
         .background(theme.background)
         .fontDesign(theme.fontDesign)
@@ -54,10 +54,10 @@ struct GuideView: View {
             }
             VStack(alignment: .leading, spacing: S(4)) {
                 HStack(spacing: S(6)) {
-                    Text(number).font(.system(size: S(9), weight: .black, design: .monospaced)).foregroundStyle(theme.accent)
+                    Text(number).font(.system(size: S(10), weight: .black, design: .monospaced)).foregroundStyle(theme.accent)
                     Text(title).font(.system(size: S(11), weight: .bold))
                 }
-                Text(detail).font(.system(size: S(9.5))).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                Text(detail).font(.system(size: S(10))).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
         }
         .padding(S(11))

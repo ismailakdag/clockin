@@ -6,6 +6,7 @@ struct PasteImportView: View {
     @EnvironmentObject private var store: ClockStore
     @Environment(\.dismiss) private var dismiss
     @State private var text = ""
+    @FocusState private var editorFocused: Bool
     @State private var showComparison = false
     @AppStorage("Clockin.Theme") private var themeRaw = ClockinThemeChoice.carbon.rawValue
 
@@ -25,20 +26,29 @@ struct PasteImportView: View {
                 Button { dismiss() } label: {
                     Image(systemName: "xmark").frame(width: S(28), height: S(28))
                 }
-                .buttonStyle(.hitTarget).foregroundStyle(.secondary).help("Close")
+                .buttonStyle(.clockinIcon()).help("Close").accessibilityLabel("Close")
                 Button("Paste") {
                     text = NSPasteboard.general.string(forType: .string) ?? ""
-                }
+                }.buttonStyle(.clockin(.tinted, size: .small))
             }
 
             TextEditor(text: $text)
+                .focused($editorFocused)
+                .accessibilityLabel("Timecard text")
                 .font(.system(size: S(11), design: .monospaced))
                 .scrollContentBackground(.hidden)
                 .padding(S(8))
-                .background(theme.surface, in: RoundedRectangle(cornerRadius: S(10)))
-                .overlay(RoundedRectangle(cornerRadius: S(10)).stroke(theme.surfaceStroke))
+                .background(theme.control, in: RoundedRectangle(cornerRadius: S(9)))
+                .overlay(RoundedRectangle(cornerRadius: S(9)).strokeBorder(editorFocused ? theme.accent : theme.controlStroke, lineWidth: editorFocused ? 1.5 : 1))
+                .overlay(alignment: .topLeading) {
+                    if text.isEmpty {
+                        Text("Paste your approved timecards here.")
+                            .font(ClockinFont.caption).foregroundStyle(.secondary)
+                            .padding(S(12)).allowsHitTesting(false)
+                    }
+                }
 
-            HStack {
+            VStack(alignment: .leading, spacing: S(12)) {
                 VStack(alignment: .leading, spacing: S(2)) {
                     Text("\(preview.count) entries recognized")
                         .font(.system(size: S(12), weight: .semibold))
@@ -51,26 +61,27 @@ struct PasteImportView: View {
                             .font(.system(size: S(10), weight: .semibold))
                         if abs(approvedSummary - previewDuration) > 60 {
                             Text("Copied rows are partial — totals do not match.")
-                                .font(.system(size: S(9), weight: .bold)).foregroundStyle(.orange)
+                                .font(.system(size: S(10), weight: .bold)).foregroundStyle(.orange)
                         } else {
                             Text("Copied rows match the page Approved total.")
-                                .font(.system(size: S(9), weight: .bold)).foregroundStyle(theme.accent)
+                                .font(.system(size: S(10), weight: .bold)).foregroundStyle(theme.accent)
                         }
                     }
                 }
+                HStack {
                 Spacer()
-                Button("Cancel") { dismiss() }.buttonStyle(.bordered).keyboardShortcut(.cancelAction)
+                Button("Cancel") { dismiss() }.buttonStyle(.clockin(.secondary)).keyboardShortcut(.cancelAction)
                 Button("Import") {
                     showComparison = true
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.clockin(.primary))
                 .tint(theme.accent)
-                .foregroundStyle(.black)
                 .disabled(preview.isEmpty)
+                }
             }
         }
         .padding(S(18))
-        .frame(width: S(520), height: S(430))
+        .frame(width: S(390), height: S(480))
         .background(theme.background)
         .fontDesign(theme.fontDesign)
         .preferredColorScheme(theme.colorScheme)

@@ -38,21 +38,25 @@ struct SettingsView: View {
 
     var body: some View {
         VStack(spacing: S(0)) {
-            header
+            ClockinScreenHeader(title: "Settings")
+                .overlay(alignment: .bottom) { Rectangle().fill(theme.cardStroke).frame(height: 1) }
             ScrollView {
-                VStack(alignment: .leading, spacing: S(14)) {
-                    section("PAY & CURRENCY", content: paySection)
-                    section("EARNINGS GOALS", content: goalsSection)
-                    section("APPEARANCE", content: appearanceSection)
-                    section("FOCUS CHIME", content: chimeSection)
-                    section("KEYBOARD SHORTCUTS", content: shortcutsSection)
-                    section("FOCUS RADIO", content: radioSection)
-                    section("DATA", content: dataSection)
-                    section("UPDATES", content: updatesSection)
+                VStack(alignment: .leading, spacing: S(20)) {
+                    paySection
+                    goalsSection
+                    appearanceSection
+                    menuBarSection
+                    companionSection
+                    chimeSection
+                    radioSection
+                    shortcutsSection
+                    dataSection
+                    updatesSection
                     Text("Settings are saved automatically.")
-                        .font(.system(size: S(9))).foregroundStyle(.tertiary).frame(maxWidth: .infinity)
+                        .font(ClockinFont.caption).foregroundStyle(.tertiary).frame(maxWidth: .infinity)
                 }
-                .padding(S(16))
+                .padding(.horizontal, S(16))
+                .padding(.vertical, S(16))
             }
         }
         .fontDesign(theme.fontDesign)
@@ -60,6 +64,32 @@ struct SettingsView: View {
             rateText = String(format: "%.2f", store.hourlyRate)
             dailyGoalText = dailyGoalHours > 0 ? String(format: "%.2f", dailyGoalHours) : ""
             monthlyGoalText = monthlyGoalHours > 0 ? String(format: "%.2f", monthlyGoalHours) : ""
+        }
+        .onChange(of: rateText) { _, value in
+            let normalized = value.replacingOccurrences(of: ",", with: ".")
+            guard let number = Double(normalized), number >= 0,
+                  abs(number - store.hourlyRate) > 0.000_001 else { return }
+            store.updateRate(number)
+        }
+        .onChange(of: dailyGoalText) { _, value in dailyGoalHours = parsedGoal(value) }
+        .onChange(of: monthlyGoalText) { _, value in monthlyGoalHours = parsedGoal(value) }
+        .onChange(of: uiScale) { _, _ in MainWindowController.shared.applyScale() }
+        .onChange(of: pinnedMode) { _, value in PinnedWindowController.shared.applyPreset(value) }
+        .onChange(of: mascotDefault) { _, value in
+            if let required = CompanionMode(rawValue: value)?.requiredHours, totalHours < required { mascotDefault = "Auto" }
+        }
+        .onChange(of: chimeEnabled) { _, _ in FocusChimeController.shared.settingChanged() }
+        .onChange(of: chimeInterval) { _, _ in FocusChimeController.shared.settingChanged() }
+        .onChange(of: minimalMode) { _, value in
+            if value {
+                UserDefaults.standard.set(store.pinVisible, forKey: "Clockin.PinVisibleBeforeMinimal")
+            } else {
+                let shouldRestorePin = UserDefaults.standard.object(forKey: "Clockin.PinVisibleBeforeMinimal") as? Bool ?? true
+                UserDefaults.standard.removeObject(forKey: "Clockin.PinVisibleBeforeMinimal")
+                NSApp.setActivationPolicy(.regular)
+                MainWindowController.shared.show(store: store, exchangeRates: exchangeRates)
+                store.setPinned(shouldRestorePin)
+            }
         }
         .sheet(isPresented: $showRateSchedule) { RateScheduleView().environmentObject(store) }
         .sheet(isPresented: $showPasteImporter) { PasteImportView().environmentObject(store) }
@@ -77,77 +107,248 @@ struct SettingsView: View {
         }
     }
 
-    private var header: some View {
-        HStack {
-            Text("SETTINGS").font(.system(size: S(13), weight: .black, design: theme.fontDesign)).tracking(S(1.3))
-            Spacer()
-        }
-        .padding(.horizontal, S(15)).frame(height: S(50))
-        .background(.white.opacity(0.025))
-        .overlay(alignment: .bottom) { Divider().opacity(0.25) }
-    }
+    // MARK: Sections
 
     private var paySection: some View {
-        VStack(spacing: S(9)) {
-            HStack {
-                Label("Hourly rate", systemImage: "dollarsign.circle.fill").foregroundStyle(.secondary)
-                Spacer()
-                TextField("Rate", text: $rateText)
-                    .textFieldStyle(.plain).multilineTextAlignment(.trailing).frame(width: S(72))
-                    .onChange(of: rateText) { _, value in
-                        let normalized = value.replacingOccurrences(of: ",", with: ".")
-                        guard let number = Double(normalized), number >= 0,
-                              abs(number - store.hourlyRate) > 0.000_001 else { return }
-                        store.updateRate(number)
-                    }
-                Picker("", selection: Binding(get: { store.currencyCode }, set: { value in store.updateCurrency(value) })) {
-                    ForEach(["USD", "EUR", "GBP", "TRY"], id: \.self) { Text($0).tag($0) }
-                }.labelsHidden().frame(width: S(82))
-            }.padding(S(10)).background(card)
-            HStack {
-                VStack(alignment: .leading, spacing: S(2)) {
-                    Text("RATE SCHEDULE").font(.system(size: S(9), weight: .bold)).foregroundStyle(.secondary).tracking(S(1))
-                    Text(store.currentRateEffectiveFrom?.formatted(.dateTime.month(.abbreviated).day().year()) ?? "Stored session rates")
-                        .font(.system(size: S(9))).foregroundStyle(.secondary)
+        ClockinSection(title: "Pay") {
+            ClockinRow(icon: "dollarsign", title: "Hourly rate") {
+                HStack(spacing: S(6)) {
+                    ClockinTextField(placeholder: "0.00", text: $rateText, width: 84)
+                    ClockinSelect(selection: Binding(get: { store.currencyCode }, set: { store.updateCurrency($0) }),
+                                  values: ["USD", "EUR", "GBP", "TRY"], width: 82)
                 }
-                Spacer()
-                Button("Manage") { showRateSchedule = true }.buttonStyle(.hitTarget).foregroundStyle(theme.accent)
-            }.padding(S(10)).background(card)
+            }
+            ClockinRowDivider()
+            ClockinRow(icon: "calendar.badge.clock", title: "Rate schedule",
+                       subtitle: store.currentRateEffectiveFrom.map { "Current rate since \($0.formatted(.dateTime.month(.abbreviated).day().year()))" } ?? "Rates stored with each session") {
+                Button("Manage") { showRateSchedule = true }
+                    .buttonStyle(.clockin(.tinted, size: .small))
+            }
+        }
+    }
+
+    private var goalsSection: some View {
+        ClockinSection(title: "Goals", footer: "Measured in worked hours and updated live while you are clocked in. Leave empty to turn a goal off.") {
+            ClockinRow(icon: "sun.max", title: "Daily goal") {
+                ClockinTextField(placeholder: "Off", text: $dailyGoalText, suffix: "h", width: 104)
+            }
+            ClockinRowDivider()
+            ClockinRow(icon: "calendar", title: "Monthly goal") {
+                ClockinTextField(placeholder: "Off", text: $monthlyGoalText, suffix: "h", width: 104)
+            }
+        }
+    }
+
+    private var appearanceSection: some View {
+        ClockinSection(title: "Appearance") {
+            VStack(alignment: .leading, spacing: S(10)) {
+                HStack(spacing: S(11)) {
+                    rowIcon("paintpalette")
+                    VStack(alignment: .leading, spacing: S(2)) {
+                        Text("Theme").font(ClockinFont.body)
+                        Text("Colours and typeface for every Clockin window.").font(ClockinFont.caption).foregroundStyle(.secondary)
+                    }
+                }
+                ClockinThemePicker(selection: $themeRaw)
+            }
+            .padding(S(13))
+            ClockinRowDivider(inset: 13)
+            VStack(alignment: .leading, spacing: S(10)) {
+                HStack(spacing: S(11)) {
+                    rowIcon("textformat.size")
+                    VStack(alignment: .leading, spacing: S(2)) {
+                        Text("Interface size").font(ClockinFont.body)
+                        Text("Scales the whole window. Drag its edges for more room.").font(ClockinFont.caption).foregroundStyle(.secondary)
+                    }
+                }
+                ClockinSegmented(selection: $uiScale, options: UIScale.options.map { ($0, UIScale.label(for: $0)) })
+            }
+            .padding(S(13))
+        }
+    }
+
+    private var menuBarSection: some View {
+        ClockinSection(title: "Menu bar & pinned timer") {
+            ClockinRow(icon: "menubar.rectangle", title: "Minimal mode",
+                       subtitle: "Hide the main window and pinned timer; keep everything in the menu bar.") {
+                ClockinSwitch(isOn: $minimalMode)
+            }
+            if minimalMode {
+                HStack {
+                    Text("Ready when you are: this hides the main window.")
+                        .font(ClockinFont.caption).foregroundStyle(.secondary)
+                    Spacer()
+                    Button("Apply & hide") {
+                        NSApp.setActivationPolicy(.accessory)
+                        store.setPinned(false)
+                        MainWindowController.shared.hide()
+                    }
+                    .buttonStyle(.clockin(.primary, size: .small))
+                }
+                .padding(.horizontal, S(13)).padding(.bottom, S(10))
+            }
+            ClockinRowDivider()
+            VStack(alignment: .leading, spacing: S(9)) {
+                VStack(alignment: .leading, spacing: S(2)) {
+                    Text("Beside the menu bar icon").font(ClockinFont.body)
+                    Text("Shown while you are clocked in. When you are not, only the icon shows.")
+                        .font(ClockinFont.caption).foregroundStyle(.secondary)
+                }
+                HStack(spacing: S(6)) {
+                    ClockinChip(title: "Hours", isOn: $minimalShowHours)
+                    ClockinChip(title: "Seconds", isOn: $minimalShowSeconds)
+                        .disabled(!minimalShowHours)
+                        .help("Only affects the running timer.")
+                    ClockinChip(title: "Goal %", isOn: $minimalShowGoal)
+                }
+                HStack(spacing: S(6)) {
+                    ClockinChip(title: "Earnings", isOn: $minimalShowEarnings)
+                    ClockinChip(title: "Lira equivalent", isOn: $minimalShowTRY)
+                }
+            }
+            .padding(.horizontal, S(13)).padding(.vertical, S(12))
+            .padding(.leading, S(39))
+            ClockinRowDivider()
+            ClockinRow(icon: "pin", title: "Pinned timer", subtitle: "A small always-on-top timer.") {
+                ClockinSwitch(isOn: Binding(get: { store.pinVisible }, set: { store.setPinned($0) }))
+            }
+            ClockinRowDivider()
+            ClockinRow(icon: "rectangle.3.group", title: "Pinned timer layout") {
+                ClockinSelect(selection: $pinnedMode, values: ["Compact", "Money", "Goal", "All", "Total"], width: 118)
+            }
+        }
+    }
+
+    private var companionSection: some View {
+        ClockinSection(title: "Focus companion") {
+            ClockinRow(icon: "figure.wave", title: "Show companion", subtitle: "The mascot on the timer, progress and menu bar panel.") {
+                ClockinSwitch(isOn: $mascotEnabled)
+            }
+            ClockinRowDivider()
+            ClockinRow(icon: "sparkles", title: "Behaviour", subtitle: "More poses unlock as your hours add up.") {
+                ClockinSelect(selection: $mascotDefault, options: CompanionMode.allCases.map { mode in
+                    let locked = !mode.isUnlocked(totalHours: totalHours)
+                    return .init(value: mode.rawValue,
+                                 label: locked ? "\(mode.rawValue) · \(Int(mode.requiredHours))h" : mode.rawValue,
+                                 systemImage: locked ? "lock.fill" : nil,
+                                 disabled: locked)
+                }, width: 124)
+            }
+        }
+    }
+
+    private var chimeSection: some View {
+        ClockinSection(title: "Focus chime") {
+            ClockinRow(icon: chimeEnabled ? "bell.badge" : "bell.slash", title: "Chime while clocked in") {
+                ClockinSwitch(isOn: $chimeEnabled)
+            }
+            ClockinRowDivider()
+            ClockinRow(icon: "timer", title: "Every") {
+                ClockinStepper(value: $chimeInterval, range: 1...120, format: { "\($0) min" })
+            }
+            ClockinRowDivider()
+            ClockinRow(icon: "music.note", title: "Sound") {
+                HStack(spacing: S(6)) {
+                    ClockinSelect(selection: $chimeSound, values: FocusChimeController.availableSounds, width: 118)
+                    Button { FocusChimeController.shared.playPreview() } label: { Image(systemName: "play.fill") }
+                        .buttonStyle(.clockinIcon(size: 32, tint: theme.accent))
+                        .help("Play the chime")
+                        .accessibilityLabel("Play the chime")
+                }
+            }
+            ClockinRowDivider()
+            volumeRow(value: $chimeVolume, range: 0.1...1)
+        }
+    }
+
+    private var radioSection: some View {
+        ClockinSection(title: "Focus radio", footer: selectedStation.map { "\($0.description). Streams over the internet." }) {
+            VStack(spacing: S(10)) {
+                HStack(spacing: S(8)) {
+                    rowIcon(radio.isPlaying ? "dot.radiowaves.left.and.right" : "radio")
+                    ClockinSelect(selection: $selectedStationID, options: radio.stations.map {
+                        .init(value: $0.id, label: "\($0.name) · \($0.language)")
+                    }, width: .infinity)
+                    Button {
+                        if let station = selectedStation { radio.toggle(station: station) }
+                    } label: {
+                        Label(radio.isPlaying ? "Stop" : "Play", systemImage: radio.isPlaying ? "stop.fill" : "play.fill")
+                    }
+                    .buttonStyle(.clockin(.primary))
+                }
+                if let error = radio.errorMessage {
+                    Text(error).font(ClockinFont.caption).foregroundStyle(.orange)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+            .padding(S(13))
+            ClockinRowDivider()
+            volumeRow(value: $radio.volume, range: 0...1)
+        }
+    }
+
+    private var shortcutsSection: some View {
+        ClockinSection(title: "Keyboard shortcuts", footer: "Work while Clockin is running. macOS may ask for accessibility permission to use them in other apps.") {
+            shortcutRow(["⌥", "⌘", "I"], "Clock in or resume", icon: "play")
+            ClockinRowDivider()
+            shortcutRow(["⌥", "⌘", "P"], "Pause or resume", icon: "pause")
+            ClockinRowDivider()
+            shortcutRow(["⌥", "⌘", "O"], "Clock out", icon: "stop")
+            ClockinRowDivider()
+            shortcutRow(["⌥", "⌘", "E"], "Open the Clockin window", icon: "macwindow")
+        }
+    }
+
+    private var dataSection: some View {
+        ClockinSection(title: "Data") {
+            VStack(spacing: S(8)) {
+                HStack(spacing: S(8)) {
+                    Button(action: chooseCSV) { Label("Import CSV", systemImage: "square.and.arrow.down") }
+                        .buttonStyle(.clockin(.secondary, fullWidth: true))
+                    Button { showPasteImporter = true } label: { Label("Paste timecards", systemImage: "doc.on.clipboard") }
+                        .buttonStyle(.clockin(.secondary, fullWidth: true))
+                }
+                HStack(spacing: S(8)) {
+                    Button(action: exportBackup) { Label("Export backup", systemImage: "square.and.arrow.up") }
+                        .buttonStyle(.clockin(.secondary, fullWidth: true))
+                    Button(action: importBackup) { Label("Restore file", systemImage: "arrow.down.doc") }
+                        .buttonStyle(.clockin(.secondary, fullWidth: true))
+                }
+            }
+            .padding(S(13))
+            ClockinRowDivider(inset: 13)
+            ClockinRow(icon: "clock.arrow.circlepath", title: "Automatic backups",
+                       subtitle: store.latestBackupDate.map { "Last \($0.formatted(.dateTime.month(.abbreviated).day().hour().minute())) · \(store.backupCount) kept" } ?? "Made automatically, at most once a day") {
+                Button("Restore latest") { confirmRestore = true }
+                    .buttonStyle(.clockin(.tinted, size: .small))
+                    .disabled(store.latestBackupDate == nil)
+            }
+            if let message = store.statusMessage {
+                Text(message).font(ClockinFont.caption).foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, S(13)).padding(.bottom, S(12))
+            }
         }
     }
 
     private var updatesSection: some View {
-        VStack(spacing: S(9)) {
-            HStack {
-                VStack(alignment: .leading, spacing: S(2)) {
-                    Label("Clockin \(updates.version)", systemImage: "shippingbox.fill").foregroundStyle(.secondary)
-                    Text(updateStatusText)
-                        .font(.system(size: S(9))).foregroundStyle(.tertiary)
-                }
-                Spacer()
-                Button(updates.pendingVersion == nil ? "Check for Updates…" : "Install Update…") { updates.checkForUpdates() }
-                    .buttonStyle(.hitTarget).foregroundStyle(theme.accent)
-                    .font(.system(size: S(10), weight: .bold))
+        ClockinSection(title: "Updates") {
+            ClockinRow(icon: "shippingbox", title: "Clockin \(updates.version)", subtitle: updateStatusText) {
+                Button(updates.pendingVersion == nil ? "Check now" : "Install update") { updates.checkForUpdates() }
+                    .buttonStyle(.clockin(updates.pendingVersion == nil ? .tinted : .primary, size: .small))
                     .disabled(!updates.isReady)
             }
-            .padding(S(10)).background(card)
-
-            HStack {
-                VStack(alignment: .leading, spacing: S(2)) {
-                    Label("Check automatically", systemImage: "arrow.clockwise")
-                        .foregroundStyle(.secondary)
-                    Text("Checks every six hours. Install updates directly in Clockin.")
-                        .font(.system(size: S(8))).foregroundStyle(.tertiary)
-                }
-                Spacer()
-                Toggle("", isOn: Binding(
+            ClockinRowDivider()
+            ClockinRow(icon: "arrow.clockwise", title: "Check automatically", subtitle: "Every six hours.") {
+                ClockinSwitch(isOn: Binding(
                     get: { updates.automaticallyChecksForUpdates },
                     set: { updates.setAutomaticallyChecksForUpdates($0) }
-                )).labelsHidden().toggleStyle(.switch)
+                ))
             }
-            .padding(S(10)).background(card)
         }
     }
+
+    // MARK: Pieces
 
     private var updateStatusText: String {
         if let error = updates.startupError { return "Updates unavailable: \(error)" }
@@ -158,276 +359,52 @@ struct SettingsView: View {
         return "New versions download and install here."
     }
 
-    private var appearanceSection: some View {
-        VStack(spacing: S(9)) {
-            HStack {
-                Label("Theme & font", systemImage: "paintpalette.fill").foregroundStyle(.secondary)
-                Spacer()
-                Picker("", selection: $themeRaw) {
-                    ForEach(ClockinThemeChoice.allCases) { Text($0.rawValue).tag($0.rawValue) }
-                }.labelsHidden().frame(width: S(140))
-            }.padding(S(10)).background(card)
-            HStack {
-                VStack(alignment: .leading, spacing: S(2)) {
-                    Label("Interface size", systemImage: "textformat.size")
-                        .foregroundStyle(.secondary)
-                    Text("Scales the whole window. Drag its edges for more room.")
-                        .font(.system(size: S(8))).foregroundStyle(.tertiary)
-                }
-                Spacer()
-                Picker("", selection: $uiScale) {
-                    ForEach(UIScale.options, id: \.self) { Text(UIScale.label(for: $0)).tag($0) }
-                }
-                .labelsHidden().frame(width: S(140))
-                .onChange(of: uiScale) { _, _ in MainWindowController.shared.applyScale() }
-            }.padding(S(10)).background(card)
-            HStack {
-                VStack(alignment: .leading, spacing: S(2)) {
-                    Label("Minimal menu bar mode", systemImage: "menubar.rectangle")
-                        .foregroundStyle(.secondary)
-                    Text("Hide the main window and pinned widget; keep controls in the menu bar.")
-                        .font(.system(size: S(8))).foregroundStyle(.tertiary)
-                }
-                Spacer()
-                Toggle("", isOn: $minimalMode)
-                    .labelsHidden().toggleStyle(.switch)
-                    .onChange(of: minimalMode) { _, value in
-                        if value {
-                            UserDefaults.standard.set(store.pinVisible, forKey: "Clockin.PinVisibleBeforeMinimal")
-                        } else {
-                            let shouldRestorePin = UserDefaults.standard.object(forKey: "Clockin.PinVisibleBeforeMinimal") as? Bool ?? true
-                            UserDefaults.standard.removeObject(forKey: "Clockin.PinVisibleBeforeMinimal")
-                            NSApp.setActivationPolicy(.regular)
-                            MainWindowController.shared.show(store: store, exchangeRates: exchangeRates)
-                            store.setPinned(shouldRestorePin)
-                        }
-                }
-            }.padding(S(10)).background(card)
-            if minimalMode {
-                HStack {
-                    Text("Minimal mode is configured. Apply it when you are ready to hide this window.")
-                        .font(.system(size: S(8))).foregroundStyle(.tertiary)
-                    Spacer()
-                    Button("Apply & hide") {
-                        NSApp.setActivationPolicy(.accessory)
-                        store.setPinned(false)
-                        MainWindowController.shared.hide()
-                    }
-                    .buttonStyle(.hitTarget)
-                    .foregroundStyle(theme.accent)
-                }
-                .padding(.horizontal, S(10))
-            }
-            VStack(alignment: .leading, spacing: S(8)) {
-                Label("Minimal status fields", systemImage: "text.badge.checkmark")
-                    .foregroundStyle(.secondary)
-                Text("Choose what appears beside the menu-bar icon while you are clocked in. When you are not, only the icon shows.")
-                    .font(.system(size: S(8))).foregroundStyle(.tertiary)
-                HStack(spacing: S(12)) {
-                    Toggle("Hours", isOn: $minimalShowHours)
-                    Toggle("Seconds", isOn: $minimalShowSeconds)
-                        .disabled(!minimalShowHours)
-                        .help("Only affects the running timer; today's total is shown in hours and minutes.")
-                }
-                HStack(spacing: S(12)) {
-                    Toggle("Earnings", isOn: $minimalShowEarnings)
-                    Toggle("TL equivalent", isOn: $minimalShowTRY)
-                }
-                Toggle("Goal %", isOn: $minimalShowGoal)
-            }
-            .font(.system(size: S(9), weight: .medium))
-            .toggleStyle(.checkbox)
-            .padding(S(10)).background(card)
-            HStack {
-                Label("Pinned widget", systemImage: "pin.fill").foregroundStyle(.secondary)
-                Spacer()
-                Picker("", selection: $pinnedMode) {
-                    Text("Compact").tag("Compact"); Text("Money").tag("Money"); Text("Goal").tag("Goal"); Text("All").tag("All"); Text("Total").tag("Total")
-                }.labelsHidden().frame(width: S(110))
-                    .onChange(of: pinnedMode) { _, value in PinnedWindowController.shared.applyPreset(value) }
-                Toggle("", isOn: Binding(
-                    get: { store.pinVisible },
-                    set: { value in store.setPinned(value) }
-                )).labelsHidden().toggleStyle(.switch)
-            }.padding(S(10)).background(card)
-            HStack {
-                Label("Progress mascot", systemImage: "figure.wave.circle.fill").foregroundStyle(.secondary)
-                Spacer()
-                Toggle("", isOn: $mascotEnabled).labelsHidden().toggleStyle(.switch)
-            }.padding(S(10)).background(card)
-            HStack {
-                Label("Default behavior", systemImage: "sparkles").foregroundStyle(.secondary)
-                Spacer()
-                Picker("", selection: $mascotDefault) {
-                    ForEach(mascotOptions, id: \.0) { option in
-                        Text(option.2 > totalHours ? "🔒 \(option.1)" : option.1).tag(option.0)
-                    }
-                }.labelsHidden().frame(width: S(120))
-                    .onChange(of: mascotDefault) { _, value in
-                        if let required = mascotOptions.first(where: { $0.0 == value })?.2, totalHours < required { mascotDefault = "Auto" }
-                    }
-            }.padding(S(10)).background(card)
-        }
+    private var selectedStation: RadioController.Station? {
+        radio.stations.first { $0.id == selectedStationID }
     }
 
-    private var goalsSection: some View {
-        VStack(spacing: S(9)) {
-            goalField("Daily hours", icon: "sun.max.fill", text: $dailyGoalText) { dailyGoalHours = parsedGoal(dailyGoalText) }
-            goalField("Monthly hours", icon: "calendar", text: $monthlyGoalText) { monthlyGoalHours = parsedGoal(monthlyGoalText) }
-            Text("Goals are measured in worked hours and update live while clocked in.")
-                .font(.system(size: S(9))).foregroundStyle(.tertiary)
-        }
+    private func rowIcon(_ name: String) -> some View {
+        Image(systemName: name)
+            .font(.system(size: S(12), weight: .semibold))
+            .foregroundStyle(theme.accent)
+            .frame(width: S(28), height: S(28))
+            .background(theme.accent.opacity(0.14), in: RoundedRectangle(cornerRadius: S(8), style: .continuous))
     }
 
-    private func goalField(_ title: String, icon: String, text: Binding<String>, commit: @escaping () -> Void) -> some View {
-        HStack {
-            Label(title, systemImage: icon).foregroundStyle(.secondary)
-            Spacer()
-            TextField("Off", text: text)
-                .textFieldStyle(.plain).multilineTextAlignment(.trailing).frame(width: S(90))
-                .onChange(of: text.wrappedValue) { _, _ in commit() }
-            Text("hours").font(.system(size: S(9), weight: .bold)).foregroundStyle(theme.accent)
-        }.padding(S(10)).background(card)
+    private func volumeRow(value: Binding<Double>, range: ClosedRange<Double>) -> some View {
+        HStack(spacing: S(11)) {
+            rowIcon("speaker.wave.2")
+            Text("Volume").font(ClockinFont.body)
+            Slider(value: value, in: range).tint(theme.accent).controlSize(.regular)
+            Text("\(Int(value.wrappedValue * 100))%")
+                .font(.system(size: S(11.5), weight: .semibold).monospacedDigit())
+                .foregroundStyle(.secondary)
+                .frame(width: S(38), alignment: .trailing)
+        }
+        .padding(.horizontal, S(13)).frame(minHeight: S(50))
+    }
+
+    private func shortcutRow(_ keys: [String], _ title: String, icon: String) -> some View {
+        ClockinRow(icon: icon, title: title) {
+            HStack(spacing: S(3)) {
+                ForEach(keys, id: \.self) { key in
+                    Text(key)
+                        .font(.system(size: S(11), weight: .semibold, design: .rounded))
+                        .frame(minWidth: S(22), minHeight: S(22))
+                        .background(theme.control, in: RoundedRectangle(cornerRadius: S(5), style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: S(5), style: .continuous).strokeBorder(theme.controlStroke, lineWidth: 1))
+                }
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(keys.joined(separator: " "))
+        }
     }
 
     private func parsedGoal(_ text: String) -> Double {
         max(0, Double(text.replacingOccurrences(of: ",", with: ".")) ?? 0)
     }
 
-    private var chimeSection: some View {
-        VStack(spacing: S(9)) {
-            HStack {
-                Label("Focus chime", systemImage: chimeEnabled ? "speaker.wave.2.fill" : "speaker.slash.fill")
-                    .foregroundStyle(chimeEnabled ? theme.accent : .secondary)
-                Spacer()
-                Toggle("", isOn: $chimeEnabled).labelsHidden().toggleStyle(.switch)
-                    .onChange(of: chimeEnabled) { _, _ in FocusChimeController.shared.settingChanged() }
-            }.padding(S(10)).background(card)
-            HStack {
-                VStack(alignment: .leading, spacing: S(2)) {
-                    Text("INTERVAL").font(.system(size: S(9), weight: .bold)).foregroundStyle(.secondary).tracking(S(1))
-                    Text("Every \(chimeInterval) minute\(chimeInterval == 1 ? "" : "s")")
-                        .font(.system(size: S(11), weight: .semibold))
-                }
-                Spacer()
-                Stepper("", value: $chimeInterval, in: 1...120).labelsHidden()
-                    .onChange(of: chimeInterval) { _, _ in FocusChimeController.shared.settingChanged() }
-            }.padding(S(10)).background(card)
-            HStack(spacing: S(8)) {
-                Picker("", selection: $chimeSound) {
-                    ForEach(FocusChimeController.availableSounds, id: \.self) { Text($0).tag($0) }
-                }.labelsHidden().frame(width: S(105))
-                Slider(value: $chimeVolume, in: 0.1...1).tint(theme.accent)
-                Text("\(Int(chimeVolume * 100))%").font(.system(size: S(9), design: .monospaced)).frame(width: S(34))
-                Button { FocusChimeController.shared.playPreview() } label: { Image(systemName: "play.circle.fill") }
-                    .buttonStyle(.hitTarget).foregroundStyle(theme.accent).help("Test sound")
-            }.padding(S(10)).background(card)
-        }
-    }
-
-    private var dataSection: some View {
-        VStack(spacing: S(9)) {
-            Button(action: chooseCSV) { Label("Import timesheet CSV", systemImage: "square.and.arrow.down").frame(maxWidth: .infinity) }
-                .buttonStyle(.bordered)
-            Button { showPasteImporter = true } label: { Label("Paste approved timecards", systemImage: "doc.on.clipboard").frame(maxWidth: .infinity) }
-                .buttonStyle(.bordered)
-            HStack(spacing: S(9)) {
-                Button(action: exportBackup) {
-                    Label("Export backup", systemImage: "square.and.arrow.up").frame(maxWidth: .infinity)
-                }.buttonStyle(.bordered)
-                Button(action: importBackup) {
-                    Label("Restore file", systemImage: "arrow.down.doc").frame(maxWidth: .infinity)
-                }.buttonStyle(.bordered)
-            }
-            HStack {
-                VStack(alignment: .leading, spacing: S(2)) {
-                    Text("AUTOMATIC BACKUPS").font(.system(size: S(9), weight: .bold)).foregroundStyle(.secondary).tracking(S(1))
-                    Text(store.latestBackupDate.map { "Last \($0.formatted(.dateTime.month(.abbreviated).day().hour().minute())) • \(store.backupCount) saved" } ?? "Created automatically, at most once a day")
-                        .font(.system(size: S(9))).foregroundStyle(.tertiary)
-                }
-                Spacer()
-                Button("Restore latest") { confirmRestore = true }
-                    .buttonStyle(.hitTarget).foregroundStyle(theme.accent)
-                    .disabled(store.latestBackupDate == nil)
-            }.padding(S(10)).background(card)
-            if let message = store.statusMessage { Text(message).font(.system(size: S(9))).foregroundStyle(.secondary) }
-        }
-    }
-
-    private var shortcutsSection: some View {
-        VStack(spacing: S(7)) {
-            shortcutRow("⌥⌘I", "Clock in / resume", icon: "play.fill")
-            shortcutRow("⌥⌘P", "Pause / resume", icon: "pause.fill")
-            shortcutRow("⌥⌘O", "Clock out", icon: "stop.fill")
-            shortcutRow("⌥⌘E", "Open Clockin window", icon: "macwindow")
-            Text("Works while Clockin is running. macOS may ask for accessibility permission for use while another app is focused.")
-                .font(.system(size: S(8))).foregroundStyle(.tertiary)
-        }
-    }
-
-    private func shortcutRow(_ shortcut: String, _ title: String, icon: String) -> some View {
-        HStack(spacing: S(9)) {
-            Image(systemName: icon).frame(width: S(17)).foregroundStyle(theme.accent)
-            Text(title).font(.system(size: S(10), weight: .medium))
-            Spacer()
-            Text(shortcut).font(.system(size: S(10), weight: .bold, design: .monospaced)).foregroundStyle(.secondary)
-        }.padding(S(9)).background(card)
-    }
-
-    private var radioSection: some View {
-        VStack(spacing: S(9)) {
-            HStack(spacing: S(10)) {
-                Image(systemName: radio.isPlaying ? "dot.radiowaves.left.and.right" : "radio")
-                    .foregroundStyle(radio.isPlaying ? theme.accent : .secondary)
-                Picker("Station", selection: $selectedStationID) {
-                    ForEach(radio.stations) { station in
-                        Text("[\(station.language)] \(station.name)").tag(station.id).help(station.description)
-                    }
-                }.labelsHidden().frame(maxWidth: .infinity)
-                Spacer()
-                Button(radio.isPlaying ? "Stop" : "Play") {
-                    if let station = radio.stations.first(where: { $0.id == selectedStationID }) { radio.toggle(station: station) }
-                }
-                    .buttonStyle(.borderedProminent).tint(theme.accent)
-            }.padding(S(10)).background(card)
-            HStack(spacing: S(8)) {
-                Image(systemName: "speaker.wave.2.fill").foregroundStyle(theme.accent)
-                Text("Volume").font(.system(size: S(10), weight: .semibold))
-                Slider(value: $radio.volume, in: 0...1).tint(theme.accent)
-                Text("\(Int(radio.volume * 100))%").font(.system(size: S(9), design: .monospaced)).frame(width: S(32))
-            }.padding(S(10)).background(card)
-            if let error = radio.errorMessage {
-                Text(error).font(.system(size: S(9), weight: .medium)).foregroundStyle(.orange)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            if let station = radio.stations.first(where: { $0.id == selectedStationID }) {
-                Text(station.description).font(.system(size: S(8))).foregroundStyle(.tertiary).frame(maxWidth: .infinity, alignment: .leading)
-            }
-            Text("Radio streams over the internet and may use data. Hover a channel for details.")
-                .font(.system(size: S(8))).foregroundStyle(.tertiary)
-        }
-    }
-
-    private func section<Content: View>(_ title: String, content: Content) -> some View {
-        VStack(alignment: .leading, spacing: S(8)) {
-            Text(title).font(.system(size: S(9), weight: .bold)).foregroundStyle(.secondary).tracking(S(1.2))
-            content
-        }
-    }
-
-    private var card: some View {
-        RoundedRectangle(cornerRadius: S(11)).fill(theme.surface)
-            .overlay(RoundedRectangle(cornerRadius: S(11)).stroke(theme.surfaceStroke))
-    }
-
     private var totalHours: Double { (store.totalDuration + store.elapsed()) / 3600 }
-    private var mascotOptions: [(String, String, Double)] {
-        CompanionMode.allCases.map { mode in
-            let label = mode.requiredHours > 0 ? "\(mode.rawValue) • \(Int(mode.requiredHours))h" : mode.rawValue
-            return (mode.rawValue, label, mode.requiredHours)
-        }
-    }
-
     private func chooseCSV() {
         let panel = NSOpenPanel(); panel.allowedContentTypes = [.commaSeparatedText, .text]
         panel.allowsMultipleSelection = false; panel.canChooseDirectories = false
