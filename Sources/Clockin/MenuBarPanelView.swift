@@ -31,6 +31,7 @@ struct MenuBarPanelView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
+            if let version = updates.pendingVersion { updateReminder(version) }
             header
             if store.running != nil { earnings }
             today
@@ -68,6 +69,22 @@ struct MenuBarPanelView: View {
             now = Date()
             confirmingDiscard = false
         }
+    }
+
+    /// A background check found an update and left it for the user to open.
+    private func updateReminder(_ version: String) -> some View {
+        Button(action: actions.checkForUpdates) {
+            HStack(spacing: 8) {
+                Image(systemName: "arrow.down.circle.fill").foregroundStyle(theme.accent)
+                Text("Clockin \(version) is available")
+                Spacer(minLength: 0)
+                Text("Install").fontWeight(.semibold).foregroundStyle(theme.accent)
+            }
+            .padding(.horizontal, 10).padding(.vertical, 8)
+            .background(theme.surface, in: RoundedRectangle(cornerRadius: 9))
+        }
+        .buttonStyle(PanelTextStyle())
+        .accessibilityLabel("Install Clockin \(version)")
     }
 
     private var header: some View {
@@ -192,7 +209,7 @@ struct MenuBarPanelView: View {
                     set: { value in change { Self.setMinimalMode(value, store: store) } }
                 ))
                 Button("Check for Updates…", action: actions.checkForUpdates)
-                    .disabled(!updates.canCheckForUpdates)
+                    .disabled(!updates.isReady)
                 Divider()
                 Button("Quit Clockin", action: actions.quit)
             } label: {

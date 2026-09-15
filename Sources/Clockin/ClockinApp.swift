@@ -74,6 +74,7 @@ struct ClockinApp: App {
 }
 
 extension MenuBarController.Host {
+    @MainActor
     static func clockin(_ dependencies: AppDependencies) -> Self {
         let store = dependencies.store
         let exchangeRates = dependencies.exchangeRates
@@ -136,8 +137,11 @@ extension MenuBarController.Host {
                 let menu = NSMenu()
                 menu.addItem(ClosureMenuItem("Open Clockin", action: openApp))
                 menu.addItem(.separator())
-                let updates = ClosureMenuItem("Check for Updates…") { UpdateChecker.shared.checkForUpdates() }
-                updates.isEnabled = UpdateChecker.shared.canCheckForUpdates
+                let pending = UpdateChecker.shared.pendingVersion
+                let updates = ClosureMenuItem(pending.map { "Install Clockin \($0)…" } ?? "Check for Updates…") {
+                    UpdateChecker.shared.checkForUpdates()
+                }
+                updates.isEnabled = UpdateChecker.shared.isReady
                 menu.addItem(updates)
                 menu.addItem(ClosureMenuItem("Quit Clockin") { NSApp.terminate(nil) })
                 menu.autoenablesItems = false
