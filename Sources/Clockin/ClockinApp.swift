@@ -65,12 +65,46 @@ struct ClockinApp: App {
 
     var body: some Scene {
         // The menu-bar item and its panel are AppKit (MenuBarController), so
-        // they can open over full-screen apps. An App needs a scene: an empty
-        // Settings scene opens no window, and its menu command is removed
-        // because settings live in the main window.
-        Settings { EmptyView() }
+        // they can open over full-screen apps. An App needs a scene, so this
+        // is an unused Settings scene with its menu command removed, because
+        // settings live in the main window. macOS can still open it on its own
+        // (seen around a Sparkle alert); it then hides itself and shows the
+        // main window instead of an empty "Clockin Settings" window.
+        Settings { SettingsSceneRedirect() }
             .commands { CommandGroup(replacing: .appSettings) {} }
     }
+}
+
+/// Content of the unused Settings scene. Its window is never shown: whenever
+/// macOS orders it in, it is ordered out again and the main window opens.
+/// SwiftUI reuses the window, so visibility is observed, not just the first
+/// appearance.
+private struct SettingsSceneRedirect: NSViewRepresentable {
+    final class RedirectView: NSView {
+        private var visibility: NSKeyValueObservation?
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            visibility = nil
+            guard let window else { return }
+            window.alphaValue = 0
+            visibility = window.observe(\.isVisible, options: [.initial, .new]) { window, _ in
+                DispatchQueue.main.async {
+                    MainActor.assumeIsolated { RedirectView.redirect(window) }
+                }
+            }
+        }
+
+        private static func redirect(_ window: NSWindow) {
+            guard window.isVisible else { return }
+            window.orderOut(nil)
+            let dependencies = AppDependencies.shared
+            MainWindowController.shared.show(store: dependencies.store, exchangeRates: dependencies.exchangeRates)
+        }
+    }
+
+    func makeNSView(context: Context) -> RedirectView { RedirectView(frame: .zero) }
+    func updateNSView(_ nsView: RedirectView, context: Context) {}
 }
 
 extension MenuBarController.Host {
