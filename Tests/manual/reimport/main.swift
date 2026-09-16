@@ -44,7 +44,7 @@ MainActor.assumeIsolated {
         try! JSONEncoder().encode(data).write(to: url)
         return ClockStore(fileURL: url)
     }
-    func csv(_ name: String, _ rows: [(Double, Double)], source: String = "starfleet") -> URL {
+    func csv(_ name: String, _ rows: [(Double, Double)], source: String = "timeportal") -> URL {
         let iso = ISO8601DateFormatter()
         var text = "Start Time,End Time,Duration,Notes,Time Sheet Source\n"
         for (from, to) in rows {
@@ -58,7 +58,7 @@ MainActor.assumeIsolated {
 
     // 1. Asil hata: eski surumun isaretsiz biraktigi kaydin uzerine duzeltilmis CSV.
     do {
-        let s = store("legacy", [row(0, 480, source: "starfleet")])          // 10:00 -> 18:00
+        let s = store("legacy", [row(0, 480, source: "timeportal")])          // 10:00 -> 18:00
         let url = csv("corrected", [(0, 485)])                                 // 10:00 -> 18:05
         let preview = try! CSVImporter.parse(data: Data(contentsOf: url), hourlyRate: 40)
         expect(s.compareImportedSessions(preview).items.first?.kind == .matched,
@@ -66,7 +66,7 @@ MainActor.assumeIsolated {
         s.importCSV(from: url)
         expect(s.sessions.count == 1, "re-importing a corrected CSV row does not append a second copy")
         expect(abs(hours(s) - 8.08) < 0.01, "the day keeps one shift's worth of hours")
-        expect(s.sessions.first?.matchedExternalSource == "starfleet",
+        expect(s.sessions.first?.matchedExternalSource == "timeportal",
                "the healed record is linked for the next import")
     }
 
@@ -89,29 +89,29 @@ MainActor.assumeIsolated {
 
     // 4-7. Fazla eslestirme olmamali.
     do {
-        let s = store("shifts", [row(-60, 60, source: "starfleet")])          // 09:00 -> 11:00
+        let s = store("shifts", [row(-60, 60, source: "timeportal")])          // 09:00 -> 11:00
         s.importCSV(from: csv("afternoon", [(240, 480)]))                     // 14:00 -> 18:00
         expect(s.sessions.count == 2, "two separate shifts on one day stay separate")
     }
     do {
-        let s = store("brief", [row(-60, 180, source: "starfleet")])         // 09:00 -> 13:00
+        let s = store("brief", [row(-60, 180, source: "timeportal")])         // 09:00 -> 13:00
         s.importCSV(from: csv("brief", [(150, 390)]))                         // 12:30 -> 16:30
         expect(s.sessions.count == 2, "a brief overlap is not treated as the same work")
     }
     do {
-        let s = store("employer", [row(0, 480, source: "starfleet")])
+        let s = store("employer", [row(0, 480, source: "timeportal")])
         s.importCSV(from: csv("acme", [(0, 485)], source: "acme"))
         expect(s.sessions.count == 2, "another employer's timecard does not absorb this record")
     }
     do {
-        let s = store("nextday", [row(0, 480, source: "starfleet")])
+        let s = store("nextday", [row(0, 480, source: "timeportal")])
         s.importCSV(from: csv("nextday", [(1440, 1925)]))
         expect(s.sessions.count == 2, "the same hours on the next day are a different session")
     }
 
     // 8. Birebir ayni satir yine atlanir.
     do {
-        let s = store("identical", [row(0, 480, source: "starfleet")])
+        let s = store("identical", [row(0, 480, source: "timeportal")])
         s.importCSV(from: csv("identical", [(0, 480)]))
         expect(s.sessions.count == 1, "an identical row is still skipped")
     }
