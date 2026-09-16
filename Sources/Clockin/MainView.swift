@@ -187,7 +187,7 @@ struct MainView: View {
         // Varsayilan bosluk olcekle buyumez; %130'da diger her sey buyurken
         // bu aralik sabit kalirdi.
         return HStack(spacing: S(8)) {
-            ClockinLogo(size: 22)
+            ClockinLogo(size: 26)
             Spacer()
             levelChip(stats)
             HStack(spacing: S(2)) {

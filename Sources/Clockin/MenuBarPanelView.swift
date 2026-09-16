@@ -34,7 +34,7 @@ struct MenuBarPanelView: View {
         VStack(alignment: .leading, spacing: S(12)) {
             if let version = updates.pendingVersion { updateReminder(version) }
             header
-            if store.running != nil { earnings }
+            earnings
             today
             primaryActions
             if radio.isPlaying {
@@ -73,6 +73,13 @@ struct MenuBarPanelView: View {
         }
     }
 
+    /// The line under Clock in, in place of a running session's controls.
+    private var lastSessionSummary: String {
+        guard let last = store.sessions.max(by: { $0.start < $1.start }) else { return "No sessions yet" }
+        let when = last.start.formatted(.dateTime.month(.abbreviated).day().hour().minute())
+        return "Last session \(DurationText.compact(last.duration)) · \(when)"
+    }
+
     /// A background check found an update and left it for the user to open.
     private func updateReminder(_ version: String) -> some View {
         Button(action: actions.checkForUpdates) {
@@ -109,31 +116,55 @@ struct MenuBarPanelView: View {
                     Circle().fill(store.running == nil ? Color.secondary : (paused ? .orange : theme.accent))
                         .frame(width: S(6), height: S(6)).accessibilityHidden(true)
                     Text(store.running == nil ? "Not clocked in" : (paused ? "Paused" : "Clocked in"))
-                        .foregroundStyle(store.running == nil ? .primary : .secondary)
-                        .font(store.running == nil ? .system(size: S(17), weight: .semibold) : nil)
+                        .foregroundStyle(.secondary)
                 }
-                if store.running != nil {
-                    Text(DurationText.clock(store.elapsed(at: now)))
-                        .font(.system(size: S(30), weight: .medium)).monospacedDigit()
-                        .contentTransition(.numericText())
-                        .accessibilityLabel("Session time, \(DurationText.clock(store.elapsed(at: now)))")
+                // The same slot in every state, so clocking in or out never
+                // changes the panel's height: the session timer while it runs,
+                // today's worked time while it does not.
+                HStack(alignment: .firstTextBaseline, spacing: S(6)) {
+                    if store.running == nil && store.todayDuration(at: now) <= 0 {
+                        // Nothing worked yet: a row of zeros says less than this.
+                        Text("Ready").font(.system(size: S(30), weight: .medium))
+                    } else {
+                        Text(DurationText.clock(store.running == nil ? store.todayDuration(at: now) : store.elapsed(at: now)))
+                            .font(.system(size: S(30), weight: .medium)).monospacedDigit()
+                            .contentTransition(.numericText())
+                        if store.running == nil {
+                            Text("today").font(.system(size: S(11))).foregroundStyle(.secondary)
+                        }
+                    }
                 }
-                // Idle, today's total is in the strip below; repeating it here
-                // read as a stopped timer.
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(store.running == nil
+                                    ? "Worked today, \(DurationText.clock(store.todayDuration(at: now)))"
+                                    : "Session time, \(DurationText.clock(store.elapsed(at: now)))")
             }
             Spacer(minLength: S(0))
         }
     }
 
+    /// Earnings for the running session, or today's total when idle.
     private var earnings: some View {
-        HStack(alignment: .firstTextBaseline, spacing: S(8)) {
-            Text(store.currentEarnings(at: now).money(code: store.currencyCode))
+        let running = store.running != nil
+        let amount = running ? store.currentEarnings(at: now) : store.todayEarnings(at: now)
+        let idleWithoutWork = !running && store.todayDuration(at: now) <= 0
+        return HStack(alignment: .firstTextBaseline, spacing: S(8)) {
+            if idleWithoutWork {
+                Text(store.currentRate(at: now).money(code: store.currencyCode))
+                    .font(.system(size: S(20), weight: .semibold)).foregroundStyle(theme.accent)
+                Text("an hour").foregroundStyle(.secondary)
+                Spacer(minLength: S(0))
+            } else {
+            Text(amount.money(code: store.currencyCode))
                 .font(.system(size: S(20), weight: .semibold)).foregroundStyle(theme.accent)
-                .accessibilityLabel("Session earnings, \(store.currentEarnings(at: now).money(code: store.currencyCode))")
+                .contentTransition(.numericText())
+                .accessibilityLabel(running ? "Session earnings, \(amount.money(code: store.currencyCode))"
+                                            : "Earned today, \(amount.money(code: store.currencyCode))")
             Spacer(minLength: S(0))
             if store.currencyCode == "USD", let rate = exchangeRates.latestRate {
-                Text((store.currentEarnings(at: now) * rate).money(code: "TRY"))
+                Text((amount * rate).money(code: "TRY"))
                     .foregroundStyle(.secondary)
+            }
             }
         }
         .monospacedDigit().lineLimit(1).minimumScaleFactor(0.75)
@@ -142,10 +173,10 @@ struct MenuBarPanelView: View {
     private var today: some View {
         VStack(alignment: .leading, spacing: S(8)) {
             HStack {
-                Text("Today").foregroundStyle(.secondary)
-                Text(DurationText.compact(store.todayDuration(at: now)))
+                Text("This month").foregroundStyle(.secondary)
+                Text(DurationText.compact(store.monthDuration(at: now)))
                 Spacer(minLength: S(4))
-                Text(store.todayEarnings(at: now).money(code: store.currencyCode))
+                Text(store.monthEarnings(at: now).money(code: store.currencyCode))
             }
             .monospacedDigit().lineLimit(1).minimumScaleFactor(0.8)
             if dailyGoalHours > 0 {
@@ -169,6 +200,12 @@ struct MenuBarPanelView: View {
                 Button("Clock in") { change { store.clockIn() } }
                     .buttonStyle(.clockin(.primary, size: .large, fullWidth: true))
                     .accessibilityLabel("Clock in")
+                // Keeps the same rows as a running session, so the panel does
+                // not resize under the pointer when you clock in or out.
+                Text(lastSessionSummary)
+                    .font(.system(size: S(11))).foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, minHeight: S(26))
+                    .lineLimit(1)
             } else {
                 HStack(spacing: S(10)) {
                     Button(paused ? "Resume" : "Pause") {

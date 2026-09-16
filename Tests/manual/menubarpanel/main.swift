@@ -79,6 +79,8 @@ for index in 0..<4 {
     print("\(names[index]): \(Int(size.width)) × \(Int(size.height)) pt")
 }
 check(images[0].dataProvider?.data != images[1].dataProvider?.data, "Idle and running must differ")
+// Clocking in or out must not resize the panel under the pointer.
+check(Set(sizes.map(\.height)).count == 1, "Every state must be the same height: \(sizes.map(\.height))")
 let tileHeight = ceil(sizes.map(\.height).max()!) + 44
 let width = 688
 let height = Int(tileHeight * 2 + 16)
