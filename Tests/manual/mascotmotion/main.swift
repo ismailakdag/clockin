@@ -39,7 +39,7 @@ check((try? MascotLibrary(data: Data(#"{"hello":{"rest":"h01","standing":true,"c
 if let data = try? Data(contentsOf: shipped) {
     let real = try MascotLibrary(data: data)
     check(MascotMood.allCases.allSatisfy { !real[$0].clips.isEmpty }, "the shipped manifest decodes with clips for every mood")
-    check(real[.hello].standing && real[.celebrate].standing && !real[.coffee].standing && !real[.working].standing, "only hello and celebrate stand and sway")
+    check(real[.hello].standing && real[.celebrate].standing && !real[.coffee].standing && !real[.working].standing, "hello and celebrate stand; coffee and working sit")
 }
 
 // Director.
@@ -111,7 +111,7 @@ let start = MascotMotion.sway(time: 0), end = MascotMotion.sway(time: MascotMoti
 check(abs(start.offsetY) < 1e-9 && abs(start.rotationDegrees) < 1e-9 && abs(end.offsetY) < 1e-9 && abs(end.rotationDegrees) < 1e-9, "a sway cycle starts and ends at rest")
 let swaySamples = stride(from: 0.0, to: MascotMotion.swayPeriod, by: 0.01).map { MascotMotion.sway(time: $0) }
 check(swaySamples.allSatisfy { $0.offsetY <= 0 && $0.offsetY >= -0.0111 && abs($0.rotationDegrees) <= 0.8 + 1e-9 }, "sway rises at most 1.1% and rocks at most 0.8°")
-check(abs(MascotMotion.pop(progress: 0) - 0.9) < 1e-9 && abs(MascotMotion.pop(progress: 0.6) - 1.035) < 1e-9 && abs(MascotMotion.pop(progress: 1) - 1) < 1e-9, "the pose-change pop goes 0.9 → 1.035 → 1")
+check(abs(MascotMotion.pop(progress: 0) - 0.9) < 1e-9 && abs(MascotMotion.pop(progress: 0.6) - 1.035) < 1e-9 && abs(MascotMotion.pop(progress: 1) - 1) < 1e-9, "the pose-change pop goes 0.9, 1.035, 1")
 
 let combined = MascotMotion.pose(hopProgress: 0.56, hopHeight: 1, swayTime: 1.3, swayWeight: 1, popProgress: 0.6)
 check(abs(combined.offsetY - (peak.offsetY + MascotMotion.sway(time: 1.3).offsetY)) < 1e-9 && abs(combined.scaleY - 1.035) < 1e-9, "hop, sway and pop combine")
