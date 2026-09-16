@@ -27,6 +27,10 @@ struct SettingsView: View {
     @StateObject private var radio = RadioController.shared
     @State private var selectedStationID = "rp"
     @State private var rateText = ""
+    @State private var pendingRate: RateChangeDraft?
+    @State private var confirmRemoveSplit = false
+    @State private var earlierRateText = ""
+
     @State private var showRateSchedule = false
     @State private var showPasteImporter = false
     @State private var showCSVComparison = false
@@ -66,12 +70,6 @@ struct SettingsView: View {
             dailyGoalText = dailyGoalHours > 0 ? String(format: "%.2f", dailyGoalHours) : ""
             monthlyGoalText = monthlyGoalHours > 0 ? String(format: "%.2f", monthlyGoalHours) : ""
         }
-        .onChange(of: rateText) { _, value in
-            let normalized = value.replacingOccurrences(of: ",", with: ".")
-            guard let number = Double(normalized), number >= 0,
-                  abs(number - store.hourlyRate) > 0.000_001 else { return }
-            store.updateRate(number)
-        }
         .onChange(of: dailyGoalText) { _, value in dailyGoalHours = parsedGoal(value) }
         .onChange(of: monthlyGoalText) { _, value in monthlyGoalHours = parsedGoal(value) }
         .onChange(of: uiScale) { _, _ in
@@ -95,6 +93,24 @@ struct SettingsView: View {
                 store.setPinned(shouldRestorePin)
             }
         }
+        .sheet(item: $pendingRate, onDismiss: { syncRateText() }) { draft in
+            RateChangePrompt(value: draft.value)
+                .environmentObject(store)
+                .preferredColorScheme(theme.colorScheme)
+        }
+        .alert("Use one rate for all work?", isPresented: $confirmRemoveSplit) {
+            Button("Cancel", role: .cancel) {}
+            Button("Use current rate", role: .destructive) {
+                store.setEarlierRate(nil, changedOn: changedOn)
+            }
+        } message: {
+            Text(removeSplitMessage)
+        }
+        .onAppear { syncEarlierRateText() }
+        .onChange(of: store.rateRules) { _, _ in
+            syncEarlierRateText()
+            syncRateText()
+        }
         .sheet(isPresented: $showRateSchedule) { RateScheduleView().environmentObject(store) }
         .sheet(isPresented: $showPasteImporter) { PasteImportView().environmentObject(store) }
         .sheet(isPresented: $showCSVComparison) {
@@ -111,22 +127,118 @@ struct SettingsView: View {
         }
     }
 
+    private var hasEarlierRate: Bool {
+        if case .changed = store.rateHistorySummary { return true }
+        return false
+    }
+
+    private var changedOn: Date {
+        if case let .changed(_, _, day) = store.rateHistorySummary { return day }
+        return store.rateToday
+    }
+
+    private var earlierRate: Double {
+        if case let .changed(earlier, _, _) = store.rateHistorySummary { return earlier }
+        return store.hourlyRate
+    }
+
+    private var earlierToggle: Binding<Bool> {
+        Binding(get: { hasEarlierRate }, set: { enabled in
+            if enabled { store.setEarlierRate(store.hourlyRate, changedOn: store.rateToday) }
+            else { confirmRemoveSplit = true }
+            syncEarlierRateText()
+        })
+    }
+
+    private var changeDate: Binding<Date> {
+        Binding(get: { changedOn }, set: { day in
+            store.setEarlierRate(earlierRate, changedOn: day)
+        })
+    }
+
+    private var removeSplitMessage: String {
+        let proposed = store.proposedRates(earlier: nil, changedOn: changedOn) ?? store.rateRules
+        let impact = store.earningsImpact(ofRates: proposed)
+        return "All work will use \(store.hourlyRate.money(code: store.currencyCode)). Earnings before \(changedOn.formatted(date: .abbreviated, time: .omitted)) change by \(impact.delta.money(code: store.currencyCode))."
+    }
+
+    private func syncEarlierRateText() {
+        earlierRateText = String(format: "%.2f", earlierRate)
+    }
+
+    private func commitEarlierRate() {
+        let text = earlierRateText.replacingOccurrences(of: ",", with: ".")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if let value = Double(text), value.isFinite, value >= 0, value != earlierRate {
+            store.setEarlierRate(value, changedOn: changedOn)
+        }
+        syncEarlierRateText()
+    }
+
+    private func commitRate() {
+        guard pendingRate == nil else { return }
+        let text = rateText.replacingOccurrences(of: ",", with: ".")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let value = Double(text), value.isFinite, value >= 0,
+              abs(value - store.hourlyRate) > 0.000_001 else {
+            syncRateText()
+            return
+        }
+        if let proposed = store.proposedRates(for: value, from: store.rateToday),
+           !store.hasWorkBeforeToday, store.earningsImpact(ofRates: proposed).sessions == 0 {
+            store.setRate(value, from: store.rateToday)
+        } else {
+            pendingRate = RateChangeDraft(value: value)
+        }
+        syncRateText()
+    }
+
+    private func syncRateText() {
+        rateText = String(format: "%.2f", store.hourlyRate)
+    }
+
     // MARK: Sections
 
     private var paySection: some View {
-        ClockinSection(title: "Pay") {
+        ClockinSection(title: "Pay", footer: store.rateHistorySummary == .custom ? nil : "Turn on if your hourly rate changed. Work before the date uses the earlier rate.") {
             ClockinRow(icon: "dollarsign", title: "Hourly rate") {
                 HStack(spacing: S(6)) {
-                    ClockinTextField(placeholder: "0.00", text: $rateText, width: 84)
+                    ClockinTextField(placeholder: "0.00", text: $rateText, width: 84, onEditingEnd: commitRate)
+                        .onSubmit { commitRate() }
+                        .disabled(store.rateHistorySummary == .custom)
                         .accessibilityLabel("Hourly rate")
                     ClockinSelect(selection: Binding(get: { store.currencyCode }, set: { store.updateCurrency($0) }),
                                   values: ["USD", "EUR", "GBP", "TRY"], width: 82)
                 }
             }
+            if store.rateHistorySummary != .custom {
+                ClockinRowDivider()
+                ClockinRow(icon: "clock.arrow.circlepath", title: "Earlier work had a different rate") {
+                    ClockinSwitch(title: "Earlier work had a different rate", isOn: earlierToggle)
+                }
+                if hasEarlierRate {
+                    ClockinRowDivider()
+                    ClockinRow(icon: "calendar", title: "Changed on") {
+                        ClockinDateField("Changed on", selection: changeDate, in: ...store.rateToday,
+                                         displayedComponents: .date, systemImage: "calendar")
+                    }
+                    ClockinRowDivider()
+                    ClockinRow(icon: "dollarsign", title: "Earlier rate") {
+                        ClockinTextField(placeholder: "0.00", text: $earlierRateText, width: 84,
+                                         onEditingEnd: commitEarlierRate)
+                            .onSubmit { commitEarlierRate() }
+                            .accessibilityLabel("Earlier rate")
+                    }
+                }
+            }
             ClockinRowDivider()
-            ClockinRow(icon: "calendar.badge.clock", title: "Rate schedule",
+            ClockinRow(icon: "calendar.badge.clock", title: store.rateHistorySummary == .custom ? "Custom rate schedule" : "Rate schedule",
                        subtitle: store.currentRateEffectiveFrom.map { "Current rate since \($0.formatted(.dateTime.month(.abbreviated).day().year()))" } ?? "Rates stored with each session") {
-                Button("Manage") { showRateSchedule = true }
+                Button("Manage") {
+                    commitEarlierRate()
+                    commitRate()
+                    if pendingRate == nil { showRateSchedule = true }
+                }
                     .buttonStyle(.clockin(.tinted, size: .small))
             }
         }
@@ -439,5 +551,64 @@ struct SettingsView: View {
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
         if panel.runModal() == .OK, let url = panel.url { store.importBackup(from: url) }
+    }
+}
+
+private struct RateChangeDraft: Identifiable {
+    let id = UUID()
+    let value: Double
+}
+
+private struct RateChangePrompt: View {
+    @EnvironmentObject private var store: ClockStore
+    @Environment(\.dismiss) private var dismiss
+    let value: Double
+    @State private var pickingDate = false
+    @State private var day = Date()
+    @State private var errorMessage: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            Text("When did this rate start?").font(.title2.bold())
+            Text("New hourly rate: \(value.money(code: store.currencyCode))")
+            Text("Today: \(impact(from: store.rateToday))")
+                .font(.callout).foregroundStyle(.secondary)
+            Button("Today") { save(from: store.rateToday) }
+                .buttonStyle(.borderedProminent)
+                .keyboardShortcut(.defaultAction)
+            Button("Pick a date…") { pickingDate = true }
+            if pickingDate {
+                DatePicker("Changed on", selection: $day, in: ...store.rateToday,
+                           displayedComponents: .date)
+                Text(impact(from: day)).font(.callout).foregroundStyle(.secondary)
+                Button("Use this date") { save(from: day) }
+                    .buttonStyle(.borderedProminent)
+            }
+            Text("Always: \(impact(from: nil))")
+                .font(.callout).foregroundStyle(.secondary)
+            Button("Always") { save(from: nil) }
+            if let errorMessage { Text(errorMessage).foregroundStyle(.red) }
+            Button("Cancel", role: .cancel) { dismiss() }
+                .keyboardShortcut(.cancelAction)
+        }
+        .padding(24)
+        #if os(macOS)
+        .frame(width: 420)
+        #endif
+        .onAppear { day = store.rateToday }
+    }
+
+    private func impact(from day: Date?) -> String {
+        guard let proposed = store.proposedRates(for: value, from: day) else {
+            return "Edit this custom rate schedule in Rate schedule."
+        }
+        let impact = store.earningsImpact(ofRates: proposed)
+        if impact.sessions == 0 { return "No completed sessions change." }
+        return "\(impact.sessions) completed sessions change by \(impact.delta.money(code: store.currencyCode)) in total."
+    }
+
+    private func save(from day: Date?) {
+        if store.setRate(value, from: day) { dismiss() }
+        else { errorMessage = store.statusMessage }
     }
 }

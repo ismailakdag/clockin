@@ -440,6 +440,7 @@ struct ClockinTextField: View {
     var suffix: String?
     var width: CGFloat?
     var alignment: TextAlignment = .trailing
+    var onEditingEnd: (() -> Void)?
     @FocusState private var focused: Bool
 
     var body: some View {
@@ -457,6 +458,9 @@ struct ClockinTextField: View {
         .modifier(FieldChrome(focused: focused))
         .contentShape(Rectangle())
         .onTapGesture { focused = true }
+        .onChange(of: focused) { _, value in
+            if !value { onEditingEnd?() }
+        }
     }
 }
 
