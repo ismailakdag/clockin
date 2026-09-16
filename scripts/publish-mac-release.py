@@ -1,12 +1,20 @@
 #!/usr/bin/env python3
-"""Network steps of scripts/publish-mac.sh: GitHub releases, the website and
-the update feed. Everything here is verified anonymously after it is written.
+"""Network steps of scripts/publish-mac.sh: the GitHub release, the website's
+download and the update feed. Everything here is verified anonymously after it
+is written.
+
+The website links to a fixed GitHub URL (DOWNLOAD_URL), so a release replaces
+that file on GitHub and never deploys to Netlify. Netlify bills every deploy
+and every byte it serves; `website` deploys the site only when its content
+changes.
 
 Credentials are read at run time and kept in memory only:
 - GitHub: the token Git already uses for this repository (`git credential fill`).
-- Netlify: a personal access token stored once in the login Keychain under the
-  service name `clockin-netlify` (see docs/macos-releases.md).
-Neither is ever printed; API errors report only the status and GitHub's message.
+- Netlify (only for `website`): a personal access token stored once in the
+  login Keychain under the service name `clockin-netlify`
+  (see docs/macos-releases.md).
+Neither is ever printed; API errors report only the status and the service's
+message.
 """
 import hashlib, io, json, os, pathlib, re, shutil, subprocess, sys, tempfile, time, urllib.error, urllib.parse, urllib.request, zipfile
 
@@ -14,11 +22,14 @@ REPO = 'ismailakdag/clockin'
 API = 'https://api.github.com/repos/' + REPO
 FEED_TAG = 'macos-updates'
 FEED_URL = f'https://github.com/{REPO}/releases/download/{FEED_TAG}/appcast.xml'
+# The Mac download lives next to the feed, in a release that is never
+# "latest", because the repository also ships iPhone builds.
+DOWNLOAD_NAME = 'Clockin.dmg'
+DOWNLOAD_URL = f'https://github.com/{REPO}/releases/download/{FEED_TAG}/{DOWNLOAD_NAME}'
 NETLIFY_SITE = os.environ.get('NETLIFY_SITE', 'getclockin.netlify.app')
 NETLIFY_KEYCHAIN_SERVICE = 'clockin-netlify'
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 WEBSITE = ROOT / 'website' / 'dist'
-DMG_NAME = re.compile(r'Clockin-\d+\.\d+\.\d+-\d+\.dmg')
 
 
 def step(message):
@@ -116,14 +127,6 @@ def preflight(version, check_credentials):
         fail(f'Release {tag} already exists. Choose a new version.')
     print(f'Release {tag}: not published yet')
 
-    if WEBSITE.joinpath('index.html').exists():
-        links = sorted(set(DMG_NAME.findall(WEBSITE.joinpath('index.html').read_text())))
-        print(f'Website download link: {", ".join(links) or "none found"}')
-        if not links:
-            fail('website/dist/index.html has no DMG download link to replace.')
-    else:
-        fail('website/dist is missing; the website cannot be updated.')
-
     if check_credentials:
         step('Checking access (tokens are not printed)')
         token = github_token()
@@ -133,12 +136,6 @@ def preflight(version, check_credentials):
         if not repo.get('permissions', {}).get('push'):
             fail('The stored GitHub credential cannot publish releases to ' + REPO)
         print('GitHub: can publish releases')
-        token = netlify_token()
-        if not token:
-            fail(f'No Netlify token in the Keychain (service "{NETLIFY_KEYCHAIN_SERVICE}"). '
-                 'See "One-time setup" in docs/macos-releases.md.')
-        _, site = api_json('GET', f'https://api.netlify.com/api/v1/sites/{NETLIFY_SITE}', token)
-        print(f'Netlify: can deploy {site.get("ssl_url") or site.get("url")}')
     print(f'BUILD={build + 1}')
 
 
@@ -172,55 +169,66 @@ def publish_github(version, build, release_dir, notes_file, commit):
     print(f'Published: https://github.com/{REPO}/releases/tag/{tag}')
 
 
-def publish_website(version, build, release_dir):
+def replace_asset(token, release, name, data, content_type):
+    """Replaces a release asset with as short a gap as GitHub allows: the new
+    file is uploaded under a temporary name, then swapped in."""
+    upload = release['upload_url'].split('{')[0]
+    temporary = f'uploading-{time.time_ns()}-{name}'
+    _, asset = api_json('POST', f'{upload}?name={urllib.parse.quote(temporary)}', token,
+                        data=data, content_type=content_type)
+    for old in release['assets']:
+        if old['name'] == name:
+            api_json('DELETE', f'{API}/releases/assets/{old["id"]}', token)
+    api_json('PATCH', f'{API}/releases/assets/{asset["id"]}', token, json_body={'name': name})
+
+
+def publish_download(version, build, release_dir):
+    token = github_token()
+    dmg = (release_dir / f'Clockin-{version}-{build}.dmg').read_bytes()
+    step(f'Publishing the website download ({DOWNLOAD_URL})')
+    _, release = api_json('GET', f'{API}/releases/tags/{FEED_TAG}', token)
+    replace_asset(token, release, DOWNLOAD_NAME, dmg, 'application/octet-stream')
+    for _ in range(10):
+        public, _ = anonymous_bytes(DOWNLOAD_URL)
+        if sha256(public) == sha256(dmg):
+            break
+        time.sleep(3)
+    else:
+        fail(f'The download at {DOWNLOAD_URL} does not match the built DMG.')
+    print(f'Live: {DOWNLOAD_URL}')
+
+
+def deploy_website():
+    """Deploys website/dist to Netlify as it is. Run it only for site changes."""
     token = netlify_token()
-    dmg = release_dir / f'Clockin-{version}-{build}.dmg'
+    if not token:
+        fail(f'No Netlify token in the Keychain (service "{NETLIFY_KEYCHAIN_SERVICE}"). '
+             'See "One-time setup" in docs/macos-releases.md.')
+    index = WEBSITE / 'index.html'
+    if DOWNLOAD_URL not in index.read_text():
+        fail(f'website/dist/index.html does not link to {DOWNLOAD_URL}.')
+    stray = sorted(p.name for p in WEBSITE.rglob('*.dmg'))
+    if stray:
+        fail(f'website/dist still contains {", ".join(stray)}; the DMG is served from GitHub.')
     step(f'Deploying the website ({NETLIFY_SITE})')
-    with tempfile.TemporaryDirectory() as temp:
-        staging = pathlib.Path(temp) / 'dist'
-        shutil.copytree(WEBSITE, staging, ignore=shutil.ignore_patterns('.DS_Store'))
-        downloads = staging / 'downloads'
-        for old in downloads.glob('Clockin-*.dmg'):
-            old.unlink()
-        shutil.copy2(dmg, downloads / dmg.name)
-        changed = 0
-        for path in (staging / 'index.html', staging / '_headers'):
-            text = path.read_text()
-            updated = DMG_NAME.sub(dmg.name, text)
-            changed += text != updated
-            path.write_text(updated)
-        if changed != 2:
-            fail('Could not update the download links in index.html and _headers.')
-
-        archive = io.BytesIO()
-        with zipfile.ZipFile(archive, 'w', zipfile.ZIP_DEFLATED) as zipped:
-            for file in sorted(staging.rglob('*')):
-                if file.is_file():
-                    zipped.write(file, file.relative_to(staging).as_posix())
-        _, deploy = api_json('POST', f'https://api.netlify.com/api/v1/sites/{NETLIFY_SITE}/deploys', token,
-                             data=archive.getvalue(), content_type='application/zip')
-        deadline = time.time() + 600
-        while deploy.get('state') != 'ready':
-            if deploy.get('state') == 'error' or time.time() > deadline:
-                fail(f'Netlify deploy did not finish: {deploy.get("error_message") or deploy.get("state")}')
-            time.sleep(4)
-            _, deploy = api_json('GET', f'https://api.netlify.com/api/v1/deploys/{deploy["id"]}', token)
-
-        site = f'https://{NETLIFY_SITE}'
-        print('Checking the live website')
-        page, _ = anonymous_bytes(site + '/')
-        if dmg.name.encode() not in page:
-            fail('The live website does not link to the new DMG yet.')
-        public, headers = anonymous_bytes(f'{site}/downloads/{dmg.name}')
-        if sha256(public) != sha256(dmg.read_bytes()):
-            fail('The website DMG does not match the built one.')
-        if 'attachment' not in (headers.get('Content-Disposition') or ''):
-            fail('The website serves the DMG without an attachment header.')
-
-        # Keep the local site in step with what is live.
-        shutil.rmtree(WEBSITE)
-        shutil.copytree(staging, WEBSITE)
-    print(f'Live: {site}/downloads/{dmg.name}')
+    archive = io.BytesIO()
+    with zipfile.ZipFile(archive, 'w', zipfile.ZIP_DEFLATED) as zipped:
+        for file in sorted(WEBSITE.rglob('*')):
+            if file.is_file() and file.name != '.DS_Store':
+                zipped.write(file, file.relative_to(WEBSITE).as_posix())
+    _, deploy = api_json('POST', f'https://api.netlify.com/api/v1/sites/{NETLIFY_SITE}/deploys', token,
+                         data=archive.getvalue(), content_type='application/zip')
+    deadline = time.time() + 600
+    while deploy.get('state') != 'ready':
+        if deploy.get('state') == 'error' or time.time() > deadline:
+            fail(f'Netlify deploy did not finish: {deploy.get("error_message") or deploy.get("state")}')
+        time.sleep(4)
+        _, deploy = api_json('GET', f'https://api.netlify.com/api/v1/deploys/{deploy["id"]}', token)
+    site = f'https://{NETLIFY_SITE}'
+    page, _ = anonymous_bytes(site + '/')
+    if DOWNLOAD_URL.encode() not in page:
+        fail('The live website does not link to the GitHub download.')
+    print(f'Live: {site}')
 
 
 def publish_feed(version, build, release_dir, info_plist):
@@ -269,13 +277,19 @@ def main():
         version, build, release_dir, notes, commit, info_plist = args
         release_dir = pathlib.Path(release_dir)
         build = int(build)
-        # Order matters: the DMG and website are public before the feed tells
-        # existing installs to update.
+        # Order matters: the DMG and the website download are public before
+        # the feed tells existing installs to update.
         publish_github(version, build, release_dir, notes, commit)
-        publish_website(version, build, release_dir)
+        publish_download(version, build, release_dir)
         publish_feed(version, build, release_dir, info_plist)
+    elif command == 'download':
+        # Points the website download at an already published release.
+        version, build, release_dir = args
+        publish_download(version, int(build), pathlib.Path(release_dir))
+    elif command == 'website':
+        deploy_website()
     else:
-        fail('Usage: publish-mac-release.py preflight VERSION with-credentials|no-credentials | publish ...')
+        fail('Usage: publish-mac-release.py preflight VERSION with-credentials|no-credentials | publish ... | download VERSION BUILD DIR | website')
 
 
 if __name__ == '__main__':

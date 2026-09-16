@@ -6,8 +6,10 @@
 #
 # Steps: checks -> version bump commit + push -> universal build, Developer ID
 # signing, Apple notarization, DMG, signed feed (scripts/release.sh) -> tamper
-# test -> GitHub release -> website -> update feed. Each public step is
-# downloaded again anonymously and compared before the next one starts.
+# test -> GitHub release -> website download (a fixed GitHub URL) -> update
+# feed. Each public step is downloaded again anonymously and compared before
+# the next one starts. Releases never deploy the website to Netlify; run
+# `python3 scripts/publish-mac-release.py website` for site changes only.
 #
 # Needs docs/release-notes-<version>.md and the one-time setup in
 # docs/macos-releases.md. It asks once before changing anything.
@@ -69,7 +71,7 @@ if [[ "$MODE" == publish ]]; then
   print "  signed by: $SIGNING_IDENTITY"
   print "  1. commit the version bump and push $BRANCH"
   print "  2. build, notarize with Apple and package (takes several minutes)"
-  print "  3. GitHub release $TAG, website, then the update feed for existing users"
+  print "  3. GitHub release $TAG, the website download, then the update feed"
 else
   print "Dry run for $VERSION (build $BUILD): ad-hoc build, no commit, nothing published."
 fi

@@ -15,7 +15,7 @@ preferences keep the existing `com.ismailakdag.clockin` bundle identifier.
 
 The current version is **1.1.6 (10)**, for Apple Silicon and Intel. The app and the DMG are both Developer ID signed, notarized by Apple and stapled. The DMG contains the app, an Applications shortcut and the MIT license.
 
-- [Website](https://getclockin.netlify.app) (Netlify project `getclockin`), which hosts its own copy of the DMG
+- [Website](https://getclockin.netlify.app) (Netlify project `getclockin`). Its download buttons point to the fixed [`macos-updates/Clockin.dmg`](https://github.com/ismailakdag/clockin/releases/download/macos-updates/Clockin.dmg) on GitHub, so Netlify serves no installer
 - [GitHub releases](https://github.com/ismailakdag/clockin/releases); each version is `macos-v<version>`, and its tag is the exact source of that build
 - [Signed update feed](https://github.com/ismailakdag/clockin/releases/download/macos-updates/appcast.xml)
 
@@ -31,7 +31,7 @@ The current version is **1.1.6 (10)**, for Apple Silicon and Intel. The app and 
 
 After 1.1.1 through 1.1.6 were published, the live feed, the GitHub DMG and the website DMG were downloaded anonymously. They matched the build byte for byte, and the DMG and app passed `spctl` and `stapler validate`.
 
-New releases use [Release with one command](#release-with-one-command). It raises the build number, signs with the existing Developer ID identity and Sparkle key, notarizes, and publishes the DMG and website before the feed. The manual sections further down describe the same steps individually; their examples are from the 1.1.0 release. Never move the Mac feed to the repository's generic latest-release URL.
+New releases use [Release with one command](#release-with-one-command). It raises the build number, signs with the existing Developer ID identity and Sparkle key, notarizes, and publishes the DMG and the website download before the feed. It does not deploy the website. The manual sections further down describe the same steps individually; their examples are from the 1.1.0 release. Never move the Mac feed to the repository's generic latest-release URL.
 
 The feed uses the dedicated `macos-updates` release instead of `releases/latest`,
 so future iPhone or prerelease uploads do not break Mac update checks. Before
@@ -54,9 +54,8 @@ it runs unattended:
 2. builds, signs, notarizes and packages with `scripts/release.sh`, then checks
    that a tampered feed or DMG is rejected;
 3. publishes the GitHub release `macos-v<version>` on that commit;
-4. deploys the website to Netlify with the new DMG and download links. It uploads
-   the local `website/dist` as it is, so any unpublished site edits on that Mac
-   go live with the release;
+4. replaces `Clockin.dmg` in the `macos-updates` release. The website links there,
+   so the site needs no deploy;
 5. replaces the feed in `macos-updates`, which is when installed copies see the update.
 
 Each public step is downloaded again anonymously and compared with the built
@@ -68,12 +67,30 @@ It must run on the Mac that holds the Developer ID certificate and the Sparkle
 key. After an Xcode update, accept its license once (`sudo xcodebuild -license accept`);
 until then `git`, `swift` and the release tools stop with a license error. The release is made from whatever branch is checked out; normally `main`.
 
+### Website
+
+Netlify charges credits for every deploy and for the bytes it serves, so
+releases leave the site alone and the installer is served by GitHub. Until
+1.1.6 every release redeployed the site with its own copy of the DMG.
+
+Deploy only when the site's content changes:
+
+```sh
+python3 scripts/publish-mac-release.py website
+```
+
+It uploads the local `website/dist` as it is and refuses if the page does not
+link to `macos-updates/Clockin.dmg` or if a DMG is inside `website/dist`.
+To point the download at an already published build, for example after a
+failed release, run
+`python3 scripts/publish-mac-release.py download <version> <build> dist/releases/<version>-<build>`.
+
 ### One-time setup
 
 - **Notarization profile.** Run `xcrun notarytool store-credentials ClockinNotary`
   and follow its prompts (Apple ID, team `LU36PKDPT3`, and an app-specific
   password from account.apple.com). The password stays in the Keychain.
-- **Netlify token.** Create a personal access token in Netlify (User settings →
+- **Netlify token** (only for website deploys). Create a personal access token in Netlify (User settings →
   Applications) and store it with
   `security add-generic-password -a getclockin -s clockin-netlify -w`,
   which asks for the value without echoing it.
