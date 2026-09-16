@@ -21,7 +21,9 @@ struct ClockinMascotStage: View {
     @State private var reactionMood: MascotMood?
     @State private var lastReaction: MascotReaction?
 
-    private var moving: Bool { !reduceMotion && scenePhase == .active }
+    @Environment(\.clockinContentActive) private var contentActive
+    @State private var appeared = false
+    private var moving: Bool { appeared && contentActive && !reduceMotion && scenePhase == .active }
 
     private struct ReactionKey: Equatable {
         let tap: MascotTap?
@@ -41,6 +43,8 @@ struct ClockinMascotStage: View {
             }
         }
         .contentShape(Rectangle())
+        .onAppear { appeared = true }
+        .onDisappear { appeared = false }
         .onTapGesture { react() }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(state == .celebrate ? "Celebrating focus companion" : "Focus companion")
@@ -79,6 +83,8 @@ struct ClockinMascotStage: View {
     }
 
     private func react() {
+        guard appeared, contentActive, scenePhase == .active else { return }
+        Haptics.play(.companionReaction)
         guard moving else { return }
         var random = SystemRandomNumberGenerator()
         let reaction = MascotReaction.pick(after: lastReaction, using: &random)
@@ -127,7 +133,9 @@ struct ClockinMotionMascot: View {
         let name: String
     }
 
-    private var moving: Bool { !reduceMotion && scenePhase == .active }
+    @Environment(\.clockinContentActive) private var contentActive
+    @State private var appeared = false
+    private var moving: Bool { appeared && contentActive && !reduceMotion && scenePhase == .active }
     private var clips: MascotMoodClips? { MascotFrames.shared.library?[mood] }
 
     var body: some View {
@@ -142,6 +150,8 @@ struct ClockinMotionMascot: View {
             dark: colorScheme == .dark
         )
         .accessibilityHidden(true)
+        .onAppear { appeared = true }
+        .onDisappear { appeared = false }
         .task(id: RunKey(mood: mood, moving: moving, lead: leadClip?.id)) { await run() }
         .onChange(of: mood) { _, newMood in
             if moving { pop += 1 }
