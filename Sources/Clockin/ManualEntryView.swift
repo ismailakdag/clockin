@@ -42,11 +42,17 @@ struct ManualEntryView: View {
     private var crossesMidnight: Bool { combine(endTime) < resolvedStart }
 
     private var resolvedEnd: Date {
-        let end = combine(endTime)
-        return crossesMidnight ? end.addingTimeInterval(86_400) : end
+        EntryTimes.end(start: resolvedStart, end: combine(endTime), calendar: .current)
     }
 
-    private var duration: TimeInterval { resolvedEnd.timeIntervalSince(resolvedStart) }
+    /// Kaydedilecek sure, magazanin kaydedecegiyle ayni hesap. Duraklatilmis
+    /// ya da ice aktarilmis bir kayitta saatler degisince mola korunur;
+    /// onizleme araligin tamamini gosterip kaydedilenden fazla goruyordu.
+    private var duration: TimeInterval {
+        guard let editing else { return resolvedEnd.timeIntervalSince(resolvedStart) }
+        let times = savedTimes(for: editing)
+        return EntryTimes.workedDuration(start: times.start, end: times.end, replacing: editing)
+    }
     private var earnings: Double {
         duration / 3600 * store.effectiveRate(at: resolvedStart, fallback: store.hourlyRate)
     }
@@ -76,28 +82,26 @@ struct ManualEntryView: View {
                     .font(.system(size: S(11))).foregroundStyle(.secondary)
             }
 
-            field("DAY") {
-                DatePicker("", selection: $day, displayedComponents: .date)
-                    .labelsHidden().datePickerStyle(.compact)
+            field("Day") {
+                ClockinDateField("Day", selection: $day, displayedComponents: .date, systemImage: "calendar")
+                    .frame(minHeight: S(32))
             }
 
             HStack(spacing: S(12)) {
-                field("START") {
-                    DatePicker("", selection: $startTime, displayedComponents: .hourAndMinute)
-                        .labelsHidden().datePickerStyle(.compact)
+                field("Start") {
+                    ClockinDateField("Start", selection: $startTime, displayedComponents: .hourAndMinute, systemImage: "clock")
+                    .frame(minHeight: S(32))
                 }
-                field("END") {
-                    DatePicker("", selection: $endTime, displayedComponents: .hourAndMinute)
-                        .labelsHidden().datePickerStyle(.compact)
+                field("End") {
+                    ClockinDateField("End", selection: $endTime, displayedComponents: .hourAndMinute, systemImage: "clock")
+                    .frame(minHeight: S(32))
                 }
             }
 
             VStack(alignment: .leading, spacing: S(6)) {
-                Text("NOTE (OPTIONAL)")
-                    .font(.system(size: S(9), weight: .bold)).foregroundStyle(.secondary).tracking(S(1))
-                TextField("What were you working on?", text: $note)
-                    .textFieldStyle(.plain).padding(S(10))
-                    .background(theme.surface, in: RoundedRectangle(cornerRadius: S(9)))
+                Text("Note (optional)")
+                    .font(ClockinFont.section).foregroundStyle(.secondary)
+                ClockinTextField(placeholder: "What were you working on?", text: $note, alignment: .leading)
             }
 
             HStack {
@@ -112,7 +116,7 @@ struct ManualEntryView: View {
                 }
                 Spacer()
                 Button("Cancel") { dismiss() }
-                    .buttonStyle(.hitTarget).foregroundStyle(.secondary)
+                    .buttonStyle(.clockin(.secondary)).foregroundStyle(.secondary)
                 Button(editing == nil ? "Add entry" : "Save") {
                     let saved: Bool
                     if let editing {
@@ -123,16 +127,16 @@ struct ManualEntryView: View {
                     }
                     if saved { dismiss() }
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.clockin(.primary))
                 .tint(theme.accent)
-                .foregroundStyle(.black)
                 .disabled(duration <= 0)
             }
         }
         .padding(S(20))
-        .frame(width: S(430), height: S(400))
+        .frame(width: S(390), height: S(420))
         .background(theme.background)
         .fontDesign(theme.fontDesign)
+        .clockinTextStyles()
         .preferredColorScheme(theme.colorScheme)
         .onAppear {
             guard let editing else { return }
@@ -146,7 +150,7 @@ struct ManualEntryView: View {
     private func field<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: S(6)) {
             Text(title)
-                .font(.system(size: S(9), weight: .bold)).foregroundStyle(.secondary).tracking(S(1))
+                .font(ClockinFont.section).foregroundStyle(.secondary)
             content()
         }
     }

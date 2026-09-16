@@ -3,11 +3,42 @@ import SwiftUI
 
 private enum HistoryRange: String, CaseIterable, Identifiable {
     case week = "7D"
+    /// The calendar month so far: work months start on the 1st.
+    case thisMonth = "Month"
     case month = "30D"
     case quarter = "3M"
     case all = "ALL"
+
     var id: String { rawValue }
-    var days: Int? { switch self { case .week: 7; case .month: 30; case .quarter: 90; case .all: nil } }
+
+    var title: String {
+        switch self {
+        case .week: "Last 7 days"
+        case .thisMonth: "This month"
+        case .month: "Last 30 days"
+        case .quarter: "Last 3 months"
+        case .all: "All time"
+        }
+    }
+
+    /// The first day this range covers, or nil for everything.
+    func start(at date: Date, calendar: Calendar = .autoupdatingCurrent) -> Date? {
+        let today = calendar.startOfDay(for: date)
+        return switch self {
+        case .week: calendar.date(byAdding: .day, value: -6, to: today)
+        case .thisMonth: calendar.dateInterval(of: .month, for: today)?.start
+        case .month: calendar.date(byAdding: .day, value: -29, to: today)
+        case .quarter: calendar.date(byAdding: .day, value: -89, to: today)
+        case .all: nil
+        }
+    }
+
+    /// Calendar days the range covers, for the averages.
+    func dayCount(at date: Date, calendar: Calendar = .autoupdatingCurrent) -> Double? {
+        guard let start = start(at: date, calendar: calendar) else { return nil }
+        let days = calendar.dateComponents([.day], from: start, to: calendar.startOfDay(for: date)).day ?? 0
+        return max(1, Double(days) + 1)
+    }
 }
 
 private struct DailyEarning: Identifiable {
@@ -22,10 +53,14 @@ struct HistoryView: View {
     @AppStorage(UIScale.key) private var uiScaleObserver = UIScale.defaultPercent
     @EnvironmentObject private var store: ClockStore
     @EnvironmentObject private var exchangeRates: ExchangeRateStore
-    @State private var range: HistoryRange = .month
+    // Work months start on the 1st, so History opens on this month.
+    @AppStorage("Clockin.HistoryRange") private var rangeRaw = HistoryRange.thisMonth.rawValue
+    private var range: HistoryRange { HistoryRange(rawValue: rangeRaw) ?? .thisMonth }
     @State private var showTRY = true
+    private var chartInTRY: Bool { showTRY && store.currencyCode == "USD" }
     @State private var pendingDelete: WorkSession?
     @State private var hoveredDate: Date?
+    @State private var hoveredSession: UUID?
     @State private var showAllSessions = false
     @State private var showManualEntry = false
     @State private var editingSession: WorkSession?
@@ -37,27 +72,26 @@ struct HistoryView: View {
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
+            let chartPoints = points(at: context.date)
             VStack(spacing: S(0)) {
                 header
                 ScrollView {
-                    VStack(alignment: .leading, spacing: S(14)) {
+                    VStack(alignment: .leading, spacing: S(20)) {
                         summary(at: context.date)
-                    Picker("Range", selection: $range) {
-                        ForEach(HistoryRange.allCases) { Text($0.rawValue).tag($0) }
-                    }
-                    .pickerStyle(.segmented)
-                    chartCard(at: context.date)
+                    ClockinSegmented(selection: $rangeRaw, options: HistoryRange.allCases.map { (value: $0.rawValue, label: $0 == .all ? "All" : $0.rawValue) })
+                    chartCard(chartPoints)
+                    averagesStrip(chartPoints)
                     HStack {
                         Text(groupByDay
-                             ? "BY DAY • \(filteredDays.count)"
-                             : "ALL SESSIONS • \(filteredSessions.count)")
-                            .font(.system(size: S(9), weight: .bold)).foregroundStyle(.secondary).tracking(S(1.2))
+                             ? "By day • \(filteredDays.count)"
+                             : "Sessions • \(filteredSessions.count)")
+                            .font(ClockinFont.section).foregroundStyle(.secondary)
                         Spacer()
                         Button(groupByDay ? "Sessions" : "By day") { groupByDay.toggle() }
-                            .buttonStyle(.hitTarget).font(.system(size: S(9), weight: .bold)).foregroundStyle(theme.accent)
+                            .buttonStyle(.clockin(.tinted, size: .small)).font(.system(size: S(10), weight: .bold)).foregroundStyle(theme.accent)
                         if (groupByDay ? filteredDays.count : filteredSessions.count) > 30 {
                             Button(showAllSessions ? "Show recent" : "Show all") { showAllSessions.toggle() }
-                                .buttonStyle(.hitTarget).font(.system(size: S(9), weight: .bold)).foregroundStyle(theme.accent)
+                                .buttonStyle(.clockin(.tinted, size: .small)).font(.system(size: S(10), weight: .bold)).foregroundStyle(theme.accent)
                                 .padding(.leading, S(10))
                         }
                     }
@@ -74,6 +108,7 @@ struct HistoryView: View {
             }
         }
         .fontDesign(theme.fontDesign)
+        .clockinTextStyles()
         .sheet(isPresented: $showManualEntry) {
             ManualEntryView().environmentObject(store)
         }
@@ -95,23 +130,16 @@ struct HistoryView: View {
     }
 
     private var header: some View {
-        HStack {
-            Text("EARNINGS HISTORY").font(.system(size: S(13), weight: .black, design: .rounded)).tracking(S(1.3))
-            Spacer()
-            Button { showManualEntry = true } label: {
-                Image(systemName: "plus").frame(width: S(26), height: S(26))
+        ClockinScreenHeader(title: "History") {
+            Button { showManualEntry = true } label: { Image(systemName: "plus") }
+                .buttonStyle(.clockinIcon(tint: theme.accent))
+                .help("Add a past entry by hand").accessibilityLabel("Add a past entry")
+            if store.currencyCode == "USD" {
+                Button(showTRY ? "TRY" : "USD") { showTRY.toggle() }
+                    .buttonStyle(.clockin(.tinted, size: .small))
+                    .help("Switch chart currency")
             }
-            .buttonStyle(.hitTarget).foregroundStyle(theme.accent)
-            .help("Add a past entry by hand")
-            Button(showTRY ? "TRY" : "USD") { showTRY.toggle() }
-                .buttonStyle(.hitTarget)
-                .font(.system(size: S(10), weight: .bold, design: .rounded))
-                .foregroundStyle(theme.accent)
-                .padding(.horizontal, S(9)).padding(.vertical, S(5))
-                .background(theme.accent.opacity(0.1), in: Capsule())
         }
-        .padding(.horizontal, S(15)).frame(height: S(50))
-        .background(.white.opacity(0.025))
         .overlay(alignment: .bottom) { Divider().opacity(0.25) }
     }
 
@@ -119,14 +147,14 @@ struct HistoryView: View {
         let totals = scopedTotals(at: date)
         return HStack {
             VStack(alignment: .leading, spacing: S(4)) {
-                Text("TOTAL EARNED").font(.system(size: S(9), weight: .bold)).foregroundStyle(.secondary).tracking(S(1))
+                Text("Total earned").font(ClockinFont.section).foregroundStyle(.secondary)
                 Text(totals.earnings.money(code: store.currencyCode))
                     .font(.system(size: S(25), weight: .bold, design: .rounded))
                 if store.currencyCode == "USD", let rate = exchangeRates.latestRate {
-                    Text("\(range.rawValue) • \(totals.includesActive ? "includes active" : "completed") • ≈ \((totals.earnings * rate).money(code: "TRY"))")
+                    Text("\(range.title) • \(totals.includesActive ? "includes active" : "completed") • \((totals.earnings * rate).money(code: "TRY"))")
                         .font(.system(size: S(11))).foregroundStyle(theme.accent)
                 } else {
-                    Text("\(range.rawValue) • \(totals.includesActive ? "includes active" : "completed")")
+                    Text("\(range.title) • \(totals.includesActive ? "includes active" : "completed")")
                         .font(.system(size: S(11))).foregroundStyle(theme.accent)
                 }
             }
@@ -145,25 +173,18 @@ struct HistoryView: View {
         guard let running = store.running else {
             return (completedDuration, completedEarnings, false)
         }
-        let activeIncluded: Bool
-        if let days = range.days,
-           let cutoff = Calendar.current.date(byAdding: .day, value: -days + 1, to: date) {
-            activeIncluded = running.start >= Calendar.current.startOfDay(for: cutoff)
-        } else {
-            activeIncluded = true
-        }
+        let activeIncluded = range.start(at: date).map { running.start >= $0 } ?? true
         guard activeIncluded else { return (completedDuration, completedEarnings, false) }
         return (completedDuration + running.elapsed(at: date), completedEarnings + store.currentEarnings(at: date), true)
     }
 
-    private func chartCard(at date: Date) -> some View {
-        let chartPoints = points(at: date)
+    private func chartCard(_ chartPoints: [DailyEarning]) -> some View {
         return VStack(alignment: .leading, spacing: S(10)) {
             HStack {
-                Text("DAILY EARNINGS").font(.system(size: S(9), weight: .bold)).foregroundStyle(.secondary).tracking(S(1))
+                Text("Daily earnings").font(ClockinFont.section).foregroundStyle(.secondary)
                 Spacer()
-                Text(showTRY ? "Historical daily TRY" : "USD")
-                    .font(.system(size: S(9))).foregroundStyle(.tertiary)
+                Text(chartInTRY ? "Historical daily TRY" : store.currencyCode)
+                    .font(.system(size: S(10))).foregroundStyle(.secondary)
             }
             Group {
                 if let point = hoveredPoint(in: chartPoints) {
@@ -171,20 +192,21 @@ struct HistoryView: View {
                 } else {
                     HStack {
                         Image(systemName: "cursorarrow.motionlines").foregroundStyle(.secondary)
-                        Text("Hover a bar for hours, USD, TRY and daily rate")
-                            .font(.system(size: S(9))).foregroundStyle(.secondary)
+                        Text(store.currencyCode == "USD" ? "Hover a point for hours, USD, TRY and daily rate" : "Hover a point for hours and earnings")
+                            .font(.system(size: S(10))).foregroundStyle(.secondary)
                     }
                 }
             }
             .frame(maxWidth: .infinity, minHeight: S(42), maxHeight: S(42), alignment: .leading)
             .padding(.horizontal, S(9))
-            .background(.black.opacity(0.14), in: RoundedRectangle(cornerRadius: S(9)))
+            .background(theme.control, in: RoundedRectangle(cornerRadius: S(9)))
             if chartPoints.isEmpty {
                 Text("No earnings in this period.").font(.system(size: S(11))).foregroundStyle(.secondary).frame(height: S(120))
             } else {
                 ScrollView(.horizontal, showsIndicators: false) {
-                    Chart(chartPoints) { point in
-                        let value = showTRY ? (point.tryValue ?? 0) : point.usd
+                    Chart {
+                        ForEach(chartPoints) { point in
+                        let value = chartInTRY ? (point.tryValue ?? 0) : point.usd
                         LineMark(
                             x: .value("Date", point.date),
                             y: .value("Earnings", value)
@@ -204,29 +226,42 @@ struct HistoryView: View {
                         )
                         .foregroundStyle(theme.accent)
                         .symbolSize(52)
+                        }
                     }
                     .chartXAxis {
                         AxisMarks(values: .automatic(desiredCount: min(4, chartPoints.count))) { value in
                             AxisValueLabel {
                                 if let date = value.as(Date.self) {
                                     Text(date, format: .dateTime.day().month(.abbreviated))
-                                        .font(.system(size: S(8), weight: .medium, design: .rounded))
+                                        .font(.system(size: S(10), weight: .medium, design: .rounded))
                                         .lineLimit(1).minimumScaleFactor(0.7)
                                 }
                             }
-                            AxisGridLine().foregroundStyle(.white.opacity(0.04))
+                            AxisGridLine().foregroundStyle(theme.cardStroke)
+                        }
+                        // Where each work month starts, so the 1st is easy to find.
+                        AxisMarks(values: monthStarts(in: chartPoints)) { value in
+                            AxisGridLine(stroke: StrokeStyle(lineWidth: 1, dash: [3, 3]))
+                                .foregroundStyle(theme.secondary.opacity(0.5))
+                            AxisValueLabel {
+                                if let date = value.as(Date.self) {
+                                    Text(date, format: .dateTime.month(.abbreviated))
+                                        .font(.system(size: S(10), weight: .bold, design: .rounded))
+                                        .foregroundStyle(theme.secondary)
+                                }
+                            }
                         }
                     }
                     .chartYAxis {
                         AxisMarks(position: .leading) { value in
-                            AxisGridLine().foregroundStyle(.white.opacity(0.06))
+                            AxisGridLine().foregroundStyle(theme.cardStroke)
                             AxisValueLabel {
                                 if let number = value.as(Double.self) { Text(number, format: .number.notation(.compactName)) }
                             }
                         }
                     }
                     .chartYScale(domain: 0...chartMaximum)
-                    .chartPlotStyle { plot in plot.padding(.top, S(10)) }
+                    .chartPlotStyle { plot in plot.padding(.top, S(18)) }
                     .chartOverlay { proxy in
                         GeometryReader { geometry in
                             Rectangle().fill(.clear).contentShape(Rectangle())
@@ -247,7 +282,6 @@ struct HistoryView: View {
                     }
                     .frame(width: max(390, CGFloat(chartPoints.count) * 30), height: S(180))
                 }
-                averagesStrip(chartPoints)
             }
         }
         .padding(S(14)).background(card)
@@ -259,24 +293,26 @@ struct HistoryView: View {
         let activeDays = values.filter { $0.duration > 0 }.count
         let daily = totalHours / calendarDays
         let activeDayAverage = totalHours / Double(max(activeDays, 1))
-        return VStack(alignment: .leading, spacing: S(5)) {
-            Text("AVERAGES • CALENDAR DAYS (\(Int(calendarDays)))")
-                .font(.system(size: S(7), weight: .bold)).foregroundStyle(.tertiary).tracking(S(0.7))
-            HStack(spacing: S(7)) {
-            averageChip("DAILY AVG", hours: daily)
-            averageChip("WEEKLY AVG", hours: daily * 7)
-            averageChip("MONTHLY AVG", hours: daily * 30.44)
+        return VStack(alignment: .leading, spacing: S(12)) {
+            HStack {
+                Text("Averages").font(ClockinFont.section)
+                Spacer()
+                Text("\(Int(calendarDays)) calendar days").font(ClockinFont.caption).foregroundStyle(.secondary)
             }
-            HStack(spacing: S(7)) {
-                metricChip("ACTIVE DAYS", value: "\(activeDays)")
-                averageChip("ACTIVE-DAY AVG", hours: activeDayAverage)
+            LazyVGrid(columns: [GridItem(.flexible(), alignment: .leading), GridItem(.flexible(), alignment: .leading)], alignment: .leading, spacing: S(14)) {
+                averageChip("Daily", hours: daily)
+                averageChip("Weekly", hours: daily * 7)
+                averageChip("Monthly", hours: daily * 30.44)
+                averageChip("Per active day", hours: activeDayAverage)
+                metricChip("Active days", value: "\(activeDays)")
             }
         }
+        .padding(S(16)).background(card)
     }
 
     private func selectedCalendarDays(at date: Date) -> Double {
         let calendar = Calendar.autoupdatingCurrent
-        if let days = range.days { return Double(days) }
+        if let days = range.dayCount(at: date) { return days }
         guard let earliest = store.sessions.map(\.start).min() else { return 1 }
         let start = calendar.startOfDay(for: earliest)
         let end = calendar.startOfDay(for: date)
@@ -285,39 +321,31 @@ struct HistoryView: View {
 
     private func averageChip(_ label: String, hours: Double) -> some View {
         let minutes = max(0, Int((hours * 60).rounded()))
-        return VStack(alignment: .leading, spacing: S(2)) {
-            Text(label).font(.system(size: S(7), weight: .bold)).foregroundStyle(.secondary)
-            Text("\(minutes / 60)h \(minutes % 60)m").font(.system(size: S(9), weight: .semibold, design: .monospaced))
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.vertical, S(6)).padding(.horizontal, S(7))
-        .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: S(7)))
+        return metricChip(label, value: "\(minutes / 60)h \(minutes % 60)m")
     }
 
     private func metricChip(_ label: String, value: String) -> some View {
-        VStack(alignment: .leading, spacing: S(2)) {
-            Text(label).font(.system(size: S(7), weight: .bold)).foregroundStyle(.secondary)
-            Text(value).font(.system(size: S(9), weight: .semibold, design: .monospaced))
+        VStack(alignment: .leading, spacing: S(5)) {
+            Text(label).font(ClockinFont.caption).foregroundStyle(.secondary)
+            Text(value).font(ClockinFont.body.monospacedDigit())
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.vertical, S(6)).padding(.horizontal, S(7))
-        .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: S(7)))
     }
 
     private func hoverSummary(_ point: DailyEarning) -> some View {
         HStack(spacing: S(10)) {
             VStack(alignment: .leading, spacing: S(2)) {
             Text(point.date.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day()))
-                .font(.system(size: S(9), weight: .bold))
+                .font(.system(size: S(10), weight: .bold))
                 Text("\(DurationText.compact(point.duration)) worked")
-                    .font(.system(size: S(8))).foregroundStyle(.secondary)
+                    .font(.system(size: S(10))).foregroundStyle(.secondary)
             }
             Spacer(minLength: 4)
             VStack(alignment: .trailing, spacing: S(2)) {
-                Text(point.usd.money(code: "USD")).font(.system(size: S(9), weight: .semibold))
+                Text(point.usd.money(code: store.currencyCode)).font(.system(size: S(10), weight: .semibold))
             if let value = point.tryValue, point.usd > 0 {
-                    Text("≈ \(value.money(code: "TRY")) • rate \(String(format: "%.3f", value / point.usd))")
-                        .font(.system(size: S(8), design: .monospaced)).foregroundStyle(theme.accent)
+                    Text("\(value.money(code: "TRY")) • rate \(String(format: "%.3f", value / point.usd))")
+                        .font(.system(size: S(10), design: .monospaced)).foregroundStyle(theme.accent)
                 }
             }
         }
@@ -327,9 +355,12 @@ struct HistoryView: View {
         let expanded = expandedDays.contains(day.day)
         let earnings = day.sessions.reduce(0) { $0 + store.earnings(for: $1) }
         return VStack(alignment: .leading, spacing: S(8)) {
+            Button {
+                if expanded { expandedDays.remove(day.day) } else { expandedDays.insert(day.day) }
+            } label: {
             HStack(spacing: S(11)) {
                 Image(systemName: expanded ? "chevron.down" : "chevron.right")
-                    .font(.system(size: S(9), weight: .bold)).foregroundStyle(.secondary)
+                    .font(.system(size: S(10), weight: .bold)).foregroundStyle(.secondary)
                 VStack(alignment: .leading, spacing: S(4)) {
                     Text(day.day.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day()))
                         .font(.system(size: S(12), weight: .semibold))
@@ -339,64 +370,75 @@ struct HistoryView: View {
                 Spacer()
                 VStack(alignment: .trailing, spacing: S(3)) {
                     Text(earnings.money(code: store.currencyCode)).font(.system(size: S(11), weight: .semibold))
-                    Text(DurationText.compact(day.duration)).font(.system(size: S(9))).foregroundStyle(.secondary)
+                    Text(DurationText.compact(day.duration)).font(.system(size: S(10))).foregroundStyle(.secondary)
                 }
             }
-            .contentShape(Rectangle())
-            .onTapGesture {
-                if expanded { expandedDays.remove(day.day) } else { expandedDays.insert(day.day) }
             }
+            .buttonStyle(.clockin(.secondary, size: .small, fullWidth: true))
+            .accessibilityValue(expanded ? "Expanded" : "Collapsed")
 
             if expanded {
                 VStack(spacing: S(6)) {
                     ForEach(day.sessions) { session in historyRow(session) }
                 }
-                .padding(.leading, S(18))
+                .padding(.leading, S(0))
             }
         }
         .padding(S(12)).background(card)
     }
 
     private func historyRow(_ session: WorkSession) -> some View {
-        HStack(spacing: S(11)) {
-            VStack(alignment: .leading, spacing: S(4)) {
-                HStack(spacing: S(6)) {
+        VStack(alignment: .leading, spacing: S(10)) {
+            HStack(alignment: .top, spacing: S(12)) {
+                VStack(alignment: .leading, spacing: S(5)) {
                     Text(session.start.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day()))
-                        .font(.system(size: S(12), weight: .semibold))
-                    if let source = session.matchedExternalSource {
-                        Label("Matched \(source)", systemImage: "checkmark.seal.fill")
-                            .font(.system(size: S(8), weight: .bold)).foregroundStyle(theme.secondary)
+                        .font(ClockinFont.body)
+                    Text("\(session.start.formatted(date: .omitted, time: .shortened)) – \(session.end.formatted(date: .omitted, time: .shortened))")
+                        .font(ClockinFont.caption).foregroundStyle(.secondary)
+                    if !Calendar.current.isDate(session.start, inSameDayAs: session.end) {
+                        Text("Ends \(session.end.formatted(.dateTime.month(.abbreviated).day()))")
+                            .font(ClockinFont.caption).foregroundStyle(.secondary)
                     }
                 }
-                Text("\(session.start.formatted(date: .omitted, time: .shortened)) – \(session.end.formatted(date: .omitted, time: .shortened))  •  \(session.note.isEmpty ? session.source : session.note)")
-                    .font(.system(size: S(10))).foregroundStyle(.secondary).lineLimit(1)
-            }
-            Spacer()
-            VStack(alignment: .trailing, spacing: S(3)) {
-                Text(store.earnings(for: session).money(code: store.currencyCode)).font(.system(size: S(11), weight: .semibold))
-                if store.currencyCode == "USD", let rate = exchangeRates.rate(on: session.start) {
-                    Text((store.earnings(for: session) * rate).money(code: "TRY")).font(.system(size: S(9))).foregroundStyle(theme.accent)
-                } else {
-                    Text(DurationText.compact(session.duration)).font(.system(size: S(9))).foregroundStyle(.secondary)
+                Spacer(minLength: S(4))
+                VStack(alignment: .trailing, spacing: S(5)) {
+                    Text(store.earnings(for: session).money(code: store.currencyCode))
+                        .font(ClockinFont.body.monospacedDigit())
+                    Text(DurationText.compact(session.duration))
+                        .font(ClockinFont.caption.monospacedDigit()).foregroundStyle(.secondary)
+                    if store.currencyCode == "USD", let rate = exchangeRates.rate(on: session.start) {
+                        Text((store.earnings(for: session) * rate).money(code: "TRY"))
+                            .font(ClockinFont.caption).foregroundStyle(theme.accent)
+                    }
                 }
             }
-            Button { editingSession = session } label: {
-                Image(systemName: "pencil").font(.system(size: S(10))).foregroundStyle(.secondary)
+            HStack(spacing: S(8)) {
+                VStack(alignment: .leading, spacing: S(3)) {
+                    Text(session.note.isEmpty ? session.source : session.note)
+                        .font(ClockinFont.caption).foregroundStyle(.secondary).lineLimit(2)
+                        .help(session.note.isEmpty ? session.source : session.note)
+                    if let source = session.matchedExternalSource {
+                        Label("Matched \(source)", systemImage: "checkmark.seal.fill")
+                            .font(ClockinFont.caption).foregroundStyle(theme.secondary)
+                    }
+                }
+                Spacer(minLength: S(4))
+                Button { editingSession = session } label: { Image(systemName: "pencil") }
+                    .buttonStyle(.clockinIcon(size: 26))
+                    .help("Edit times or note").accessibilityLabel("Edit times or note")
+                Button { pendingDelete = session } label: { Image(systemName: "trash") }
+                    .buttonStyle(.clockinIcon(size: 26, destructive: true))
+                    .help("Delete this session").accessibilityLabel("Delete this session")
             }
-            .buttonStyle(.hitTarget)
-            .help("Edit times or note")
-            Button { pendingDelete = session } label: {
-                Image(systemName: "trash").font(.system(size: S(10))).foregroundStyle(.secondary)
-            }
-            .buttonStyle(.hitTarget)
-            .help("Delete this session")
+            .opacity(hoveredSession == session.id ? 1 : 0.8)
         }
-        .padding(S(12)).background(card)
+        .padding(S(14)).background(card)
+        .onHover { inside in hoveredSession = inside ? session.id : nil }
     }
 
     private var filteredSessions: [WorkSession] {
-        guard let days = range.days, let cutoff = Calendar.current.date(byAdding: .day, value: -days + 1, to: .now) else { return store.sessions }
-        return store.sessions.filter { $0.start >= Calendar.current.startOfDay(for: cutoff) }
+        guard let start = range.start(at: .now) else { return store.sessions }
+        return store.sessions.filter { $0.start >= start }
     }
 
     private var visibleSessions: [WorkSession] {
@@ -439,8 +481,7 @@ struct HistoryView: View {
         }
         if let running = store.running {
             let day = calendar.startOfDay(for: running.start)
-                let included = range.days.flatMap { calendar.date(byAdding: .day, value: -$0 + 1, to: date) }
-                .map { day >= calendar.startOfDay(for: $0) } ?? true
+            let included = range.start(at: date, calendar: calendar).map { day >= $0 } ?? true
             if included {
                 let old = totals[day] ?? (0, 0)
                 totals[day] = (old.duration + store.elapsed(at: date), old.usd + store.currentEarnings(at: date))
@@ -448,8 +489,24 @@ struct HistoryView: View {
         }
         return totals.map { date, value in
             DailyEarning(date: date, duration: value.duration, usd: value.usd,
-                         tryValue: (exchangeRates.rate(on: date) ?? exchangeRates.latestRate).map { value.usd * $0 })
+                         tryValue: store.currencyCode == "USD"
+                            ? (exchangeRates.rate(on: date) ?? exchangeRates.latestRate).map { value.usd * $0 } : nil)
         }.sorted { $0.date < $1.date }
+    }
+
+    /// The first of each month covered by the chart, skipping a marker on the
+    /// very first point where it would sit on the axis.
+    private func monthStarts(in points: [DailyEarning]) -> [Date] {
+        guard let first = points.first?.date, let last = points.last?.date else { return [] }
+        let calendar = Calendar.autoupdatingCurrent
+        var starts: [Date] = []
+        var cursor = calendar.dateInterval(of: .month, for: first)?.start ?? first
+        while cursor <= last {
+            if cursor > first { starts.append(cursor) }
+            guard let next = calendar.date(byAdding: .month, value: 1, to: cursor) else { break }
+            cursor = next
+        }
+        return starts
     }
 
     private func hoveredPoint(in values: [DailyEarning]) -> DailyEarning? {
@@ -458,13 +515,13 @@ struct HistoryView: View {
     }
 
     private var chartMaximum: Double {
-        let values = points(at: .now).map { showTRY ? ($0.tryValue ?? 0) : $0.usd }
+        let values = points(at: .now).map { chartInTRY ? ($0.tryValue ?? 0) : $0.usd }
         return max(1, (values.max() ?? 0) * 1.22)
     }
 
     private var card: some View {
         RoundedRectangle(cornerRadius: S(15), style: .continuous)
-            .fill(.white.opacity(0.045))
-            .overlay(RoundedRectangle(cornerRadius: S(15)).stroke(.white.opacity(0.07)))
+            .fill(theme.card)
+            .overlay(RoundedRectangle(cornerRadius: S(15)).stroke(theme.cardStroke))
     }
 }

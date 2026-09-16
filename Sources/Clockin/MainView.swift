@@ -16,7 +16,6 @@ struct MainView: View {
     @State private var showManualEntry = false
     @State private var editingSession: WorkSession?
     @State private var pendingDelete: WorkSession?
-    @State private var shimmer = false
     @State private var confirmCancel = false
     @State private var showRateSchedule = false
     @State private var completedSummary: WorkSession?
@@ -122,6 +121,7 @@ struct MainView: View {
         .scrollBounceBehavior(.basedOnSize)
         .background(theme.background)
         .fontDesign(theme.fontDesign)
+        .clockinTextStyles()
         .preferredColorScheme(theme.colorScheme)
         .onAppear {
             rateText = formattedRate
@@ -187,14 +187,7 @@ struct MainView: View {
         // Varsayilan bosluk olcekle buyumez; %130'da diger her sey buyurken
         // bu aralik sabit kalirdi.
         return HStack(spacing: S(8)) {
-            HStack(spacing: S(9)) {
-                Image(systemName: "timer")
-                    .font(.system(size: S(16), weight: .bold))
-                    .foregroundStyle(theme.accent)
-                Text("CLOCKIN")
-                    .font(.system(size: S(14), weight: .black, design: theme.fontDesign))
-                    .tracking(S(1.8))
-            }
+            ClockinLogo(size: 26)
             Spacer()
             levelChip(stats)
             HStack(spacing: S(2)) {
@@ -204,16 +197,16 @@ struct MainView: View {
                     Image(systemName: store.pinVisible ? "pin.fill" : "pin")
                         .frame(width: S(28), height: S(28))
                 }
-                .buttonStyle(.hitTarget)
-                .foregroundStyle(store.pinVisible ? theme.accent : .secondary)
-                .help(store.pinVisible ? "Hide floating timer" : "Pin timer to desktop")
+                .buttonStyle(.clockinIcon(tint: store.pinVisible ? theme.accent : nil))
+                .accessibilityLabel(store.pinVisible ? "Hide pinned timer" : "Pin timer to desktop")
+                .help(store.pinVisible ? "Hide pinned timer" : "Pin timer to desktop")
             }
             .padding(S(3))
             .background(theme.surface, in: RoundedRectangle(cornerRadius: S(9), style: .continuous))
         }
         .padding(.horizontal, S(18))
         .frame(height: S(50))
-        .background(.white.opacity(0.025))
+        .background(theme.control)
         .overlay(alignment: .bottom) { Divider().opacity(0.25) }
     }
 
@@ -226,53 +219,25 @@ struct MainView: View {
     private func levelChip(_ stats: ProgressStats) -> some View {
         let span = 500
         let progress = min(max(Double(stats.xp % span) / Double(span), 0), 1)
-        return HStack(spacing: S(5)) {
-            Image(systemName: "trophy.fill")
-                .font(.system(size: S(8)))
-            Text("LV \(stats.level)")
-                .font(.system(size: S(10), weight: .black, design: .monospaced))
-        }
-        .foregroundStyle(theme.accent)
-        .padding(.horizontal, S(9))
-        .frame(height: S(24))
-        .background {
-            ZStack(alignment: .leading) {
-                Capsule(style: .continuous).fill(theme.accent.opacity(0.12))
+        return Text("Level \(stats.level)")
+            .font(.system(size: S(11), weight: .semibold).monospacedDigit())
+            .foregroundStyle(theme.accent)
+            .padding(.horizontal, S(10))
+            .frame(height: S(26))
+            // Never squeezed: a capsule narrower than its text showed cut ends.
+            .fixedSize()
+            .background {
+                // The fill shows progress to the next level.
                 GeometryReader { geo in
-                    // Bant ve yol dolgunun genisligine oranlanir, kapsulunkine
-                    // degil: kapsule oranlandiginda ilerleme azken bant
-                    // dolgudan genis kaliyor ve akan isik yerine parlama gibi
-                    // goruunuyordu.
-                    let fill = geo.size.width * progress
-                    Capsule(style: .continuous)
-                        .fill(theme.accent.opacity(0.22))
-                        .frame(width: fill)
-                        .overlay {
-                            LinearGradient(
-                                colors: [.clear, .white.opacity(0.30), .clear],
-                                startPoint: .leading, endPoint: .trailing
-                            )
-                            .frame(width: fill * 0.55)
-                            // Yol dolgunun dort kati. Dongu basa donerken bant
-                            // dolgunun disinda oldugu icin sicrama gorunmez;
-                            // duraklama da bu yoldan cikar, `delay` gerekmez —
-                            // `delay` zaten yalnizca ilk turu geciktirir.
-                            .offset(x: fill * (shimmer ? 2.7 : -1.4))
-                        }
-                        // Isik dolgunun yuvarlak ucunu asmasin.
-                        .clipShape(Capsule(style: .continuous))
+                    ZStack(alignment: .leading) {
+                        Rectangle().fill(theme.accent.opacity(0.12))
+                        Rectangle().fill(theme.accent.opacity(0.22)).frame(width: geo.size.width * progress)
+                    }
                 }
+                .clipShape(PillShape())
+                .overlay { PillShape().strokeBorder(theme.accent.opacity(0.28), lineWidth: 1) }
+
             }
-            .clipShape(Capsule(style: .continuous))
-            .overlay { Capsule(style: .continuous).stroke(theme.accent.opacity(0.26), lineWidth: 1) }
-        }
-        .onAppear {
-            // Sabit hiz: `easeInOut` isigi hizlandirip yavaslatiyordu, gecen
-            // bir isik icin dogal durmuyor.
-            withAnimation(.linear(duration: 5.2).repeatForever(autoreverses: false)) {
-                shimmer = true
-            }
-        }
         .help("Level \(stats.level) • \(stats.xp) XP • \(span - stats.xp % span) XP to next level")
     }
 
@@ -280,8 +245,8 @@ struct MainView: View {
         Button(action: action) {
             Image(systemName: systemName).frame(width: S(28), height: S(28))
         }
-        .buttonStyle(.hitTarget)
-        .foregroundStyle(color)
+        .buttonStyle(.clockinIcon(tint: color))
+        .accessibilityLabel(help)
         .help(help)
     }
 
@@ -291,11 +256,10 @@ struct MainView: View {
                 Circle()
                     .fill(statusColor)
                     .frame(width: S(7), height: S(7))
-                    .shadow(color: statusColor.opacity(store.running?.isPaused == false ? 0.8 : 0), radius: 5)
                 Text(statusText)
                     .font(.system(size: S(10), weight: .bold, design: theme.fontDesign))
                     .foregroundStyle(.secondary)
-                    .tracking(S(1.3))
+
             }
 
             Text(DurationText.clock(store.elapsed(at: now)))
@@ -310,7 +274,7 @@ struct MainView: View {
                 .contentTransition(.numericText())
 
             if store.currencyCode == "USD", let usdTry = exchangeRates.latestRate {
-                Text("≈ \((store.currentEarnings(at: now) * usdTry).money(code: "TRY"))")
+                Text("\((store.currentEarnings(at: now) * usdTry).money(code: "TRY"))")
                     .font(.system(size: S(11), weight: .medium, design: .rounded))
                     .foregroundStyle(.secondary)
             }
@@ -325,35 +289,34 @@ struct MainView: View {
     }
 
     private var moneyMomentum: some View {
-        let perSecond = store.effectiveRate(at: now, fallback: store.hourlyRate) / 3600
+        let perHour = store.currentRate(at: now)
         let current = store.currentEarnings(at: now)
-        let milestone = max(10, ceil(max(current, 0.01) / 10) * 10)
-        let progress = current.truncatingRemainder(dividingBy: 10) / 10
+        // Tam onlukta hedef bir sonraki onluga gecer; onceden hedef mevcut
+        // tutara esit kalip "0 to go" derken cubuk bosaliyordu.
+        let remainder = max(0, current).truncatingRemainder(dividingBy: 10)
+        let milestone = max(0, current) + (10 - remainder)
+        let progress = remainder / 10
         let isEarning = store.running?.isPaused == false
         return VStack(spacing: S(8)) {
-            HStack(spacing: S(9)) {
-                Image(systemName: isEarning ? "flame.fill" : "sparkles")
-                    .foregroundStyle(isEarning ? .orange : theme.accent)
-                VStack(alignment: .leading, spacing: S(2)) {
-                    Text(isEarning ? "MONEY MOMENTUM" : "YOUR EARNING POWER")
-                        .font(.system(size: S(8), weight: .black, design: .rounded)).foregroundStyle(.secondary).tracking(S(1))
-                    HStack(spacing: S(5)) {
-                        Text("+\(perSecond.money(code: store.currencyCode, maxFractionDigits: 4))/sec")
-                        if store.currencyCode == "USD", let usdTry = exchangeRates.latestRate {
-                            Text("• +\((perSecond * usdTry).money(code: "TRY", maxFractionDigits: 4))/sec")
-                        }
-                    }
-                    .font(.system(size: S(10), weight: .semibold, design: .monospaced))
+            HStack(alignment: .firstTextBaseline, spacing: S(8)) {
+                // The hourly rate, not fractions of a cent per second.
+                Text(isEarning ? "Earning" : "Rate")
+                    .font(ClockinFont.section).foregroundStyle(.secondary)
+                Text("\(perHour.money(code: store.currencyCode))/h")
+                    .font(.system(size: S(12), weight: .semibold).monospacedDigit())
                     .foregroundStyle(isEarning ? theme.accent : .secondary)
+                if store.currencyCode == "USD", let usdTry = exchangeRates.latestRate {
+                    Text("\((perHour * usdTry).money(code: "TRY"))/h")
+                        .font(.system(size: S(11), weight: .medium).monospacedDigit())
+                        .foregroundStyle(.secondary)
                 }
-                Spacer()
+                Spacer(minLength: S(6))
                 if store.running != nil {
-                    VStack(alignment: .trailing, spacing: S(1)) {
-                        Text("NEXT \(milestone.money(code: store.currencyCode))")
-                            .font(.system(size: S(8), weight: .bold)).foregroundStyle(.secondary)
-                        Text("\(max(0, milestone - current).money(code: store.currencyCode)) to go")
-                            .font(.system(size: S(9), weight: .semibold))
-                    }
+                    // The bar already shows which milestone; this is the gap.
+                    Text("\(max(0, milestone - current).money(code: store.currencyCode)) to go")
+                        .font(.system(size: S(11), weight: .semibold).monospacedDigit())
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
                 }
             }
             if store.running != nil {
@@ -363,7 +326,7 @@ struct MainView: View {
             }
         }
         .padding(S(10))
-        .background(.black.opacity(0.18), in: RoundedRectangle(cornerRadius: S(10)))
+        .background(theme.control, in: RoundedRectangle(cornerRadius: S(10)))
     }
 
     @ViewBuilder private var controls: some View {
@@ -376,7 +339,7 @@ struct MainView: View {
                         Label(running.isPaused ? "Resume" : "Pause", systemImage: running.isPaused ? "play.fill" : "pause.fill")
                             .frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(SecondaryButtonStyle())
+                    .buttonStyle(.clockin(.secondary, size: .large, fullWidth: true))
 
                     Button {
                         completedSummary = store.clockOut()
@@ -384,14 +347,13 @@ struct MainView: View {
                         Label("Clock out", systemImage: "stop.fill")
                             .frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(DangerButtonStyle())
+                    .buttonStyle(.clockin(.primary, size: .large, fullWidth: true))
                 }
                 Button { confirmCancel = true } label: {
                     Label("Cancel session", systemImage: "xmark")
                         .font(.system(size: S(10), weight: .medium))
                 }
-                .buttonStyle(.hitTarget)
-                .foregroundStyle(.secondary)
+                .buttonStyle(.clockin(.secondary, size: .small))
             }
         } else {
             VStack(spacing: S(9)) {
@@ -402,35 +364,67 @@ struct MainView: View {
                         .font(.system(size: S(14), weight: .bold, design: .rounded))
                         .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(PrimaryButtonStyle(accent: theme.accent))
-                HStack(spacing: S(14)) {
+                .buttonStyle(.clockin(.primary, size: .large, fullWidth: true))
+                VStack(spacing: S(7)) {
                     Button { showManualStart = true } label: {
                         Label("Start with elapsed time", systemImage: "clock.arrow.circlepath")
                             .font(.system(size: S(10), weight: .semibold))
                     }
-                    .buttonStyle(.hitTarget)
-                    .foregroundStyle(.secondary)
+                    .buttonStyle(.clockin(.secondary, size: .small, fullWidth: true))
                     Button { showManualEntry = true } label: {
                         Label("Add past entry", systemImage: "plus.circle")
                             .font(.system(size: S(10), weight: .semibold))
                     }
-                    .buttonStyle(.hitTarget)
-                    .foregroundStyle(.secondary)
+                    .buttonStyle(.clockin(.secondary, size: .small, fullWidth: true))
                 }
             }
         }
     }
 
     private var todayCard: some View {
-        HStack(spacing: S(0)) {
-            metric(title: "TODAY", value: DurationText.compact(store.todayDuration(at: now)), icon: "clock")
-                .frame(maxWidth: .infinity, alignment: .leading)
-            Divider().frame(height: S(35)).opacity(0.25)
-            todayEarnedMetric
-                .frame(maxWidth: .infinity, alignment: .leading)
+        VStack(spacing: S(12)) {
+            HStack(spacing: S(0)) {
+                metric(title: "Today", value: DurationText.compact(store.todayDuration(at: now)), icon: "clock")
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Divider().frame(height: S(35)).opacity(0.25)
+                todayEarnedMetric
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            Divider().opacity(0.25).padding(.horizontal, S(14))
+            // Work months start on the 1st, so the month's total earns a line
+            // of its own next to today's.
+            monthRow
         }
         .padding(.vertical, S(14))
         .background(cardBackground)
+    }
+
+    private var monthRow: some View {
+        let earned = store.monthEarnings(at: now)
+        let rate = exchangeRates.latestRate
+        return HStack(spacing: S(0)) {
+            metric(title: "Since the 1st", value: DurationText.compact(store.monthDuration(at: now)), icon: "calendar")
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Divider().frame(height: S(35)).opacity(0.25)
+            HStack(spacing: S(10)) {
+                Image(systemName: "banknote")
+                    .foregroundStyle(theme.accent.opacity(0.8))
+                    .frame(width: S(20))
+                VStack(alignment: .leading, spacing: S(3)) {
+                    Text("Earned this month").font(ClockinFont.section).foregroundStyle(.secondary)
+                    Text(earned.money(code: store.currencyCode))
+                        .font(.system(size: S(14), weight: .semibold, design: .rounded)).lineLimit(1)
+                    if store.currencyCode == "USD", let rate {
+                        Text((earned * rate).money(code: "TRY"))
+                            .font(.system(size: S(10), weight: .medium, design: .rounded))
+                            .foregroundStyle(theme.accent)
+                    }
+                }
+                Spacer()
+            }
+            .padding(.horizontal, S(14))
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
     }
 
     private var todayEarnedMetric: some View {
@@ -440,16 +434,16 @@ struct MainView: View {
                 .foregroundStyle(theme.accent.opacity(0.8))
                 .frame(width: S(20))
             VStack(alignment: .leading, spacing: S(3)) {
-                Text("EARNED").font(.system(size: S(9), weight: .bold)).foregroundStyle(.secondary).tracking(S(1))
+                Text("Earned").font(ClockinFont.section).foregroundStyle(.secondary)
                 Text(earned.money(code: store.currencyCode)).font(.system(size: S(13), weight: .semibold, design: .rounded))
                 if store.currencyCode == "USD" {
                     if let rate = exchangeRates.latestRate {
-                        Text("≈ " + (earned * rate).money(code: "TRY"))
-                            .font(.system(size: S(9), weight: .medium, design: .rounded))
+                        Text((earned * rate).money(code: "TRY"))
+                            .font(.system(size: S(10), weight: .medium, design: .rounded))
                             .foregroundStyle(theme.accent)
                     } else {
                         Text("TRY rate unavailable")
-                            .font(.system(size: S(8), weight: .medium))
+                            .font(.system(size: S(10), weight: .medium))
                             .foregroundStyle(.orange)
                     }
                 }
@@ -460,14 +454,25 @@ struct MainView: View {
     private var mascotCard: some View {
         return HStack(spacing: S(12)) {
             ClockinMascotStage().environmentObject(store).frame(width: S(62), height: S(62))
-            VStack(alignment: .leading, spacing: S(4)) {
-                Text("FOCUS COMPANION").font(.system(size: S(8), weight: .black)).foregroundStyle(.secondary).tracking(S(1))
-                Text(store.running?.isPaused == true ? "Taking a reset break" : (store.running == nil ? "Ready when you are" : "You are doing great — keep going!"))
-                    .font(.system(size: S(11), weight: .semibold))
-                Text("Open Progress with the XP button for streaks and levels")
-                    .font(.system(size: S(8))).foregroundStyle(.tertiary)
+            Button { tab = .progress } label: {
+                HStack(spacing: S(8)) {
+                    VStack(alignment: .leading, spacing: S(4)) {
+                        Text("Focus companion").font(ClockinFont.caption).foregroundStyle(Color.secondary)
+                        Text(store.running?.isPaused == true ? "Session paused" : (store.running == nil ? "No active session" : "Session in progress"))
+                            .font(.system(size: S(11), weight: .semibold)).foregroundStyle(Color.primary)
+                        Text("See your streak and progress")
+                            .font(.system(size: S(10))).foregroundStyle(theme.accent)
+                    }
+                    Spacer(minLength: 0)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: S(10), weight: .semibold)).foregroundStyle(.secondary)
+                }
+                .padding(.vertical, S(8))
+                .contentShape(Rectangle())
             }
-            Spacer()
+            .buttonStyle(.clockin(.tinted, size: .small))
+            .foregroundStyle(.primary)
+            .accessibilityHint("Opens Progress")
         }
         .padding(S(10)).background(cardBackground)
     }
@@ -479,19 +484,19 @@ struct MainView: View {
                 .frame(width: S(28), height: S(28))
                 .background(theme.secondary.opacity(0.1), in: RoundedRectangle(cornerRadius: S(8)))
             VStack(alignment: .leading, spacing: S(3)) {
-                Text("USD / TRY").font(.system(size: S(9), weight: .bold)).foregroundStyle(.secondary).tracking(S(1))
+                Text("USD / TRY").font(ClockinFont.section).foregroundStyle(.secondary)
                 if let rate = exchangeRates.latestRate {
                     Text(String(format: "1 USD = %.3f TRY", rate)).font(.system(size: S(13), weight: .semibold, design: .rounded))
-                    Text(rateStatusText).font(.system(size: S(9), weight: .medium)).foregroundStyle(rateStatusColor)
+                    Text(rateStatusText).font(.system(size: S(10), weight: .medium)).foregroundStyle(rateStatusColor)
                 } else {
-                    Text(exchangeRates.isLoading ? "Fetching live rate…" : "RATE UNAVAILABLE")
+                    Text(exchangeRates.isLoading ? "Fetching live rate…" : "Rate unavailable")
                         .font(.system(size: S(11), weight: .bold))
                         .foregroundStyle(exchangeRates.isLoading ? Color.secondary : Color.red)
                 }
             }
             Spacer()
             if let day = exchangeRates.latestDate {
-                Text(day).font(.system(size: S(9), design: .monospaced)).foregroundStyle(.tertiary)
+                Text(day).font(.system(size: S(10), design: .monospaced)).foregroundStyle(.secondary)
             }
         }
         .padding(S(12))
@@ -504,9 +509,9 @@ struct MainView: View {
         let hasGoals = dailyGoalHours > 0 || monthlyGoalHours > 0
         return VStack(alignment: .leading, spacing: S(10)) {
             HStack {
-                Label("GOALS", systemImage: "target").font(.system(size: S(9), weight: .bold)).foregroundStyle(.secondary).tracking(S(1))
+                Label("Goals", systemImage: "target").font(.system(size: S(10), weight: .bold)).foregroundStyle(.secondary)
                 Spacer()
-                if !hasGoals { Text("Set in Settings").font(.system(size: S(9))).foregroundStyle(.tertiary) }
+                if !hasGoals { Text("Set in Settings").font(.system(size: S(10))).foregroundStyle(.secondary) }
             }
             if dailyGoalHours > 0 { goalRow("Today", value: daily, goal: dailyGoalHours) }
             if monthlyGoalHours > 0 { goalRow("This month", value: monthly, goal: monthlyGoalHours) }
@@ -522,11 +527,11 @@ struct MainView: View {
                 Text(title).font(.system(size: S(10), weight: .semibold))
                 Spacer()
                 Text(hoursText(value)).font(.system(size: S(10), weight: .bold, design: .monospaced))
-                Text("/ \(hoursText(goal))").font(.system(size: S(9))).foregroundStyle(.secondary)
+                Text("/ \(hoursText(goal))").font(.system(size: S(10))).foregroundStyle(.secondary)
             }
             ProgressView(value: progress).tint(progress >= 1 ? .green : theme.accent).scaleEffect(y: 0.7)
             Text(progress >= 1 ? "Goal reached" : "\(hoursText(max(0, goal - value))) remaining")
-                .font(.system(size: S(8), weight: .medium)).foregroundStyle(progress >= 1 ? .green : .secondary)
+                .font(.system(size: S(10), weight: .medium)).foregroundStyle(progress >= 1 ? .green : .secondary)
         }
     }
 
@@ -553,7 +558,7 @@ struct MainView: View {
         HStack(spacing: S(10)) {
             Image(systemName: icon).foregroundStyle(theme.accent.opacity(0.8)).frame(width: S(20))
             VStack(alignment: .leading, spacing: S(3)) {
-                Text(title).font(.system(size: S(9), weight: .bold)).foregroundStyle(.secondary).tracking(S(1))
+                Text(title).font(.system(size: S(10), weight: .bold)).foregroundStyle(.secondary)
                 Text(value).font(.system(size: S(14), weight: .semibold, design: .rounded)).lineLimit(1)
             }
             Spacer()
@@ -564,11 +569,11 @@ struct MainView: View {
     private var recentSection: some View {
         VStack(alignment: .leading, spacing: S(10)) {
             HStack {
-                sectionTitle("RECENT SESSIONS")
+                sectionTitle("Recent sessions")
                 Spacer()
                 if !store.sessions.isEmpty {
                     Button("View all") { tab = .history }
-                        .buttonStyle(.hitTarget).font(.system(size: S(10), weight: .semibold)).foregroundStyle(theme.accent)
+                        .buttonStyle(.clockin(.ghost, size: .small)).font(.system(size: S(10), weight: .semibold)).foregroundStyle(theme.accent)
                 }
             }
             if store.sessions.isEmpty {
@@ -592,15 +597,15 @@ struct MainView: View {
 
     private func sessionRow(_ session: WorkSession) -> some View {
         HStack(spacing: S(11)) {
-            Image(systemName: session.source == "Clockin" ? "bolt.fill" : "arrow.down.doc.fill")
+            Image(systemName: session.source == "Clockin" ? "clock" : "arrow.down.doc.fill")
                 .font(.system(size: S(11)))
                 .foregroundStyle(session.source == "Clockin" ? theme.accent : theme.secondary)
                 .frame(width: S(28), height: S(28))
-                .background(.white.opacity(0.055), in: RoundedRectangle(cornerRadius: S(8)))
+                .background(theme.control, in: RoundedRectangle(cornerRadius: S(8)))
             VStack(alignment: .leading, spacing: S(3)) {
-                Text(session.start.formatted(.dateTime.month(.abbreviated).day().hour().minute()))
+                Text(session.start.formatted(.dateTime.month(.abbreviated).day()))
                     .font(.system(size: S(12), weight: .medium))
-                Text(session.note.isEmpty ? session.source : session.note)
+                Text("\(session.start.formatted(date: .omitted, time: .shortened)) • \(session.note.isEmpty ? session.source : session.note)")
                     .font(.system(size: S(10)))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
@@ -617,171 +622,28 @@ struct MainView: View {
                     Image(systemName: "pencil").font(.system(size: S(10)))
                         .frame(width: S(22), height: S(22))
                 }
-                .buttonStyle(.hitTarget).foregroundStyle(.secondary)
-                .help("Edit times or note")
+                .buttonStyle(.clockinIcon(size: 28))
+                .help("Edit times or note").accessibilityLabel("Edit times or note")
                 Button { pendingDelete = session } label: {
                     Image(systemName: "trash").font(.system(size: S(10)))
                         .frame(width: S(22), height: S(22))
                 }
-                .buttonStyle(.hitTarget).foregroundStyle(.secondary)
-                .help("Delete this session")
+                .buttonStyle(.clockinIcon(size: 28, destructive: true))
+                .help("Delete this session").accessibilityLabel("Delete this session")
             }
         }
         .padding(.horizontal, S(12))
         .padding(.vertical, S(10))
     }
 
-    private var settingsSection: some View {
-        VStack(alignment: .leading, spacing: S(10)) {
-            sectionTitle("PAY & DATA")
-            HStack(spacing: S(10)) {
-                HStack {
-                    Text("Rate").foregroundStyle(.secondary)
-                    Spacer()
-                    TextField("0", text: $rateText)
-                        .textFieldStyle(.plain)
-                        .multilineTextAlignment(.trailing)
-                        .frame(width: S(72))
-                        .onSubmit(commitRate)
-                        .onChange(of: rateText) { _, newText in
-                            let normalized = newText.replacingOccurrences(of: ",", with: ".")
-                            guard let value = Double(normalized), value >= 0,
-                                  abs(value - store.hourlyRate) > 0.000_001 else { return }
-                            store.updateRate(value)
-                        }
-                    Text("/ hr").foregroundStyle(.tertiary)
-                }
-                .padding(S(11))
-                .background(cardBackground)
-
-                Picker("", selection: Binding(
-                    get: { store.currencyCode },
-                    set: { newCode in store.updateCurrency(newCode) }
-                )) {
-                    ForEach(["USD", "EUR", "GBP", "TRY"], id: \.self) { Text($0).tag($0) }
-                }
-                .labelsHidden()
-                .frame(width: S(82))
-            }
-
-            HStack {
-                VStack(alignment: .leading, spacing: S(2)) {
-                    Text("RATE SCHEDULE").font(.system(size: S(9), weight: .bold)).foregroundStyle(.secondary).tracking(S(1))
-                    if let date = store.currentRateEffectiveFrom {
-                        Text("Current rate applies from \(date.formatted(.dateTime.month(.abbreviated).day().year()))")
-                            .font(.system(size: S(9))).foregroundStyle(.secondary)
-                    }
-                }
-                Spacer()
-                Button("Manage") { showRateSchedule = true }
-                    .buttonStyle(.hitTarget).font(.system(size: S(10), weight: .bold)).foregroundStyle(theme.accent)
-            }
-            .padding(S(10))
-            .background(cardBackground)
-
-            HStack {
-                Label("Theme", systemImage: "paintpalette.fill")
-                    .font(.system(size: S(11), weight: .medium)).foregroundStyle(.secondary)
-                Spacer()
-                Picker("Theme", selection: $themeRaw) {
-                    ForEach(ClockinThemeChoice.allCases) { choice in
-                        Text(choice.rawValue).tag(choice.rawValue)
-                    }
-                }
-                .labelsHidden()
-                .frame(width: S(135))
-            }
-            .padding(S(10))
-            .background(cardBackground)
-
-            HStack(spacing: S(9)) {
-                Image(systemName: "waveform").foregroundStyle(theme.secondary)
-                Picker("Chime sound", selection: $chimeSound) {
-                    ForEach(FocusChimeController.availableSounds, id: \.self) { sound in
-                        Text(sound).tag(sound)
-                    }
-                }
-                .labelsHidden()
-                .frame(width: S(105))
-                Slider(value: $chimeVolume, in: 0.1...1.0)
-                    .tint(theme.accent)
-                Text("\(Int(chimeVolume * 100))%")
-                    .font(.system(size: S(9), weight: .semibold, design: .monospaced))
-                    .foregroundStyle(.secondary).frame(width: S(34), alignment: .trailing)
-                Button { FocusChimeController.shared.playPreview() } label: {
-                    Image(systemName: "speaker.wave.3.fill").foregroundStyle(theme.accent)
-                }
-                .buttonStyle(.hitTarget).help("Play selected sound")
-            }
-            .padding(S(10))
-            .background(cardBackground)
-
-            HStack {
-                Label("Pinned widget", systemImage: "pin.fill")
-                    .font(.system(size: S(11), weight: .medium)).foregroundStyle(.secondary)
-                Spacer()
-                Picker("Pinned widget", selection: $pinnedMode) {
-                    Text("Compact").tag("Compact")
-                    Text("Money").tag("Money")
-                }
-                .labelsHidden()
-                .frame(width: S(105))
-                .onChange(of: pinnedMode) { _, newMode in
-                    PinnedWindowController.shared.applyPreset(newMode)
-                }
-            }
-            .padding(S(10))
-            .background(cardBackground)
-
-            HStack(spacing: S(10)) {
-                Image(systemName: chimeEnabled ? "speaker.wave.2.fill" : "speaker.slash.fill")
-                    .foregroundStyle(chimeEnabled ? theme.accent : .secondary)
-                VStack(alignment: .leading, spacing: S(2)) {
-                    Text("10-minute focus beep").font(.system(size: S(11), weight: .semibold))
-                    if let remaining = FocusChimeController.shared.remaining(store: store, at: now) {
-                        Text("Next in \(DurationText.compact(remaining))").font(.system(size: S(9))).foregroundStyle(.secondary)
-                    } else {
-                        Text(chimeEnabled ? "Starts while the timer is running" : "Optional \(chimeSound) sound at \(Int(chimeVolume * 100))%")
-                            .font(.system(size: S(9))).foregroundStyle(.secondary)
-                    }
-                }
-                Spacer()
-                Button { FocusChimeController.shared.playPreview() } label: {
-                    Image(systemName: "play.circle").foregroundStyle(.secondary)
-                }
-                .buttonStyle(.hitTarget).help("Test sound")
-                Toggle("", isOn: $chimeEnabled).labelsHidden().toggleStyle(.switch)
-                    .onChange(of: chimeEnabled) { _, _ in FocusChimeController.shared.settingChanged() }
-            }
-            .padding(S(10))
-            .background(cardBackground)
-
-            Button(action: chooseCSV) {
-                Label("Import timesheet CSV", systemImage: "square.and.arrow.down")
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(SecondaryButtonStyle())
-
-            Button { showPasteImporter = true } label: {
-                Label("Paste approved timecards", systemImage: "doc.on.clipboard")
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(SecondaryButtonStyle())
-
-            if let message = store.statusMessage {
-                Text(message).font(.system(size: S(10))).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-            }
-        }
-    }
-
     private var footer: some View {
         HStack {
-            Text("ALL  \(DurationText.compact(store.allDuration(at: now)))  •  \(store.allEarnings(at: now).money(code: store.currencyCode))")
-                .font(.system(size: S(9), weight: .bold, design: .rounded))
-                .foregroundStyle(.tertiary)
+            Text("All time  \(DurationText.compact(store.allDuration(at: now)))  •  \(store.allEarnings(at: now).money(code: store.currencyCode))")
+                .font(.system(size: S(10), weight: .bold, design: .rounded))
+                .foregroundStyle(.secondary)
             Spacer()
             Button("Quit") { NSApplication.shared.terminate(nil) }
-                .buttonStyle(.hitTarget)
+                .buttonStyle(.clockin(.ghost, size: .small))
                 .font(.system(size: S(10)))
                 .foregroundStyle(.secondary)
         }
@@ -789,13 +651,13 @@ struct MainView: View {
     }
 
     private func sectionTitle(_ text: String) -> some View {
-        Text(text).font(.system(size: S(9), weight: .bold)).foregroundStyle(.secondary).tracking(S(1.2)).padding(.leading, S(2))
+        Text(text).font(ClockinFont.section).foregroundStyle(.secondary).padding(.leading, S(2))
     }
 
     private var cardBackground: some View {
         RoundedRectangle(cornerRadius: S(15), style: .continuous)
-            .fill(theme.surface)
-            .overlay(RoundedRectangle(cornerRadius: S(15)).stroke(theme.surfaceStroke))
+            .fill(theme.card)
+            .overlay(RoundedRectangle(cornerRadius: S(15)).stroke(theme.cardStroke))
     }
 
     private var statusColor: Color {
@@ -804,8 +666,8 @@ struct MainView: View {
     }
 
     private var statusText: String {
-        guard let running = store.running else { return "READY TO FOCUS" }
-        return running.isPaused ? "PAUSED" : "FOCUS SESSION"
+        guard let running = store.running else { return "No active session" }
+        return running.isPaused ? "Paused" : "Focus session"
     }
 
     private var formattedRate: String { String(format: "%.2f", store.hourlyRate) }
@@ -834,30 +696,5 @@ struct MainView: View {
         } catch {
             store.statusMessage = error.localizedDescription
         }
-    }
-}
-
-private struct PrimaryButtonStyle: ButtonStyle {
-    let accent: Color
-
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label.padding(.vertical, S(12)).foregroundStyle(.black)
-            .background(accent.opacity(configuration.isPressed ? 0.75 : 1), in: RoundedRectangle(cornerRadius: S(11)))
-    }
-}
-
-private struct SecondaryButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label.font(.system(size: S(12), weight: .semibold)).padding(.vertical, S(10))
-            .background(.white.opacity(configuration.isPressed ? 0.1 : 0.06), in: RoundedRectangle(cornerRadius: S(10)))
-            .overlay(RoundedRectangle(cornerRadius: S(10)).stroke(.white.opacity(0.08)))
-    }
-}
-
-private struct DangerButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label.font(.system(size: S(12), weight: .semibold)).padding(.vertical, S(10))
-            .foregroundStyle(.red.opacity(0.9))
-            .background(.red.opacity(configuration.isPressed ? 0.18 : 0.1), in: RoundedRectangle(cornerRadius: S(10)))
     }
 }

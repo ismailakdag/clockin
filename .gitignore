@@ -5,3 +5,4 @@ dist/
 DerivedData/
 *.swp
 Resources/Mascot/
+Tests/manual/screens/out/
