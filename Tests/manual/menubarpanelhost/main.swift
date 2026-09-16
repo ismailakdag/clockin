@@ -99,7 +99,7 @@ check(button.title == " 01:07 · $28", "clocked in, the session text follows the
 minimal = false
 changes.send()
 spin(0.2)
-check(button.title == " Clockin", "outside minimal mode the item keeps its name")
+check(button.title.isEmpty && button.image != nil, "outside minimal mode the item is the icon alone, even while clocked in")
 
 spin(0.5)
 controller.open()
