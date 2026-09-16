@@ -81,7 +81,9 @@ final class MenuBarController: NSObject {
         guard let host, let button = statusItem?.button else { return }
         let status = host.status()
         let icon = Self.iconState(status.state)
-        let title = host.minimalMode() ? status.text : "Clockin"
+        // Only the icon, like the system's own items; minimal mode adds the
+        // live figures while clocked in.
+        let title = host.minimalMode() ? status.text : nil
         if let lastLabel, lastLabel.icon == icon, lastLabel.title == title { return }
         lastLabel = (icon, title)
         button.image = MenuBarIcon.image(icon)
