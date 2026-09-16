@@ -17,20 +17,20 @@ struct RateScheduleView: View {
             HStack {
                 VStack(alignment: .leading, spacing: S(3)) {
                     Text("Hourly rate schedule").font(.system(size: S(18), weight: .bold, design: theme.fontDesign))
-                    Text("Open-ended rules can be combined with custom start–end periods.")
+                    Text("Set the rate for each period of your work.")
                         .font(.system(size: S(10))).foregroundStyle(.secondary)
                 }
                 Spacer()
                 Button("Done") { dismiss() }.buttonStyle(.clockin(.primary))
             }
 
-            Text("A bounded period overrides the fallback rate only between its dates. Sessions keep their historical rate calculation.")
+            Text("Each period sets the hourly rate for work that starts within it. The newest period that covers a day wins.")
                 .font(.system(size: S(10))).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                 .padding(S(10)).background(theme.surface, in: RoundedRectangle(cornerRadius: S(9)))
 
             ScrollView {
                 VStack(spacing: S(8)) {
-                    ForEach(store.rateRules) { rule in
+                    ForEach(store.rateRules.reversed()) { rule in
                         RateRuleRow(rule: rule, canDelete: store.rateRules.count > 1)
                             .environmentObject(store)
                     }
