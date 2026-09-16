@@ -289,7 +289,7 @@ struct MainView: View {
     }
 
     private var moneyMomentum: some View {
-        let perSecond = store.currentRate(at: now) / 3600
+        let perHour = store.currentRate(at: now)
         let current = store.currentEarnings(at: now)
         // Tam onlukta hedef bir sonraki onluga gecer; onceden hedef mevcut
         // tutara esit kalip "0 to go" derken cubuk bosaliyordu.
@@ -298,27 +298,25 @@ struct MainView: View {
         let progress = remainder / 10
         let isEarning = store.running?.isPaused == false
         return VStack(spacing: S(8)) {
-            HStack(spacing: S(9)) {
-                VStack(alignment: .leading, spacing: S(2)) {
-                    Text(isEarning ? "Earning per second" : "Rate per second")
-                        .font(.system(size: S(10), weight: .black, design: .rounded)).foregroundStyle(.secondary)
-                    VStack(alignment: .leading, spacing: S(2)) {
-                        Text("+\(perSecond.money(code: store.currencyCode, maxFractionDigits: 4))/sec")
-                        if store.currencyCode == "USD", let usdTry = exchangeRates.latestRate {
-                            Text("• +\((perSecond * usdTry).money(code: "TRY", maxFractionDigits: 4))/sec")
-                        }
-                    }
-                    .font(.system(size: S(10), weight: .semibold, design: .monospaced))
+            HStack(alignment: .firstTextBaseline, spacing: S(8)) {
+                // The hourly rate, not fractions of a cent per second.
+                Text(isEarning ? "Earning" : "Rate")
+                    .font(ClockinFont.section).foregroundStyle(.secondary)
+                Text("\(perHour.money(code: store.currencyCode))/h")
+                    .font(.system(size: S(12), weight: .semibold).monospacedDigit())
                     .foregroundStyle(isEarning ? theme.accent : .secondary)
+                if store.currencyCode == "USD", let usdTry = exchangeRates.latestRate {
+                    Text("\((perHour * usdTry).money(code: "TRY"))/h")
+                        .font(.system(size: S(11), weight: .medium).monospacedDigit())
+                        .foregroundStyle(.secondary)
                 }
-                Spacer()
+                Spacer(minLength: S(6))
                 if store.running != nil {
-                    VStack(alignment: .trailing, spacing: S(1)) {
-                        Text("Next \(milestone.money(code: store.currencyCode))")
-                            .font(.system(size: S(10), weight: .bold)).foregroundStyle(.secondary)
-                        Text("\(max(0, milestone - current).money(code: store.currencyCode)) to go")
-                            .font(.system(size: S(10), weight: .semibold))
-                    }
+                    // The bar already shows which milestone; this is the gap.
+                    Text("\(max(0, milestone - current).money(code: store.currencyCode)) to go")
+                        .font(.system(size: S(11), weight: .semibold).monospacedDigit())
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
                 }
             }
             if store.running != nil {
@@ -384,15 +382,49 @@ struct MainView: View {
     }
 
     private var todayCard: some View {
-        HStack(spacing: S(0)) {
-            metric(title: "Today", value: DurationText.compact(store.todayDuration(at: now)), icon: "clock")
-                .frame(maxWidth: .infinity, alignment: .leading)
-            Divider().frame(height: S(35)).opacity(0.25)
-            todayEarnedMetric
-                .frame(maxWidth: .infinity, alignment: .leading)
+        VStack(spacing: S(12)) {
+            HStack(spacing: S(0)) {
+                metric(title: "Today", value: DurationText.compact(store.todayDuration(at: now)), icon: "clock")
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Divider().frame(height: S(35)).opacity(0.25)
+                todayEarnedMetric
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            Divider().opacity(0.25).padding(.horizontal, S(14))
+            // Work months start on the 1st, so the month's total earns a line
+            // of its own next to today's.
+            monthRow
         }
         .padding(.vertical, S(14))
         .background(cardBackground)
+    }
+
+    private var monthRow: some View {
+        let earned = store.monthEarnings(at: now)
+        let rate = exchangeRates.latestRate
+        return HStack(spacing: S(0)) {
+            metric(title: "Since the 1st", value: DurationText.compact(store.monthDuration(at: now)), icon: "calendar")
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Divider().frame(height: S(35)).opacity(0.25)
+            HStack(spacing: S(10)) {
+                Image(systemName: "banknote")
+                    .foregroundStyle(theme.accent.opacity(0.8))
+                    .frame(width: S(20))
+                VStack(alignment: .leading, spacing: S(3)) {
+                    Text("Earned this month").font(ClockinFont.section).foregroundStyle(.secondary)
+                    Text(earned.money(code: store.currencyCode))
+                        .font(.system(size: S(14), weight: .semibold, design: .rounded)).lineLimit(1)
+                    if store.currencyCode == "USD", let rate {
+                        Text((earned * rate).money(code: "TRY"))
+                            .font(.system(size: S(10), weight: .medium, design: .rounded))
+                            .foregroundStyle(theme.accent)
+                    }
+                }
+                Spacer()
+            }
+            .padding(.horizontal, S(14))
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
     }
 
     private var todayEarnedMetric: some View {

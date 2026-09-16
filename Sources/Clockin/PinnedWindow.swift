@@ -183,7 +183,7 @@ struct PinnedTimerView: View {
         let usd = store.currentEarnings(at: now)
         let rate = exchangeRates.latestRate
         let isEarning = store.running?.isPaused == false
-        let perSecond = isEarning ? store.currentRate(at: now) / 3600 : 0
+        let perHour = store.currentRate(at: now)
         return VStack(spacing: 8) {
             HStack {
                 HStack(spacing: 7) {
@@ -206,10 +206,10 @@ struct PinnedTimerView: View {
                 }
             }
             HStack {
-                Text("+\(perSecond.money(code: store.currencyCode, maxFractionDigits: 4)) every second")
+                Text("\(perHour.money(code: store.currencyCode))/h")
                 Spacer()
                 if store.currencyCode == "USD", let rate {
-                    Text("+\((perSecond * rate).money(code: "TRY", maxFractionDigits: 4))/sec")
+                    Text("\((perHour * rate).money(code: "TRY"))/h")
                 }
             }
             .font(.system(size: S(9), weight: .semibold, design: .monospaced))
@@ -233,7 +233,7 @@ struct PinnedTimerView: View {
         let earning = store.currentEarnings(at: now)
         let rate = exchangeRates.latestRate
         let active = store.running?.isPaused == false
-        let perSecond = active ? store.currentRate(at: now) / 3600 : 0
+        let perHour = store.currentRate(at: now)
         let day = store.todayDuration(at: now) / 3600
         let month = store.monthDuration(at: now) / 3600
         return VStack(alignment: .leading, spacing: 6) {
@@ -252,7 +252,7 @@ struct PinnedTimerView: View {
                 if store.currencyCode == "USD", let rate { Text("\((earning * rate).money(code: "TRY"))").font(.system(size: 14, weight: .semibold)).foregroundStyle(.primary) }
             }
             HStack {
-                Text("+\(perSecond.money(code: store.currencyCode, maxFractionDigits: 4))/sec")
+                Text("\(perHour.money(code: store.currencyCode))/h")
                 Spacer()
                 Text("Today \(hoursText(day))").foregroundStyle(theme.secondary)
             }

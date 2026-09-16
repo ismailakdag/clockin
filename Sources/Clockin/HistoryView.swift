@@ -3,11 +3,42 @@ import SwiftUI
 
 private enum HistoryRange: String, CaseIterable, Identifiable {
     case week = "7D"
+    /// The calendar month so far: work months start on the 1st.
+    case thisMonth = "Month"
     case month = "30D"
     case quarter = "3M"
     case all = "ALL"
+
     var id: String { rawValue }
-    var days: Int? { switch self { case .week: 7; case .month: 30; case .quarter: 90; case .all: nil } }
+
+    var title: String {
+        switch self {
+        case .week: "Last 7 days"
+        case .thisMonth: "This month"
+        case .month: "Last 30 days"
+        case .quarter: "Last 3 months"
+        case .all: "All time"
+        }
+    }
+
+    /// The first day this range covers, or nil for everything.
+    func start(at date: Date, calendar: Calendar = .autoupdatingCurrent) -> Date? {
+        let today = calendar.startOfDay(for: date)
+        return switch self {
+        case .week: calendar.date(byAdding: .day, value: -6, to: today)
+        case .thisMonth: calendar.dateInterval(of: .month, for: today)?.start
+        case .month: calendar.date(byAdding: .day, value: -29, to: today)
+        case .quarter: calendar.date(byAdding: .day, value: -89, to: today)
+        case .all: nil
+        }
+    }
+
+    /// Calendar days the range covers, for the averages.
+    func dayCount(at date: Date, calendar: Calendar = .autoupdatingCurrent) -> Double? {
+        guard let start = start(at: date, calendar: calendar) else { return nil }
+        let days = calendar.dateComponents([.day], from: start, to: calendar.startOfDay(for: date)).day ?? 0
+        return max(1, Double(days) + 1)
+    }
 }
 
 private struct DailyEarning: Identifiable {
@@ -22,7 +53,9 @@ struct HistoryView: View {
     @AppStorage(UIScale.key) private var uiScaleObserver = UIScale.defaultPercent
     @EnvironmentObject private var store: ClockStore
     @EnvironmentObject private var exchangeRates: ExchangeRateStore
-    @State private var range: HistoryRange = .month
+    // Work months start on the 1st, so History opens on this month.
+    @AppStorage("Clockin.HistoryRange") private var rangeRaw = HistoryRange.thisMonth.rawValue
+    private var range: HistoryRange { HistoryRange(rawValue: rangeRaw) ?? .thisMonth }
     @State private var showTRY = true
     private var chartInTRY: Bool { showTRY && store.currencyCode == "USD" }
     @State private var pendingDelete: WorkSession?
@@ -45,7 +78,7 @@ struct HistoryView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: S(20)) {
                         summary(at: context.date)
-                    ClockinSegmented(selection: $range, options: HistoryRange.allCases.map { (value: $0, label: $0 == .all ? "All" : $0.rawValue) })
+                    ClockinSegmented(selection: $rangeRaw, options: HistoryRange.allCases.map { (value: $0.rawValue, label: $0 == .all ? "All" : $0.rawValue) })
                     chartCard(chartPoints)
                     averagesStrip(chartPoints)
                     HStack {
@@ -118,10 +151,10 @@ struct HistoryView: View {
                 Text(totals.earnings.money(code: store.currencyCode))
                     .font(.system(size: S(25), weight: .bold, design: .rounded))
                 if store.currencyCode == "USD", let rate = exchangeRates.latestRate {
-                    Text("\(range.rawValue) • \(totals.includesActive ? "includes active" : "completed") • \((totals.earnings * rate).money(code: "TRY"))")
+                    Text("\(range.title) • \(totals.includesActive ? "includes active" : "completed") • \((totals.earnings * rate).money(code: "TRY"))")
                         .font(.system(size: S(11))).foregroundStyle(theme.accent)
                 } else {
-                    Text("\(range.rawValue) • \(totals.includesActive ? "includes active" : "completed")")
+                    Text("\(range.title) • \(totals.includesActive ? "includes active" : "completed")")
                         .font(.system(size: S(11))).foregroundStyle(theme.accent)
                 }
             }
@@ -140,13 +173,7 @@ struct HistoryView: View {
         guard let running = store.running else {
             return (completedDuration, completedEarnings, false)
         }
-        let activeIncluded: Bool
-        if let days = range.days,
-           let cutoff = Calendar.current.date(byAdding: .day, value: -days + 1, to: date) {
-            activeIncluded = running.start >= Calendar.current.startOfDay(for: cutoff)
-        } else {
-            activeIncluded = true
-        }
+        let activeIncluded = range.start(at: date).map { running.start >= $0 } ?? true
         guard activeIncluded else { return (completedDuration, completedEarnings, false) }
         return (completedDuration + running.elapsed(at: date), completedEarnings + store.currentEarnings(at: date), true)
     }
@@ -177,7 +204,8 @@ struct HistoryView: View {
                 Text("No earnings in this period.").font(.system(size: S(11))).foregroundStyle(.secondary).frame(height: S(120))
             } else {
                 ScrollView(.horizontal, showsIndicators: false) {
-                    Chart(chartPoints) { point in
+                    Chart {
+                        ForEach(chartPoints) { point in
                         let value = chartInTRY ? (point.tryValue ?? 0) : point.usd
                         LineMark(
                             x: .value("Date", point.date),
@@ -198,6 +226,7 @@ struct HistoryView: View {
                         )
                         .foregroundStyle(theme.accent)
                         .symbolSize(52)
+                        }
                     }
                     .chartXAxis {
                         AxisMarks(values: .automatic(desiredCount: min(4, chartPoints.count))) { value in
@@ -210,6 +239,18 @@ struct HistoryView: View {
                             }
                             AxisGridLine().foregroundStyle(theme.cardStroke)
                         }
+                        // Where each work month starts, so the 1st is easy to find.
+                        AxisMarks(values: monthStarts(in: chartPoints)) { value in
+                            AxisGridLine(stroke: StrokeStyle(lineWidth: 1, dash: [3, 3]))
+                                .foregroundStyle(theme.secondary.opacity(0.5))
+                            AxisValueLabel {
+                                if let date = value.as(Date.self) {
+                                    Text(date, format: .dateTime.month(.abbreviated))
+                                        .font(.system(size: S(10), weight: .bold, design: .rounded))
+                                        .foregroundStyle(theme.secondary)
+                                }
+                            }
+                        }
                     }
                     .chartYAxis {
                         AxisMarks(position: .leading) { value in
@@ -220,7 +261,7 @@ struct HistoryView: View {
                         }
                     }
                     .chartYScale(domain: 0...chartMaximum)
-                    .chartPlotStyle { plot in plot.padding(.top, S(10)) }
+                    .chartPlotStyle { plot in plot.padding(.top, S(18)) }
                     .chartOverlay { proxy in
                         GeometryReader { geometry in
                             Rectangle().fill(.clear).contentShape(Rectangle())
@@ -271,7 +312,7 @@ struct HistoryView: View {
 
     private func selectedCalendarDays(at date: Date) -> Double {
         let calendar = Calendar.autoupdatingCurrent
-        if let days = range.days { return Double(days) }
+        if let days = range.dayCount(at: date) { return days }
         guard let earliest = store.sessions.map(\.start).min() else { return 1 }
         let start = calendar.startOfDay(for: earliest)
         let end = calendar.startOfDay(for: date)
@@ -396,8 +437,8 @@ struct HistoryView: View {
     }
 
     private var filteredSessions: [WorkSession] {
-        guard let days = range.days, let cutoff = Calendar.current.date(byAdding: .day, value: -days + 1, to: .now) else { return store.sessions }
-        return store.sessions.filter { $0.start >= Calendar.current.startOfDay(for: cutoff) }
+        guard let start = range.start(at: .now) else { return store.sessions }
+        return store.sessions.filter { $0.start >= start }
     }
 
     private var visibleSessions: [WorkSession] {
@@ -440,8 +481,7 @@ struct HistoryView: View {
         }
         if let running = store.running {
             let day = calendar.startOfDay(for: running.start)
-                let included = range.days.flatMap { calendar.date(byAdding: .day, value: -$0 + 1, to: date) }
-                .map { day >= calendar.startOfDay(for: $0) } ?? true
+            let included = range.start(at: date, calendar: calendar).map { day >= $0 } ?? true
             if included {
                 let old = totals[day] ?? (0, 0)
                 totals[day] = (old.duration + store.elapsed(at: date), old.usd + store.currentEarnings(at: date))
@@ -452,6 +492,21 @@ struct HistoryView: View {
                          tryValue: store.currencyCode == "USD"
                             ? (exchangeRates.rate(on: date) ?? exchangeRates.latestRate).map { value.usd * $0 } : nil)
         }.sorted { $0.date < $1.date }
+    }
+
+    /// The first of each month covered by the chart, skipping a marker on the
+    /// very first point where it would sit on the axis.
+    private func monthStarts(in points: [DailyEarning]) -> [Date] {
+        guard let first = points.first?.date, let last = points.last?.date else { return [] }
+        let calendar = Calendar.autoupdatingCurrent
+        var starts: [Date] = []
+        var cursor = calendar.dateInterval(of: .month, for: first)?.start ?? first
+        while cursor <= last {
+            if cursor > first { starts.append(cursor) }
+            guard let next = calendar.date(byAdding: .month, value: 1, to: cursor) else { break }
+            cursor = next
+        }
+        return starts
     }
 
     private func hoveredPoint(in values: [DailyEarning]) -> DailyEarning? {
