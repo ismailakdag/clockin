@@ -1,42 +1,56 @@
 #!/bin/zsh
 set -euo pipefail
-
 cd "${0:A:h}"
-swift build -c release
 
+# Local builds stay ad-hoc signed. release.sh requires Developer ID + notarization.
+CONFIGURATION="${CONFIGURATION:-release}"
+ARCHITECTURES="${ARCHITECTURES:-native}"
+SIGNING_IDENTITY="${SIGNING_IDENTITY:--}"
 APP_DIR="$PWD/dist/Clockin.app"
 CONTENTS="$APP_DIR/Contents"
-mkdir -p "$CONTENTS/MacOS" "$CONTENTS/Resources"
-cp ".build/release/Clockin" "$CONTENTS/MacOS/Clockin"
-cp "Resources/Info.plist" "$CONTENTS/Info.plist"
+SPARKLE_ROOT="$PWD/.build/artifacts/sparkle/Sparkle"
 
-# Uygulamanin "guncelleme var mi" diye sorabilmesi icin hangi commit'ten
-# uretildigi pakete yazilir. Depo disinda derlenmisse bos gecilir.
-BUILD_COMMIT="$(git rev-parse HEAD 2>/dev/null || print unknown)"
-# Karsilastirma noktasi olarak HEAD degil, origin/main ile ortak ata yazilir.
-# Yerel commitler tasiyan bir derlemede HEAD depoda bulunmaz ve karsilastirma
-# 404 doner; ortak ata her zaman depoda vardir.
-UPSTREAM_BASE="$(git merge-base HEAD origin/main 2>/dev/null || print "$BUILD_COMMIT")"
-for pair in "ClockinBuildCommit:$BUILD_COMMIT" "ClockinUpstreamBase:$UPSTREAM_BASE"; do
-  key="${pair%%:*}"; value="${pair#*:}"
-  /usr/libexec/PlistBuddy -c "Add :$key string $value" "$CONTENTS/Info.plist" 2>/dev/null \
-    || /usr/libexec/PlistBuddy -c "Set :$key $value" "$CONTENTS/Info.plist"
-done
-
-# Guncelleme betigi depo klasorunun yaninda duruyorsa yolu da yazilir,
-# boylece uygulama "Update now" ile onu calistirabilir.
-for candidate in "$PWD/../Clockin Güncelle.command" "$PWD/update.command"; do
-  if [[ -f "$candidate" ]]; then
-    /usr/libexec/PlistBuddy -c "Add :ClockinUpdateScript string ${candidate:A}" "$CONTENTS/Info.plist" 2>/dev/null \
-      || /usr/libexec/PlistBuddy -c "Set :ClockinUpdateScript ${candidate:A}" "$CONTENTS/Info.plist"
-    break
-  fi
-done
-if [[ -d ".build/release/Clockin_Clockin.bundle" ]]; then
-  cp -R ".build/release/Clockin_Clockin.bundle" "$CONTENTS/Resources/"
+build_args=(-c "$CONFIGURATION" --disable-automatic-resolution)
+if [[ "$ARCHITECTURES" == universal ]]; then
+    build_args+=(--arch arm64 --arch x86_64)
+elif [[ "$ARCHITECTURES" != native ]]; then
+    print -u2 'ARCHITECTURES must be native or universal.'
+    exit 2
 fi
-cp "Resources/Clockin.icns" "$CONTENTS/Resources/Clockin.icns"
-codesign --force --deep --sign - "$APP_DIR"
+# Resolve explicitly so Package.resolved remains the source of truth.
+swift package resolve
+swift build "${build_args[@]}"
+BIN_DIR="$(swift build "${build_args[@]}" --show-bin-path)"
 
+# A clean bundle prevents obsolete resources or old updater helpers shipping.
+rm -rf "$APP_DIR"
+mkdir -p "$CONTENTS/MacOS" "$CONTENTS/Resources" "$CONTENTS/Frameworks"
+cp "$BIN_DIR/Clockin" "$CONTENTS/MacOS/Clockin"
+cp Resources/Info.plist "$CONTENTS/Info.plist"
+cp Resources/Clockin.icns "$CONTENTS/Resources/Clockin.icns"
+ditto "$BIN_DIR/Clockin_Clockin.bundle" "$CONTENTS/Resources/Clockin_Clockin.bundle"
+ditto "$SPARKLE_ROOT/Sparkle.xcframework/macos-arm64_x86_64/Sparkle.framework" "$CONTENTS/Frameworks/Sparkle.framework"
+cp "$SPARKLE_ROOT/LICENSE" "$CONTENTS/Resources/Sparkle-LICENSE.txt"
+
+# Optional release overrides never modify the source plist.
+[[ -z "${APP_VERSION:-}" ]] || plutil -replace CFBundleShortVersionString -string "$APP_VERSION" "$CONTENTS/Info.plist"
+[[ -z "${BUILD_NUMBER:-}" ]] || plutil -replace CFBundleVersion -string "$BUILD_NUMBER" "$CONTENTS/Info.plist"
+[[ -z "${UPDATE_FEED_URL:-}" ]] || plutil -replace SUFeedURL -string "$UPDATE_FEED_URL" "$CONTENTS/Info.plist"
+plutil -lint "$CONTENTS/Info.plist"
+
+# Sign nested code from the inside out. Preserve XPC sandbox entitlements.
+# Do not use --deep for signing; Sparkle helpers must receive their own signatures.
+sign_args=(--force --sign "$SIGNING_IDENTITY")
+if [[ "$SIGNING_IDENTITY" != - ]]; then
+    sign_args+=(--options runtime --timestamp)
+fi
+FRAMEWORK="$CONTENTS/Frameworks/Sparkle.framework"
+for helper in "$FRAMEWORK/Versions/B/XPCServices/"*.xpc(N); do
+    codesign "${sign_args[@]}" --preserve-metadata=entitlements "$helper"
+done
+codesign "${sign_args[@]}" "$FRAMEWORK/Versions/B/Autoupdate"
+codesign "${sign_args[@]}" "$FRAMEWORK/Versions/B/Updater.app"
+codesign "${sign_args[@]}" "$FRAMEWORK"
+codesign "${sign_args[@]}" "$APP_DIR"
+codesign --verify --deep --strict --verbose=2 "$APP_DIR"
 print "Built: $APP_DIR"
-print "Open with: open '$APP_DIR'"

@@ -1,117 +1,122 @@
-import Foundation
+import AppKit
+import Combine
+import Sparkle
 
-/// Yeni surum var mi diye GitHub'a sorar.
-///
-/// Proje yayinlanmis bir surum (release) uretmiyor; herkes kaynaktan
-/// derliyor. Dolayisiyla "indirilecek paket" yok. Bunun yerine derleme
-/// sirasinda paketin icine hangi commit'ten uretildigi yazilir ve burada
-/// deponun son haliyle karsilastirilir.
+/// Sparkle owns scheduling, signature verification, installation and relaunch.
+/// Keep one controller alive for the lifetime of this menu bar application.
 @MainActor
 final class UpdateChecker: ObservableObject {
     static let shared = UpdateChecker()
 
-    enum State: Equatable {
-        /// Paket bir commit bilgisi tasimiyor (elle yapilmis derleme).
-        case unknown
-        case checking
-        case upToDate
-        case behind(Int)
-        case failed(String)
-    }
-
-    @Published private(set) var state: State = .unknown
+    /// True once Sparkle has started. Keep actions available during background
+    /// work; a requested check waits until Sparkle can start or focus its UI.
+    @Published private(set) var isReady = false
+    /// A version a background check found and did not put in front of the
+    /// user. The menu bar and Settings show it until the user opens it.
+    @Published private(set) var pendingVersion: String?
+    @Published private(set) var automaticallyChecksForUpdates = false
     @Published private(set) var lastChecked: Date?
+    @Published private(set) var startupError: String?
 
-    private static let repository = "ismailakdag/clockin"
-    /// Iki otomatik denetim arasindaki en kisa sure.
-    private static let automaticInterval: TimeInterval = 6 * 3600
+    private let controller: SPUStandardUpdaterController
+    private let reminders = GentleUpdateReminders()
+    private var started = false
+    private var checkRequested = false
+    private var checkAvailability: AnyCancellable?
 
-    /// build-app.sh tarafindan Info.plist'e yazilir.
-    let builtCommit: String? = {
-        guard let value = Bundle.main.object(forInfoDictionaryKey: "ClockinBuildCommit") as? String,
-              !value.isEmpty, value != "unknown" else { return nil }
-        return value
-    }()
-
-    /// Guncelleme betiginin yolu; yine derleme sirasinda yazilir.
-    let updateScriptPath: String? = {
-        guard let value = Bundle.main.object(forInfoDictionaryKey: "ClockinUpdateScript") as? String,
-              !value.isEmpty, FileManager.default.fileExists(atPath: value) else { return nil }
-        return value
-    }()
-
-    /// Karsilastirma icin kullanilan nokta: derlemenin origin/main ile ortak
-    /// atasi. Yerel commitler tasiyan bir derlemede HEAD depoda bulunmaz.
-    let upstreamBase: String? = {
-        guard let value = Bundle.main.object(forInfoDictionaryKey: "ClockinUpstreamBase") as? String,
-              !value.isEmpty, value != "unknown" else { return nil }
-        return value
-    }()
-
-    var shortCommit: String? { builtCommit.map { String($0.prefix(7)) } }
-
-    func checkIfDue() async {
-        if let last = lastChecked, Date().timeIntervalSince(last) < Self.automaticInterval { return }
-        await check()
+    var version: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—"
     }
 
-    func check() async {
-        guard let base = upstreamBase ?? builtCommit else {
-            state = .unknown
-            return
+    private init() {
+        // Preserve an existing user's opt-out exactly once. From here on,
+        // Sparkle is the sole owner of this preference and the update schedule.
+        let defaults = UserDefaults.standard
+        if defaults.object(forKey: "SUEnableAutomaticChecks") == nil,
+           let previous = defaults.object(forKey: "Clockin.AutoCheckUpdates") as? Bool {
+            defaults.set(previous, forKey: "SUEnableAutomaticChecks")
         }
-        let previous = state
-        state = .checking
-        let url = URL(string: "https://api.github.com/repos/\(Self.repository)/compare/\(base)...main")!
-        var request = URLRequest(url: url, timeoutInterval: 15)
-        request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+        defaults.removeObject(forKey: "Clockin.AutoCheckUpdates")
+        controller = SPUStandardUpdaterController(
+            startingUpdater: false, updaterDelegate: nil, userDriverDelegate: reminders
+        )
+        reminders.onChange = { [weak self] version in self?.pendingVersion = version }
+        checkAvailability = controller.updater.publisher(for: \.canCheckForUpdates)
+            .sink { [weak self] available in
+                // Sparkle publishes on main. Defer until its state transition
+                // (and any gentle-reminder callback) has finished.
+                guard available else { return }
+                DispatchQueue.main.async { self?.performRequestedCheck() }
+            }
+        controller.updater.publisher(for: \.automaticallyChecksForUpdates)
+            .assign(to: &$automaticallyChecksForUpdates)
+        controller.updater.publisher(for: \.lastUpdateCheckDate)
+            .assign(to: &$lastChecked)
+    }
+
+    func start() {
+        guard !started else { return }
         do {
-            let (data, response) = try await URLSession.shared.data(for: request)
-            guard let http = response as? HTTPURLResponse else {
-                state = .failed("No response")
-                return
-            }
-            // Derleme, deponun gecmisinde olmayan bir commit'ten yapilmis
-            // olabilir (yerel deneme dali gibi).
-            guard http.statusCode != 404 else {
-                state = .unknown
-                return
-            }
-            guard http.statusCode == 200 else {
-                state = .failed("GitHub returned \(http.statusCode)")
-                return
-            }
-            let parsed = try JSONDecoder().decode(Comparison.self, from: data)
-            lastChecked = Date()
-            state = parsed.ahead_by > 0 ? .behind(parsed.ahead_by) : .upToDate
+            try controller.updater.start()
+            started = true
+            isReady = true
+            startupError = nil
         } catch {
-            // Bu is Ayarlar'in `.task`'inda kosuyor; ekrandan cikmak onu iptal
-            // eder ve iptal bir ag hatasi degil.
-            if Task.isCancelled {
-                state = previous
-                return
-            }
-            state = .failed(error.localizedDescription)
+            startupError = error.localizedDescription
         }
     }
 
-    /// Guncelleme betigini calistirir. Betik uygulamayi kapatip yeniden
-    /// kurdugu icin burada beklemek anlamsiz.
-    func runUpdateScript() -> Bool {
-        guard let updateScriptPath else { return false }
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/open")
-        process.arguments = [updateScriptPath]
-        do {
-            try process.run()
-            return true
-        } catch {
-            state = .failed(error.localizedDescription)
-            return false
+    func setAutomaticallyChecksForUpdates(_ enabled: Bool) {
+        controller.updater.automaticallyChecksForUpdates = enabled
+    }
+
+    /// Starts a check, or brings an update that is already open or waiting
+    /// to the front.
+    func checkForUpdates() {
+        guard started else { return }
+        checkRequested = true
+        // Let the menu or panel close before Sparkle presents its window.
+        DispatchQueue.main.async { [self] in
+            performRequestedCheck()
         }
     }
 
-    private struct Comparison: Decodable {
-        let ahead_by: Int
+    private func performRequestedCheck() {
+        // False while a background appcast is loading; true again when an
+        // update is ready (even if hidden by gentle reminders), or work ends.
+        guard checkRequested, started, controller.updater.canCheckForUpdates else { return }
+        checkRequested = false
+        // Sparkle activates the app when presenting/focusing its own window.
+        controller.checkForUpdates(nil)
+    }
+}
+
+/// Clockin is a menu-bar app, so it is rarely the active app when a scheduled
+/// check finds an update. Sparkle would then order its alert behind other
+/// windows, where it goes unnoticed. Right after launch Sparkle can show it in
+/// front; otherwise the update is offered from the menu bar and Settings until
+/// the user opens it.
+@MainActor
+private final class GentleUpdateReminders: NSObject, @preconcurrency SPUStandardUserDriverDelegate {
+    // Sparkle's user driver invokes these callbacks on the main thread.
+    var onChange: ((String?) -> Void)?
+
+    var supportsGentleScheduledUpdateReminders: Bool { true }
+
+    func standardUserDriverShouldHandleShowingScheduledUpdate(_ update: SUAppcastItem, andInImmediateFocus immediateFocus: Bool) -> Bool {
+        immediateFocus
+    }
+
+    func standardUserDriverWillHandleShowingUpdate(_ handleShowingUpdate: Bool, forUpdate update: SUAppcastItem, state: SPUUserUpdateState) {
+        guard !handleShowingUpdate, !state.userInitiated else { return }
+        onChange?(update.displayVersionString)
+    }
+
+    func standardUserDriverDidReceiveUserAttention(forUpdate update: SUAppcastItem) {
+        onChange?(nil)
+    }
+
+    func standardUserDriverWillFinishUpdateSession() {
+        onChange?(nil)
     }
 }
