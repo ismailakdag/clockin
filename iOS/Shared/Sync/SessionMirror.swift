@@ -42,6 +42,13 @@ final class SessionMirror {
         sync()
     }
 
+    // Uzun omurlu gorevler ayarlari yeniden okusun; baslarken aldiklari
+    // `@AppStorage` degerleri eskimis olabilir.
+    func refreshChimes(force: Bool = false) {
+        guard let store else { return }
+        syncChimes(running: store.running, force: force)
+    }
+
     // Bildirim yaniti tamamlanmadan arka plan aynalarini bitir.
     func finishPendingUpdates() async {
         await LongSessionReminderController.shared.finishPendingUpdates()
@@ -91,13 +98,14 @@ final class SessionMirror {
     /// Kisayollar mesaiyi bitirdiginde uygulama arka planda, hicbir ekran
     /// yuklenmeden calisiyor; bekleyen yirmi bildirim silinmiyor ve mesai
     /// bittikten sonra saatlerce calmaya devam ediyordu.
-    private func syncChimes(running: RunningSession?) {
+    private func syncChimes(running: RunningSession?, force: Bool = false) {
         let defaults = UserDefaults.standard
         FocusChimeController.shared.update(
             running: running,
             enabled: defaults.bool(forKey: "Clockin.ChimeEnabled"),
             interval: defaults.integer(forKey: "Clockin.ChimeIntervalMinutes"),
-            sound: defaults.string(forKey: "Clockin.ChimeSound") ?? FocusChimeSound.notification.rawValue
+            sound: defaults.string(forKey: "Clockin.ChimeSound") ?? FocusChimeSound.notification.rawValue,
+            force: force
         )
     }
 
