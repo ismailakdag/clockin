@@ -289,7 +289,7 @@ struct MainView: View {
     }
 
     private var moneyMomentum: some View {
-        let perSecond = store.currentRate(at: now) / 3600
+        let perHour = store.currentRate(at: now)
         let current = store.currentEarnings(at: now)
         // Tam onlukta hedef bir sonraki onluga gecer; onceden hedef mevcut
         // tutara esit kalip "0 to go" derken cubuk bosaliyordu.
@@ -298,27 +298,25 @@ struct MainView: View {
         let progress = remainder / 10
         let isEarning = store.running?.isPaused == false
         return VStack(spacing: S(8)) {
-            HStack(spacing: S(9)) {
-                VStack(alignment: .leading, spacing: S(2)) {
-                    Text(isEarning ? "Earning per second" : "Rate per second")
-                        .font(.system(size: S(10), weight: .black, design: .rounded)).foregroundStyle(.secondary)
-                    VStack(alignment: .leading, spacing: S(2)) {
-                        Text("+\(perSecond.money(code: store.currencyCode, maxFractionDigits: 4))/sec")
-                        if store.currencyCode == "USD", let usdTry = exchangeRates.latestRate {
-                            Text("• +\((perSecond * usdTry).money(code: "TRY", maxFractionDigits: 4))/sec")
-                        }
-                    }
-                    .font(.system(size: S(10), weight: .semibold, design: .monospaced))
+            HStack(alignment: .firstTextBaseline, spacing: S(8)) {
+                // The hourly rate, not fractions of a cent per second.
+                Text(isEarning ? "Earning" : "Rate")
+                    .font(ClockinFont.section).foregroundStyle(.secondary)
+                Text("\(perHour.money(code: store.currencyCode))/h")
+                    .font(.system(size: S(12), weight: .semibold).monospacedDigit())
                     .foregroundStyle(isEarning ? theme.accent : .secondary)
+                if store.currencyCode == "USD", let usdTry = exchangeRates.latestRate {
+                    Text("\((perHour * usdTry).money(code: "TRY"))/h")
+                        .font(.system(size: S(11), weight: .medium).monospacedDigit())
+                        .foregroundStyle(.secondary)
                 }
-                Spacer()
+                Spacer(minLength: S(6))
                 if store.running != nil {
-                    VStack(alignment: .trailing, spacing: S(1)) {
-                        Text("Next \(milestone.money(code: store.currencyCode))")
-                            .font(.system(size: S(10), weight: .bold)).foregroundStyle(.secondary)
-                        Text("\(max(0, milestone - current).money(code: store.currencyCode)) to go")
-                            .font(.system(size: S(10), weight: .semibold))
-                    }
+                    // The bar already shows which milestone; this is the gap.
+                    Text("\(max(0, milestone - current).money(code: store.currencyCode)) to go")
+                        .font(.system(size: S(11), weight: .semibold).monospacedDigit())
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
                 }
             }
             if store.running != nil {
