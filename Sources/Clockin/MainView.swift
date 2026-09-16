@@ -384,15 +384,49 @@ struct MainView: View {
     }
 
     private var todayCard: some View {
-        HStack(spacing: S(0)) {
-            metric(title: "Today", value: DurationText.compact(store.todayDuration(at: now)), icon: "clock")
-                .frame(maxWidth: .infinity, alignment: .leading)
-            Divider().frame(height: S(35)).opacity(0.25)
-            todayEarnedMetric
-                .frame(maxWidth: .infinity, alignment: .leading)
+        VStack(spacing: S(12)) {
+            HStack(spacing: S(0)) {
+                metric(title: "Today", value: DurationText.compact(store.todayDuration(at: now)), icon: "clock")
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Divider().frame(height: S(35)).opacity(0.25)
+                todayEarnedMetric
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            Divider().opacity(0.25).padding(.horizontal, S(14))
+            // Work months start on the 1st, so the month's total earns a line
+            // of its own next to today's.
+            monthRow
         }
         .padding(.vertical, S(14))
         .background(cardBackground)
+    }
+
+    private var monthRow: some View {
+        let earned = store.monthEarnings(at: now)
+        let rate = exchangeRates.latestRate
+        return HStack(spacing: S(0)) {
+            metric(title: "Since the 1st", value: DurationText.compact(store.monthDuration(at: now)), icon: "calendar")
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Divider().frame(height: S(35)).opacity(0.25)
+            HStack(spacing: S(10)) {
+                Image(systemName: "banknote")
+                    .foregroundStyle(theme.accent.opacity(0.8))
+                    .frame(width: S(20))
+                VStack(alignment: .leading, spacing: S(3)) {
+                    Text("Earned this month").font(ClockinFont.section).foregroundStyle(.secondary)
+                    Text(earned.money(code: store.currencyCode))
+                        .font(.system(size: S(14), weight: .semibold, design: .rounded)).lineLimit(1)
+                    if store.currencyCode == "USD", let rate {
+                        Text((earned * rate).money(code: "TRY"))
+                            .font(.system(size: S(10), weight: .medium, design: .rounded))
+                            .foregroundStyle(theme.accent)
+                    }
+                }
+                Spacer()
+            }
+            .padding(.horizontal, S(14))
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
     }
 
     private var todayEarnedMetric: some View {
