@@ -93,6 +93,9 @@ if [[ "$MODE" == publish ]]; then
 fi
 
 section "Building the release"
+# The built app is only needed during this run. Left in dist/, Spotlight lists
+# it next to /Applications/Clockin.app as a second Clockin; the DMG keeps a copy.
+trap 'rm -rf "$PWD/dist/Clockin.app"' EXIT
 export APP_VERSION="$VERSION" BUILD_NUMBER="$BUILD" DOWNLOAD_URL_PREFIX RELEASE_NOTES_FILE="$NOTES"
 if [[ "$MODE" == publish ]]; then
   export SIGNING_IDENTITY NOTARY_KEYCHAIN_PROFILE
