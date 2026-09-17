@@ -102,6 +102,7 @@ struct RateScheduleView: View {
                 Text("Delete the \(rule.hourlyRate.money(code: store.currencyCode))/hr period starting \(rule.effectiveFrom.formatted(date: .abbreviated, time: .omitted))? Earnings for sessions in this period will be recalculated using the remaining rules.")
             }
         }
+        .hapticFeedback(.destructiveConfirmation, trigger: pendingDelete?.id) { _, new in new != nil }
         .tint(palette.accent)
         .fontDesign(palette.fontDesign)
         .preferredColorScheme(palette.colorScheme)
@@ -127,11 +128,14 @@ private struct RatePeriodEditor: View {
     @Environment(\.palette) private var palette
     @Environment(\.dismiss) private var dismiss
 
+    @State private var selectionFeedback = HapticSignal()
+
     let editing: RateRule?
     @State private var effectiveFrom: Date
     @State private var effectiveUntil: Date
     @State private var hasEndDate: Bool
     @State private var rateText: String
+    @FocusState private var rateIsFocused: Bool
     @State private var errorMessage: String?
 
     init(editing: RateRule?) {
@@ -156,7 +160,7 @@ private struct RatePeriodEditor: View {
             Form {
                 Section {
                     DatePicker("Effective from", selection: $effectiveFrom, displayedComponents: .date)
-                    Toggle("Has end date", isOn: $hasEndDate)
+                    Toggle("Has end date", isOn: $hasEndDate.hapticSelection($selectionFeedback))
                     if hasEndDate {
                         DatePicker("Effective until", selection: $effectiveUntil, displayedComponents: .date)
                     }
@@ -168,6 +172,12 @@ private struct RatePeriodEditor: View {
                 Section {
                     TextField("Hourly rate (\(store.currencyCode))", text: $rateText)
                         .keyboardType(.decimalPad)
+                        .focused($rateIsFocused)
+                        .decimalInputRegion(active: rateIsFocused)
+                        .onSubmit { rateIsFocused = false }
+                    if rateIsFocused {
+                        Button("Done") { rateIsFocused = false }
+                    }
                 } header: {
                     Text("Hourly rate")
                 } footer: {
@@ -179,6 +189,9 @@ private struct RatePeriodEditor: View {
                 }
                 .listRowBackground(palette.surface)
             }
+            .hapticFeedback(selectionFeedback)
+            .dismissDecimalKeyboard(isEditing: rateIsFocused) { rateIsFocused = false }
+            .scrollDismissesKeyboard(.interactively)
             .scrollContentBackground(.hidden)
             .background(palette.background)
             .navigationTitle(editing == nil ? "Add rate period" : "Edit rate period")
@@ -218,8 +231,10 @@ private struct RatePeriodEditor: View {
             }
         } ?? false
         if store.statusMessage == nil && (before != after || unchangedEdit) {
+            Haptics.play(.rateSaved)
             dismiss()
         } else {
+            Haptics.play(.validationFailed)
             errorMessage = store.statusMessage ?? "Could not save this rate period. Please try again."
         }
     }

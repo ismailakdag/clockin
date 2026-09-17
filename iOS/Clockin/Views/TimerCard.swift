@@ -12,7 +12,11 @@ struct TimerCard: View {
     let onClockOut: (WorkSession) -> Void
     let onStartWithElapsed: () -> Void
 
+    @Environment(\.clockinContentActive) private var contentActive
+
     @State private var confirmCancel = false
+
+    @State private var sessionFeedback = HapticSignal()
 
     var body: some View {
         let elapsed = DurationText.clock(store.elapsed(at: now))
@@ -22,22 +26,17 @@ struct TimerCard: View {
             VStack(spacing: 8) {
                 status
                 Text(elapsed)
-                    .contentTransition(.numericText())
-                    .animation(reduceMotion ? nil : .easeOut(duration: 0.25), value: elapsed)
                     .font(.system(size: 60, weight: .medium, design: palette.fontDesign))
                     .monospacedDigit()
                     .lineLimit(1)
                     .minimumScaleFactor(0.6)
                 Text(earnings)
-                    .contentTransition(.numericText())
-                    .animation(reduceMotion ? nil : .easeOut(duration: 0.25), value: earnings)
                     .font(.title3.weight(.semibold))
+                    .monospacedDigit()
                     .foregroundStyle(palette.accent)
                 if store.currencyCode == "USD", let rate = exchangeRates.latestRate {
                     let converted = (earned * rate).money(code: "TRY")
                     Text(converted)
-                        .contentTransition(.numericText())
-                        .animation(reduceMotion ? nil : .easeOut(duration: 0.25), value: converted)
                         .font(.caption)
                         .monospacedDigit()
                         .foregroundStyle(.secondary)
@@ -56,21 +55,20 @@ struct TimerCard: View {
             VStack {
                 controls
             }
+            .buttonPressHaptic(false)
             .animation(reduceMotion ? nil : .easeInOut(duration: 0.22), value: store.running != nil)
         }
         .padding(20)
         .frame(maxWidth: .infinity)
         .card(palette)
-        .sensoryFeedback(trigger: store.running?.isPaused) { old, new in
-            switch (old, new) {
-            case (nil, .some): .start
-            case (.some, nil): .stop
-            default: .impact(weight: .light)
-            }
-        }
+        .hapticFeedback(sessionFeedback)
+        .hapticFeedback(.destructiveConfirmation, trigger: confirmCancel) { _, new in new }
         .alert("Cancel active session?", isPresented: $confirmCancel) {
             Button("Keep working", role: .cancel) {}
-            Button("Cancel session", role: .destructive) { store.cancelRunning() }
+            Button("Cancel session", role: .destructive) {
+                store.cancelRunning()
+                sendSessionFeedback(.sessionEnded)
+            }
         } message: {
             Text("The active time will be discarded and no earnings will be added.")
         }
@@ -94,6 +92,7 @@ struct TimerCard: View {
                 HStack(spacing: 10) {
                     Button {
                         running.isPaused ? store.resume() : store.pause()
+                        sendSessionFeedback(running.isPaused ? .sessionResumed : .sessionPaused)
                     } label: {
                         Label(running.isPaused ? "Resume" : "Pause",
                               systemImage: running.isPaused ? "play.fill" : "pause.fill")
@@ -101,7 +100,10 @@ struct TimerCard: View {
                     .buttonStyle(SecondaryActionButtonStyle(palette: palette))
 
                     Button {
-                        if let session = store.clockOut() { onClockOut(session) }
+                        if let session = store.clockOut() {
+                            sendSessionFeedback(.sessionEnded)
+                            onClockOut(session)
+                        }
                     } label: {
                         Label("Clock out", systemImage: "stop.fill")
                     }
@@ -114,7 +116,10 @@ struct TimerCard: View {
             .transition(controlTransition)
         } else {
             VStack(spacing: 12) {
-                Button { store.clockIn() } label: {
+                Button {
+                    store.clockIn()
+                    sendSessionFeedback(.sessionStarted)
+                } label: {
                     Label("Clock in", systemImage: "play.fill")
                 }
                 .buttonStyle(PrimaryActionButtonStyle(palette: palette))
@@ -131,6 +136,11 @@ struct TimerCard: View {
         reduceMotion ? .identity : .opacity.combined(with: .offset(y: 5))
     }
 
+    private func sendSessionFeedback(_ event: HapticEvent) {
+        guard contentActive else { return }
+        sessionFeedback.send(event)
+    }
+
     private var statusColor: Color {
         guard let running = store.running else { return .secondary }
         return running.isPaused ? .orange : palette.accent
@@ -139,5 +149,43 @@ struct TimerCard: View {
     private var statusText: String {
         guard let running = store.running else { return "READY TO FOCUS" }
         return running.isPaused ? "PAUSED" : "FOCUS SESSION"
+    }
+}
+
+private struct ClockinContentActiveKey: EnvironmentKey {
+    static let defaultValue = true
+}
+
+extension EnvironmentValues {
+    var clockinContentActive: Bool {
+        get { self[ClockinContentActiveKey.self] }
+        set { self[ClockinContentActiveKey.self] = newValue }
+    }
+}
+
+private struct VisibleTimelineSchedule: TimelineSchedule {
+    let interval: TimeInterval
+    let active: Bool
+
+    func entries(from startDate: Date, mode: TimelineScheduleMode) -> AnySequence<Date> {
+        guard active else { return AnySequence([startDate]) }
+        return AnySequence(PeriodicTimelineSchedule(from: Date(timeIntervalSinceReferenceDate: 0), by: interval)
+            .entries(from: startDate, mode: mode))
+    }
+}
+
+struct ActiveTimeline<Content: View>: View {
+    @Environment(\.clockinContentActive) private var contentActive
+    @Environment(\.scenePhase) private var scenePhase
+    let interval: TimeInterval
+    @ViewBuilder let content: (Date) -> Content
+
+    var body: some View {
+        TimelineView(VisibleTimelineSchedule(interval: interval, active: contentActive && scenePhase == .active)) { context in
+            // Ayri kartlar ayni saniyeyi okur; kurus farki olusmaz.
+            content(Date(timeIntervalSinceReferenceDate: floor(context.date.timeIntervalSinceReferenceDate)))
+                // Saniyelik rakam animasyonu CPU'da blur cizdirip telefonu isitiyor.
+                .transaction { $0.animation = nil; $0.disablesAnimations = true }
+        }
     }
 }

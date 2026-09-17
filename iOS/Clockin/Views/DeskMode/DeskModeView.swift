@@ -9,12 +9,14 @@ struct DeskModeView: View {
     @EnvironmentObject private var store: ClockStore
     @EnvironmentObject private var exchangeRates: ExchangeRateStore
     @Environment(\.palette) private var palette
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.clockinContentActive) private var contentActive
+    @Environment(\.scenePhase) private var scenePhase
     @AppStorage("Clockin.GoalDailyHours") private var dailyGoalHours = 0.0
 
+    @State private var sessionFeedback = HapticSignal()
+
     var body: some View {
-        TimelineView(.periodic(from: .now, by: store.running?.isPaused == false ? 1 : 60)) { context in
-            let now = context.date
+        ActiveTimeline(interval: store.running?.isPaused == false ? 1 : 60) { now in
             let elapsed = store.running == nil ? 0 : store.elapsed(at: now)
             let todayDuration = store.todayDuration(at: now)
             let todayEarnings = store.todayEarnings(at: now)
@@ -27,20 +29,14 @@ struct DeskModeView: View {
                     HStack(alignment: .center) {
                         todaySummary(duration: todayDuration, earnings: todayEarnings)
                         Spacer(minLength: 16)
-                        controls
+                        controls.buttonPressHaptic(false)
                     }
                 }
                 .padding(.horizontal, 24)
                 .padding(.vertical, 16)
         }
         .background { palette.background.ignoresSafeArea() }
-        .sensoryFeedback(trigger: store.running?.isPaused) { old, new in
-            switch (old, new) {
-            case (nil, .some): .start
-            case (.some, nil): .stop
-            default: .impact(weight: .light)
-            }
-        }
+        .hapticFeedback(sessionFeedback)
     }
 
     private func timerBlock(elapsed: TimeInterval, earned: Double, day: Date?) -> some View {
@@ -62,14 +58,10 @@ struct DeskModeView: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.4)
                 .foregroundStyle(store.running == nil ? Color.secondary : Color.primary)
-                .contentTransition(reduceMotion ? .identity : .numericText())
-                .animation(reduceMotion ? nil : .easeOut(duration: 0.25), value: clock)
             HStack(alignment: .firstTextBaseline, spacing: 12) {
                 Text(earnings)
                     .font(.title.weight(.semibold))
                     .foregroundStyle(palette.accent)
-                    .contentTransition(reduceMotion ? .identity : .numericText())
-                    .animation(reduceMotion ? nil : .easeOut(duration: 0.25), value: earnings)
                 if store.currencyCode == "USD", let rate = exchangeRates.latestRate {
                     Text((earned * rate).money(code: "TRY"))
                         .font(.title3)
@@ -134,14 +126,21 @@ struct DeskModeView: View {
                             label: running.isPaused ? "Resume" : "Pause",
                             foreground: .primary, background: palette.surfaceStroke) {
                     running.isPaused ? store.resume() : store.pause()
+                    sendSessionFeedback(running.isPaused ? .sessionResumed : .sessionPaused)
                 }
                 roundButton(systemImage: "stop.fill", label: "Clock out",
                             foreground: .red, background: .red.opacity(0.18)) {
-                    if let session = store.clockOut() { onClockOut(session) }
+                    if let session = store.clockOut() {
+                        sendSessionFeedback(.sessionEnded)
+                        onClockOut(session)
+                    }
                 }
             }
         } else {
-            Button { store.clockIn() } label: {
+            Button {
+                store.clockIn()
+                sendSessionFeedback(.sessionStarted)
+            } label: {
                 Label("Clock in", systemImage: "play.fill")
                     .font(.subheadline.weight(.semibold))
                     .padding(.horizontal, 16)
@@ -164,6 +163,11 @@ struct DeskModeView: View {
         }
         .buttonStyle(.pressable)
         .accessibilityLabel(label)
+    }
+
+    private func sendSessionFeedback(_ event: HapticEvent) {
+        guard contentActive, scenePhase == .active else { return }
+        sessionFeedback.send(event)
     }
 
     private var statusColor: Color {

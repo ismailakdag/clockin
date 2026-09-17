@@ -8,12 +8,12 @@ func expect(_ condition: @autoclosure () -> Bool, _ message: String) {
 }
 
 let csv = #""Date","Time Sheet Source","Start Time","End Time","Duration","Notes""# + "\n" +
-    #""2026-08-03","starfleet","2026-08-03T18:48:00.000Z","2026-08-03T21:01:00.000Z","7980000","Project, with comma""#
+    #""2026-08-03","timeportal","2026-08-03T18:48:00.000Z","2026-08-03T21:01:00.000Z","7980000","Project, with comma""#
 let sessions = try CSVImporter.parse(data: Data(csv.utf8), hourlyRate: 30)
 expect(sessions.count == 1, "one CSV row should import")
 expect(sessions[0].duration == 7_980, "duration should convert milliseconds to seconds")
 expect(sessions[0].note == "Project, with comma", "quoted commas should parse")
-expect(sessions[0].source == "starfleet", "source should be retained")
+expect(sessions[0].source == "timeportal", "source should be retained")
 expect(sessions[0].earnings == 66.5, "earnings should use imported duration and rate")
 
 let running = RunningSession(
@@ -34,7 +34,7 @@ Dec 31, 2025 - Aug 31, 2026
 Saturday
 January 17
 Approved
-Starfleet
+TimePortal
 15:20
 15:22
 2
@@ -42,7 +42,7 @@ M
 Friday
 January 23
 Approved
-Starfleet
+TimePortal
 23:26
 23:48
 22
@@ -59,14 +59,14 @@ HomePlanner Clock Out 10 M
 Jan 01, 2026 - Aug 31, 2026
 FridayJanuary 23
 Approved
-Starfleet
+TimePortal
 09:00
 09:25
 25
 M
 SaturdayJanuary 24
 Approved
-Starfleet
+TimePortal
 00:07
 00:13
 6
@@ -123,7 +123,7 @@ Aug 31, 2026 - Dec 31, 2025
 Saturday
 January 17
 Approved
-Starfleet
+TimePortal
 15:20
 15:22
 2

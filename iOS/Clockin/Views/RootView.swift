@@ -14,11 +14,14 @@ struct RootView: View {
     @Environment(\.verticalSizeClass) private var verticalSizeClass
     @AppStorage("Clockin.ChimeEnabled") private var chimeEnabled = false
     @AppStorage("Clockin.ChimeIntervalMinutes") private var chimeInterval = 10
-    @AppStorage("Clockin.ChimeSound") private var chimeSound = FocusChimeSound.notification.rawValue
+    @AppStorage("Clockin.ChimeSound") private var chimeSound = FocusChimeSound.defaultSound.rawValue
     @AppStorage(DeskMode.enabledKey) private var deskModeEnabled = true
     @AppStorage(NudgePlanner.enabledKey) private var nudgesEnabled = true
     @AppStorage(NudgePlanner.toneKey) private var nudgeTone = NudgeTone.grumpy.rawValue
     @AppStorage("Clockin.GoalDailyHours") private var dailyGoalHours = 0.0
+    @AppStorage("Clockin.GoalMonthlyHours") private var monthlyGoalHours = 0.0
+    @AppStorage(GoalPrompt.configuredKey) private var everConfiguredGoal = false
+    @State private var goalEditorRequest = false
     @ObservedObject private var nudges = NudgeController.shared
     @ObservedObject private var reminder = LongSessionReminderController.shared
     @State private var tab: AppTab = .today
@@ -35,6 +38,8 @@ struct RootView: View {
         showsDeskMode && scenePhase == .active && store.running?.isPaused == false
     }
 
+    @State private var selectionFeedback = HapticSignal()
+
     var body: some View {
         ZStack {
             // Sekmeler masa modunun altinda yasamaya devam eder; dik cevirince
@@ -43,11 +48,13 @@ struct RootView: View {
                 .accessibilityHidden(showsDeskMode)
             if showsDeskMode {
                 DeskModeView(onClockOut: { deskSummary = $0 })
+                    .environment(\.clockinContentActive, deskSummary == nil)
                     .statusBarHidden()
                     .persistentSystemOverlays(.hidden)
                     .transition(.opacity)
             }
         }
+        .hapticFeedback(selectionFeedback)
         .animation(.easeInOut(duration: 0.25), value: showsDeskMode)
         // Mac'te her gorunum temayi `@AppStorage`'dan kendisi okuyordu.
         // Burada bir kez okunup ortamla asagi iniyor.
@@ -67,6 +74,9 @@ struct RootView: View {
         .onChange(of: nudgesEnabled) { _, _ in nudges.update(store: store) }
         .onChange(of: nudgeTone) { _, _ in nudges.update(store: store) }
         .onChange(of: dailyGoalHours) { _, _ in nudges.update(store: store) }
+        .onChange(of: GoalPrompt.hasGoal(daily: dailyGoalHours, monthly: monthlyGoalHours), initial: true) { _, hasGoal in
+            if hasGoal { everConfiguredGoal = true }
+        }
         .onChange(of: nudges.openToday, initial: true) { _, requested in
             if requested {
                 tab = .today
@@ -96,15 +106,18 @@ struct RootView: View {
     }
 
     private var tabs: some View {
-        TabView(selection: $tab) {
-            DashboardView(isSelected: tab == .today, showHistory: { tab = .history }, showInsights: { tab = .insights }, showProgress: { tab = .badges })
+        TabView(selection: $tab.hapticSelection($selectionFeedback)) {
+            DashboardView(isSelected: tab == .today && !showsDeskMode && deskSummary == nil, showHistory: { tab = .history }, showInsights: { tab = .insights }, setGoals: {
+                goalEditorRequest = true
+                tab = .insights
+            }, showProgress: { tab = .badges })
                 .tabItem { Label("Today", systemImage: "timer") }
                 .tag(AppTab.today)
             HistoryView()
-                .tabItem { Label("History", systemImage: "clock.arrow.circlepath") }
+                .tabItem { Label("History", systemImage: "chart.bar.xaxis") }
                 .tag(AppTab.history)
-            InsightsView()
-                .tabItem { Label("Insights", systemImage: "chart.bar.xaxis") }
+            InsightsView(openGoalEditor: $goalEditorRequest)
+                .tabItem { Label("Insights", systemImage: "target") }
                 .tag(AppTab.insights)
             // Ayarlar alt sekmede degil, Bugun ekraninin ust cubugunda. Sik
             // acilan bir yer degil; sekmeyi ilerleme icin kullanmak sayfalari

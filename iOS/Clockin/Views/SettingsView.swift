@@ -19,6 +19,7 @@ struct SettingsView: View {
     @AppStorage("Clockin.MascotEnabled") private var mascotEnabled = true
     @AppStorage("Clockin.MascotDefault") private var mascotDefault = "Auto"
     @AppStorage(DeskMode.enabledKey) private var deskModeEnabled = true
+    @AppStorage(HapticPolicy.enabledKey) private var hapticsEnabled = true
     @FocusState private var rateIsFocused: Bool
     @State private var rateText = ""
     @State private var pendingRate: RateChangeDraft?
@@ -32,6 +33,8 @@ struct SettingsView: View {
     @State private var restoreMessage: String?
     @State private var sheet: SettingsSheet?
 
+    @State private var selectionFeedback = HapticSignal()
+
     var body: some View {
         NavigationStack {
             Form {
@@ -42,22 +45,27 @@ struct SettingsView: View {
                     }
                 }
                 paySection
-                Section("Appearance") {
-                    Toggle("Focus companion", isOn: $mascotEnabled)
+                Section {
+                    Toggle("Haptics", isOn: $hapticsEnabled.hapticSelection($selectionFeedback))
+                    Toggle("Focus companion", isOn: $mascotEnabled.hapticSelection($selectionFeedback))
                     if mascotEnabled {
                         companionBehavior
                     }
+                } header: {
+                    Text("Appearance")
+                } footer: {
+                    Text("Gentle feedback for taps, selections, and completed actions.")
                 }
                 NudgeSettingsSection()
                 Section {
-                    Picker("Theme", selection: $themeRaw) {
+                    Picker("Theme", selection: $themeRaw.hapticSelection($selectionFeedback)) {
                         ForEach(ClockinThemeChoice.allCases) { theme in
                             Text(theme.rawValue).tag(theme.rawValue)
                         }
                     }
                 }
                 Section {
-                    Toggle("Desk mode in landscape", isOn: $deskModeEnabled)
+                    Toggle("Desk mode in landscape", isOn: $deskModeEnabled.hapticSelection($selectionFeedback))
                         .onChange(of: deskModeEnabled) { _, _ in DeskMode.refreshOrientations() }
                 } footer: {
                     Text("Turn the phone sideways for a large timer that keeps the screen on while you work. Turn it off to keep Clockin upright.")
@@ -69,6 +77,12 @@ struct SettingsView: View {
                     LabeledContent("Version", value: versionText)
                 }
             }
+            .hapticFeedback(selectionFeedback)
+            .dismissDecimalKeyboard(isEditing: rateIsFocused || earlierRateIsFocused) {
+                rateIsFocused = false
+                earlierRateIsFocused = false
+            }
+            .scrollDismissesKeyboard(.interactively)
             .scrollContentBackground(.hidden)
             .background(palette.background)
             .navigationTitle("Settings")
@@ -99,6 +113,8 @@ struct SettingsView: View {
                     .environmentObject(store)
                     .preferredColorScheme(palette.colorScheme)
             }
+            .hapticFeedback(.destructiveConfirmation, trigger: confirmRemoveSplit) { _, new in new }
+            .hapticFeedback(.destructiveConfirmation, trigger: showRestoreConfirmation) { _, new in new }
             .alert("Use one rate for all work?", isPresented: $confirmRemoveSplit) {
                 Button("Cancel", role: .cancel) {}
                 Button("Use current rate", role: .destructive) {
@@ -120,7 +136,10 @@ struct SettingsView: View {
             .onChange(of: rateIsFocused) { _, focused in
                 if !focused { commitRate() }
             }
-            .onDisappear { rateIsFocused = false }
+            .onDisappear {
+                rateIsFocused = false
+                earlierRateIsFocused = false
+            }
             .sheet(item: $sheet) { destination in
                 Group {
                     switch destination {
@@ -139,6 +158,7 @@ struct SettingsView: View {
                     pendingBackupURL = url
                     showRestoreConfirmation = true
                 case .failure(let error):
+                    Haptics.play(.validationFailed)
                     restoreMessage = "Could not open backup: \(error.localizedDescription)"
                 }
             }
@@ -163,7 +183,8 @@ struct SettingsView: View {
                     .keyboardType(.decimalPad)
                     .multilineTextAlignment(.trailing)
                     .focused($rateIsFocused)
-                    .onSubmit { commitRate() }
+                    .decimalInputRegion(active: rateIsFocused || earlierRateIsFocused)
+                    .onSubmit { rateIsFocused = false }
                     .disabled(store.rateHistorySummary == .custom)
             }
             if store.rateHistorySummary != .custom {
@@ -177,7 +198,8 @@ struct SettingsView: View {
                             .keyboardType(.decimalPad)
                             .multilineTextAlignment(.trailing)
                             .focused($earlierRateIsFocused)
-                            .onSubmit { commitEarlierRate() }
+                            .decimalInputRegion(active: rateIsFocused || earlierRateIsFocused)
+                            .onSubmit { earlierRateIsFocused = false }
                     }
                 }
             }
@@ -325,7 +347,10 @@ struct SettingsView: View {
 
     private var earlierToggle: Binding<Bool> {
         Binding(get: { hasEarlierRate }, set: { enabled in
-            if enabled { store.setEarlierRate(store.hourlyRate, changedOn: store.rateToday) }
+            if enabled {
+                store.setEarlierRate(store.hourlyRate, changedOn: store.rateToday)
+                selectionFeedback.send(.selection)
+            }
             else { confirmRemoveSplit = true }
             syncEarlierRateText()
         })
@@ -377,7 +402,8 @@ struct SettingsView: View {
     private func restoreBackup(from url: URL) {
         let granted = url.startAccessingSecurityScopedResource()
         defer { if granted { url.stopAccessingSecurityScopedResource() } }
-        store.importBackup(from: url)
+        let restored = store.restoreBackup(from: url)
+        Haptics.play(restored ? .backupRestored : .validationFailed)
         // Ortak mesaj sonradan degisse de burada bu geri yuklemenin sonucu kalir.
         restoreMessage = store.statusMessage
         syncRateText()
@@ -438,7 +464,12 @@ private struct RateChangePrompt: View {
     }
 
     private func save(from day: Date?) {
-        if store.setRate(value, from: day) { dismiss() }
-        else { errorMessage = store.statusMessage }
+        if store.setRate(value, from: day) {
+            Haptics.play(.rateSaved)
+            dismiss()
+        } else {
+            Haptics.play(.validationFailed)
+            errorMessage = store.statusMessage
+        }
     }
 }
