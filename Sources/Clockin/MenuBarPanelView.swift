@@ -126,9 +126,9 @@ struct MenuBarPanelView: View {
                         // Nothing worked yet: a row of zeros says less than this.
                         Text("Ready").font(.system(size: S(30), weight: .medium))
                     } else {
-                        Text(DurationText.clock(store.running == nil ? store.todayDuration(at: now) : store.elapsed(at: now)))
-                            .font(.system(size: S(30), weight: .medium)).monospacedDigit()
-                            .contentTransition(.numericText())
+                        let shown = store.running == nil ? store.todayDuration(at: now) : store.elapsed(at: now)
+                        RollingText(DurationText.clock(shown), value: shown, size: S(30), weight: .medium,
+                                    design: theme.fontDesign)
                         if store.running == nil {
                             Text("today").font(.system(size: S(11))).foregroundStyle(.secondary)
                         }
@@ -155,15 +155,14 @@ struct MenuBarPanelView: View {
                 Text("an hour").foregroundStyle(.secondary)
                 Spacer(minLength: S(0))
             } else {
-            Text(amount.money(code: store.currencyCode))
-                .font(.system(size: S(20), weight: .semibold)).foregroundStyle(theme.accent)
-                .contentTransition(.numericText())
+            RollingText(amount.money(code: store.currencyCode), value: amount, size: S(20), weight: .semibold,
+                        design: theme.fontDesign, color: theme.accent)
                 .accessibilityLabel(running ? "Session earnings, \(amount.money(code: store.currencyCode))"
                                             : "Earned today, \(amount.money(code: store.currencyCode))")
             Spacer(minLength: S(0))
             if store.currencyCode == "USD", let rate = exchangeRates.latestRate {
-                Text((amount * rate).money(code: "TRY"))
-                    .foregroundStyle(.secondary)
+                RollingText((amount * rate).money(code: "TRY"), value: amount * rate, size: S(12),
+                            design: theme.fontDesign, color: theme.secondaryText)
             }
             }
         }
@@ -176,7 +175,8 @@ struct MenuBarPanelView: View {
                 Text("This month").foregroundStyle(.secondary)
                 Text(DurationText.compact(store.monthDuration(at: now)))
                 Spacer(minLength: S(4))
-                Text(store.monthEarnings(at: now).money(code: store.currencyCode))
+                RollingText(store.monthEarnings(at: now).money(code: store.currencyCode),
+                            value: store.monthEarnings(at: now), size: S(12), design: theme.fontDesign)
             }
             .monospacedDigit().lineLimit(1).minimumScaleFactor(0.8)
             if dailyGoalHours > 0 {

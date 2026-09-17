@@ -262,21 +262,17 @@ struct MainView: View {
 
             }
 
-            Text(DurationText.clock(store.elapsed(at: now)))
-                .font(.system(size: S(48), weight: .medium, design: theme.fontDesign))
-                .monospacedDigit()
-                .tracking(-2)
-                .contentTransition(.numericText())
+            let elapsed = store.elapsed(at: now)
+            let earned = store.currentEarnings(at: now)
+            RollingText(DurationText.clock(elapsed), value: elapsed, size: S(48), weight: .medium,
+                        design: theme.fontDesign, tracking: -2)
 
-            Text(store.currentEarnings(at: now).money(code: store.currencyCode))
-                .font(.system(size: S(18), weight: .semibold, design: theme.fontDesign))
-                .foregroundStyle(theme.accent)
-                .contentTransition(.numericText())
+            RollingText(earned.money(code: store.currencyCode), value: earned, size: S(18), weight: .semibold,
+                        design: theme.fontDesign, color: theme.accent)
 
             if store.currencyCode == "USD", let usdTry = exchangeRates.latestRate {
-                Text("\((store.currentEarnings(at: now) * usdTry).money(code: "TRY"))")
-                    .font(.system(size: S(11), weight: .medium, design: .rounded))
-                    .foregroundStyle(.secondary)
+                RollingText((earned * usdTry).money(code: "TRY"), value: earned * usdTry, size: S(11),
+                            weight: .medium, design: .rounded, color: theme.secondaryText)
             }
 
             moneyMomentum
@@ -313,10 +309,9 @@ struct MainView: View {
                 Spacer(minLength: S(6))
                 if store.running != nil {
                     // The bar already shows which milestone; this is the gap.
-                    Text("\(max(0, milestone - current).money(code: store.currencyCode)) to go")
-                        .font(.system(size: S(11), weight: .semibold).monospacedDigit())
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
+                    RollingText("\(max(0, milestone - current).money(code: store.currencyCode)) to go",
+                                value: max(0, milestone - current), size: S(11), weight: .semibold,
+                                color: theme.secondaryText)
                 }
             }
             if store.running != nil {
@@ -412,12 +407,11 @@ struct MainView: View {
                     .frame(width: S(20))
                 VStack(alignment: .leading, spacing: S(3)) {
                     Text("Earned this month").font(ClockinFont.section).foregroundStyle(.secondary)
-                    Text(earned.money(code: store.currencyCode))
-                        .font(.system(size: S(14), weight: .semibold, design: .rounded)).lineLimit(1)
+                    RollingText(earned.money(code: store.currencyCode), value: earned, size: S(14),
+                                weight: .semibold, design: .rounded)
                     if store.currencyCode == "USD", let rate {
-                        Text((earned * rate).money(code: "TRY"))
-                            .font(.system(size: S(10), weight: .medium, design: .rounded))
-                            .foregroundStyle(theme.accent)
+                        RollingText((earned * rate).money(code: "TRY"), value: earned * rate, size: S(10),
+                                    weight: .medium, design: .rounded, color: theme.accent)
                     }
                 }
                 Spacer()
@@ -435,12 +429,12 @@ struct MainView: View {
                 .frame(width: S(20))
             VStack(alignment: .leading, spacing: S(3)) {
                 Text("Earned").font(ClockinFont.section).foregroundStyle(.secondary)
-                Text(earned.money(code: store.currencyCode)).font(.system(size: S(13), weight: .semibold, design: .rounded))
+                RollingText(earned.money(code: store.currencyCode), value: earned, size: S(13),
+                            weight: .semibold, design: .rounded)
                 if store.currencyCode == "USD" {
                     if let rate = exchangeRates.latestRate {
-                        Text((earned * rate).money(code: "TRY"))
-                            .font(.system(size: S(10), weight: .medium, design: .rounded))
-                            .foregroundStyle(theme.accent)
+                        RollingText((earned * rate).money(code: "TRY"), value: earned * rate, size: S(10),
+                                    weight: .medium, design: .rounded, color: theme.accent)
                     } else {
                         Text("TRY rate unavailable")
                             .font(.system(size: S(10), weight: .medium))

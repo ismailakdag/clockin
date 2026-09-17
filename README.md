@@ -60,6 +60,7 @@ bash Tests/manual/menubarpanel/render
 swiftc -swift-version 6 Sources/Clockin/MascotMotion.swift Tests/manual/mascotmotion/main.swift -o /tmp/clockin-mascotmotion-tests && /tmp/clockin-mascotmotion-tests
 swiftc -swift-version 6 Tests/manual/mascotassets/main.swift -o /tmp/clockin-mascotassets-tests && /tmp/clockin-mascotassets-tests
 bash Tests/manual/mascotview/run
+swiftc -swift-version 6 Sources/Clockin/RollingText.swift Tests/manual/rollingtext/main.swift -o /tmp/clockin-rollingtext-tests && /tmp/clockin-rollingtext-tests
 ```
 
 Screens are reviewed by eye: `bash Tests/manual/screens/run Carbon` and

@@ -162,17 +162,17 @@ struct PinnedTimerView: View {
                     .font(.system(size: S(9), weight: .bold, design: .rounded))
                     .foregroundStyle(.secondary)
 
-                Text(DurationText.clock(store.elapsed(at: now)))
-                    .font(.system(size: 23, weight: .medium, design: .monospaced))
-                    .contentTransition(.numericText())
+                RollingText(DurationText.clock(store.elapsed(at: now)), value: store.elapsed(at: now),
+                            size: 23, weight: .medium, design: .monospaced)
             }
             Spacer(minLength: 8)
             VStack(alignment: .trailing, spacing: 2) {
-                Text(store.currentEarnings(at: now).money(code: store.currencyCode))
-                    .font(.system(size: 13, weight: .semibold, design: .rounded)).foregroundStyle(theme.accent)
+                let earned = store.currentEarnings(at: now)
+                RollingText(earned.money(code: store.currencyCode), value: earned, size: 13,
+                            weight: .semibold, design: .rounded, color: theme.accent)
                 if store.currencyCode == "USD", let rate = exchangeRates.latestRate {
-                    Text((store.currentEarnings(at: now) * rate).money(code: "TRY"))
-                        .font(.system(size: S(9), weight: .medium, design: .rounded)).foregroundStyle(.secondary)
+                    RollingText((earned * rate).money(code: "TRY"), value: earned * rate, size: S(9),
+                                weight: .medium, design: .rounded, color: theme.secondaryText)
                 }
             }
         }
@@ -193,16 +193,16 @@ struct PinnedTimerView: View {
                         .font(.system(size: S(9), weight: .black, design: .rounded)).foregroundStyle(.secondary)
                 }
                 Spacer()
-                Text(DurationText.clock(store.elapsed(at: now)))
-                    .font(.system(size: 16, weight: .medium, design: .monospaced))
+                RollingText(DurationText.clock(store.elapsed(at: now)), value: store.elapsed(at: now),
+                            size: 16, weight: .medium, design: .monospaced)
             }
             HStack(alignment: .firstTextBaseline) {
-                Text(usd.money(code: store.currencyCode))
-                    .font(.system(size: 21, weight: .bold, design: .rounded)).foregroundStyle(theme.accent)
+                RollingText(usd.money(code: store.currencyCode), value: usd, size: 21, weight: .bold,
+                            design: .rounded, color: theme.accent)
                 Spacer()
                 if store.currencyCode == "USD", let rate {
-                    Text("\((usd * rate).money(code: "TRY"))")
-                        .font(.system(size: 15, weight: .semibold, design: .rounded)).foregroundStyle(.primary)
+                    RollingText((usd * rate).money(code: "TRY"), value: usd * rate, size: 15,
+                                weight: .semibold, design: .rounded)
                 }
             }
             HStack {
@@ -244,12 +244,16 @@ struct PinnedTimerView: View {
                         .font(.system(size: S(9), weight: .black)).foregroundStyle(.secondary)
                 }
                 Spacer()
-                Text(DurationText.clock(store.elapsed(at: now))).font(.system(size: 16, design: .monospaced))
+                RollingText(DurationText.clock(store.elapsed(at: now)), value: store.elapsed(at: now),
+                            size: 16, design: .monospaced)
             }
             HStack(alignment: .firstTextBaseline) {
-                Text(earning.money(code: store.currencyCode)).font(.system(size: 23, weight: .bold, design: .rounded)).foregroundStyle(theme.accent)
+                RollingText(earning.money(code: store.currencyCode), value: earning, size: 23, weight: .bold,
+                            design: .rounded, color: theme.accent)
                 Spacer()
-                if store.currencyCode == "USD", let rate { Text("\((earning * rate).money(code: "TRY"))").font(.system(size: 14, weight: .semibold)).foregroundStyle(.primary) }
+                if store.currencyCode == "USD", let rate {
+                    RollingText((earning * rate).money(code: "TRY"), value: earning * rate, size: 14, weight: .semibold)
+                }
             }
             HStack {
                 Text("\(perHour.money(code: store.currencyCode))/h")
@@ -289,15 +293,15 @@ struct PinnedTimerView: View {
                 Text(active ? "Total earned" : "Total earned")
                     .font(.system(size: S(9), weight: .black, design: .rounded)).foregroundStyle(.secondary)
                 Spacer()
-                Text(DurationText.clock(store.elapsed(at: now))).font(.system(size: 13, design: .monospaced))
+                RollingText(DurationText.clock(store.elapsed(at: now)), value: store.elapsed(at: now),
+                            size: 13, design: .monospaced)
             }
             HStack(alignment: .firstTextBaseline) {
-                Text(total.money(code: store.currencyCode))
-                    .font(.system(size: 24, weight: .bold, design: .rounded)).foregroundStyle(theme.accent)
+                RollingText(total.money(code: store.currencyCode), value: total, size: 24, weight: .bold,
+                            design: .rounded, color: theme.accent)
                 Spacer()
                 if store.currencyCode == "USD", let rate {
-                    Text("\((total * rate).money(code: "TRY"))")
-                        .font(.system(size: 13, weight: .semibold)).foregroundStyle(.primary)
+                    RollingText((total * rate).money(code: "TRY"), value: total * rate, size: 13, weight: .semibold)
                 }
             }
             HStack(spacing: 6) {
