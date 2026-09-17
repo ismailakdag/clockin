@@ -78,7 +78,9 @@ check(MascotFrames.shared.library != nil, "the app bundle has the mascot clip ma
 var strips: [[CGImage]] = []
 var info: [String] = []
 
-for mood in MascotMood.allCases {
+// The angry frames ship only in the iPhone app (MascotMotion.swift is shared);
+// the Mac app never shows that mood.
+for mood in MascotMood.allCases where mood != .angry {
     let window = NSWindow(contentRect: NSRect(x: 80, y: 80, width: 120, height: 120), styleMask: [.borderless], backing: .buffered, defer: false)
     window.isOpaque = false
     window.backgroundColor = .clear
