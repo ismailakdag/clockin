@@ -19,6 +19,9 @@ final class RadioController: ObservableObject {
     }
     let stations: [Station] = [
         Station(id: "rp", name: "Radio Paradise", language: "EN", description: "Eclectic, listener-supported, commercial-free", url: URL(string: "https://stream.radioparadise.com/aac-320")!),
+        Station(id: "rp-mellow", name: "Mellow Mix", language: "EN", description: "Relaxed and mellow music", url: URL(string: "https://stream.radioparadise.com/mellow-320")!),
+        Station(id: "rp-global", name: "Global Mix", language: "EN", description: "Music from around the world", url: URL(string: "https://stream.radioparadise.com/global-320")!),
+        Station(id: "rp-serenity", name: "Serenity", language: "EN", description: "Ambient music for quiet focus", url: URL(string: "https://stream.radioparadise.com/serenity")!),
     ]
 
     func toggle(station: Station) {
