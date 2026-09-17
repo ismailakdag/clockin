@@ -47,6 +47,7 @@ diff ../Sources/Clockin/ClockStore.swift Shared/Core/ClockStore.swift
 Each check prints `ok` lines and exits non-zero on the first failure. Run from this folder.
 
 ```bash
+swiftc -swift-version 6 -strict-concurrency=complete -module-cache-path /tmp/clockin-rolling-module-cache Clockin/Views/Components/RollingNumber.swift Tests/manual/rolling/main.swift -o /tmp/clockin-rolling-tests && /tmp/clockin-rolling-tests
 swiftc -swift-version 6 -strict-concurrency=complete -module-cache-path /tmp/clockin-haptics-module-cache Shared/Theme/HapticEvent.swift Tests/manual/haptics/main.swift -o /tmp/clockin-haptics-tests && /tmp/clockin-haptics-tests
 swiftc -swift-version 6 -strict-concurrency=complete Shared/Theme/ClockinThemeChoice.swift Shared/Core/Models.swift Shared/Sync/ClockinSnapshot.swift Tests/manual/snapshot/main.swift -o /tmp/clockin-snapshot-tests && /tmp/clockin-snapshot-tests
 swiftc -swift-version 6 Shared/Core/Models.swift Shared/Core/ClockStore.swift Shared/Core/ImportComparison.swift Shared/Core/PastedTextImporter.swift Shared/Core/CSVImporter.swift Shared/Core/SessionOverlap.swift Tests/manual/import/main.swift -o /tmp/clockin-import-tests && /tmp/clockin-import-tests
@@ -72,6 +73,13 @@ swiftc -swift-version 6 Shared/Core/Models.swift Shared/Core/ClockStore.swift Sh
 swiftc -swift-version 6 -strict-concurrency=complete Shared/Core/Models.swift Shared/Core/PastedTextImporter.swift Shared/Core/CSVImporter.swift Tests/manual/sessiondisplay/main.swift -o /tmp/clockin-sessiondisplay-tests && /tmp/clockin-sessiondisplay-tests
 ```
 
+The rolling check covers right-indexed glyph diffs, length changes, timer carries,
+increasing/decreasing semantic values, prefix/suffix currencies, Turkish formatting,
+all combinations of the motion/power/thermal/visibility policy, and the UIKit renderer's
+update lifecycle, interruption, restyling, detachment, intrinsic sizing and baseline
+alignment. Device CPU and
+visual checks for the rolling digits are described in `PERFORMANCE.md`.
+
 History opens on the current calendar month by default. The last range is saved,
 but its page is not. W uses the calendar's first weekday; M starts on the 1st.
 6M uses six-month blocks ending in the current month, with one bar per month;
@@ -96,6 +104,17 @@ the next swipe, and both chevrons with populated and empty pages in W, M and
 6M. Bars cross-fade for 0.22 seconds; the period header and totals keep their
 numeric transitions. Repeat after selecting a bar, changing range, and enabling
 Reduce Motion. A minute refresh must not trigger the page transition.
+
+History roll regression: use synthetic sessions on two adjacent pages with
+different totals and different day-section counts, followed by an empty page.
+On a fresh launch, check populated to populated, populated to empty, empty to
+populated and the return to the initial page, using swipes and both chevrons.
+The title, earnings, duration and completed count must roll together; monthly
+summary metrics also roll. Charts cross-fade without sliding, and session rows
+update without moving into place. Repeat in W, M and 6M, after a chart selection,
+and with Reduce Motion. Verify Edit and Delete swipe actions after paging.
+The earnings check covers this populated/empty round trip's titles, page IDs,
+session counts and totals; it does not verify SwiftUI animation frames.
 
 In Insights, edit each goal, tap between cards, tap a heatmap cell or picker,
 and drag the keyboard down. Controls must still respond, and each edit must
