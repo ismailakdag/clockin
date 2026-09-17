@@ -56,6 +56,7 @@ struct DashboardView: View {
                         )
                     }
                     if mascotEnabled { MascotCard(showInsights: showProgress) }
+                    FocusRadioCard()
                     ActiveTimeline(interval: store.running?.isPaused == false ? 1 : 60) { now in
                         VStack(spacing: 14) {
                             TodayCard(now: now)
@@ -80,6 +81,7 @@ struct DashboardView: View {
         .environment(\.clockinContentActive, appeared && isSelected && sheet == nil && pendingDelete == nil && scenePhase == .active)
         .onAppear { appeared = true }
         .onDisappear { appeared = false }
+        .celebrationBlocked(by: sheet != nil)
         .sheet(item: $sheet, onDismiss: presentReminderEnd) { destination in
             Group {
                 switch destination {

@@ -47,6 +47,8 @@ diff ../Sources/Clockin/ClockStore.swift Shared/Core/ClockStore.swift
 Each check prints `ok` lines and exits non-zero on the first failure. Run from this folder.
 
 ```bash
+swiftc -swift-version 6 -strict-concurrency=complete -module-cache-path /tmp/clockin-radio-module-cache Clockin/Audio/RadioStation.swift Tests/manual/radio/main.swift -o /tmp/clockin-radio-tests && /tmp/clockin-radio-tests
+swiftc -swift-version 6 -strict-concurrency=complete -module-cache-path /tmp/clockin-celebrate-module-cache Clockin/Celebrations/CelebrationRules.swift Tests/manual/celebrations/main.swift -o /tmp/clockin-celebration-tests && /tmp/clockin-celebration-tests
 swiftc -swift-version 6 -strict-concurrency=complete -module-cache-path /tmp/clockin-rolling-module-cache Clockin/Views/Components/RollingNumber.swift Tests/manual/rolling/main.swift -o /tmp/clockin-rolling-tests && /tmp/clockin-rolling-tests
 swiftc -swift-version 6 -strict-concurrency=complete -module-cache-path /tmp/clockin-haptics-module-cache Shared/Theme/HapticEvent.swift Tests/manual/haptics/main.swift -o /tmp/clockin-haptics-tests && /tmp/clockin-haptics-tests
 swiftc -swift-version 6 -strict-concurrency=complete Shared/Theme/ClockinThemeChoice.swift Shared/Core/Models.swift Shared/Sync/ClockinSnapshot.swift Tests/manual/snapshot/main.swift -o /tmp/clockin-snapshot-tests && /tmp/clockin-snapshot-tests
@@ -55,6 +57,7 @@ swiftc -swift-version 6 Shared/Core/Models.swift Shared/Core/ClockStore.swift Sh
 swiftc -swift-version 6 Shared/Core/Models.swift Shared/Core/SessionOverlap.swift Tests/manual/overlap/main.swift -o /tmp/clockin-overlap-tests && /tmp/clockin-overlap-tests
 swiftc -swift-version 6 Shared/Core/ExchangeRates.swift Tests/manual/raterange/main.swift -o /tmp/clockin-ratedate-tests && TZ=Europe/Istanbul /tmp/clockin-ratedate-tests
 swiftc -swift-version 6 Shared/Core/Models.swift Clockin/Views/Earnings/EarningsPeriod.swift Clockin/Views/Earnings/EarningsSnapshot.swift Clockin/Views/Earnings/MonthPerformance.swift Clockin/Views/Goals/GoalProgress.swift Clockin/Views/Insights/InsightsSnapshot.swift Clockin/Views/Insights/InsightsBadges.swift Tests/manual/earnings/main.swift -o /tmp/clockin-earnings-tests && /tmp/clockin-earnings-tests
+swiftc -swift-version 6 -strict-concurrency=complete -module-cache-path /tmp/clockin-historytry-module-cache Shared/Core/Models.swift Shared/Core/ExchangeRates.swift Clockin/Views/Earnings/EarningsPeriod.swift Clockin/Views/Earnings/EarningsSnapshot.swift Clockin/Views/Earnings/MonthPerformance.swift Clockin/Views/Goals/GoalProgress.swift ClockinWidgets/ReadyWidgetPlacement.swift Tests/manual/historytry/main.swift -o /tmp/clockin-historytry-tests && /tmp/clockin-historytry-tests
 swiftc -swift-version 6 Shared/Core/Models.swift Clockin/Views/Goals/GoalProgress.swift Clockin/Views/Insights/InsightsSnapshot.swift Clockin/Views/Insights/InsightsBadges.swift Clockin/Views/Insights/InsightsPeriods.swift Tests/manual/insights/main.swift -o /tmp/clockin-insights-tests && /tmp/clockin-insights-tests
 swiftc -swift-version 6 -strict-concurrency=complete -module-cache-path /tmp/clockin-mascot-module-cache Shared/Core/Models.swift Shared/Theme/ClockinThemeChoice.swift Shared/Sync/AppGroup.swift Shared/Sync/ClockinSnapshot.swift Shared/Mascot/MascotMotion.swift Shared/Mascot/MascotState.swift Tests/manual/mascot/main.swift -o /tmp/clockin-mascot-tests && /tmp/clockin-mascot-tests
 swiftc -swift-version 6 Clockin/Views/Mascot/CompanionMode.swift Tests/manual/companion/main.swift -o /tmp/clockin-companion-tests && /tmp/clockin-companion-tests
@@ -79,6 +82,27 @@ all combinations of the motion/power/thermal/visibility policy, and the UIKit re
 update lifecycle, interruption, restyling, detachment, intrinsic sizing and baseline
 alignment. Device CPU and
 visual checks for the rolling digits are described in `PERFORMANCE.md`.
+
+USD accounts can select TRY in History to change all money values on that page.
+The choice is saved as `Clockin.HistoryShowsTRY` (USD by default). Each session
+uses its start calendar day's rate, falling back to the nearest earlier rate.
+Totals, averages and projections sum those historical amounts. Missing rates
+keep the affected rows, days, totals or projections in USD, with one
+"Some rates are unavailable" note. TRY charts omit days without rates, or months containing such days; when no
+day has a rate, the chart falls back to USD. A compact secondary line shows the other
+currency where available. No stored earnings or app currency setting changes.
+
+The historytry check uses synthetic sessions and rates to cover exact and missing
+days, nearest-earlier fallback, no rates, mixed availability, rows/day/month sums,
+active sessions, averages and projections, and the widget's collision clamp.
+Page calculations and rate lookups are cached, including missing lookup results.
+Currency selection reuses both cached amounts and animates totals once.
+
+For the medium widget, compare Ready at 321 by 152 pt, normal and maximum honored
+text size (xLarge), and a long amount. Its text shares the full-width button's
+center unless the 80 pt companion plus 8 pt gap requires a minimal right shift.
+The two-column Working and Paused layouts remain unchanged. Previews include
+these states and the narrow Ready cases. Widget updates have no transitions.
 
 History opens on the current calendar month by default. The last range is saved,
 but its page is not. W uses the calendar's first weekday; M starts on the 1st.
@@ -189,9 +213,10 @@ banner but suppresses notification audio so there is only one sound. Standalone
 chimes use an ambient session and respect the silent switch. Focus radio owns
 the shared playback session while running, so chimes borrow that session without
 changing its category or deactivating it; during radio playback they can sound in
-silent mode. Starting or stopping the radio ends an in-progress chime before the
-radio changes session ownership. Background notifications use the bundled sound
-at the system volume. Reminder/nudge reservations and worked-time refresh stay
+silent mode. Starting the radio ends an in-progress chime before taking session
+ownership. Stopping the radio lets an in-progress chime finish using the ambient
+category without reactivating the session; the chime then deactivates it.
+Background notifications use the bundled sound at the system volume. Reminder/nudge reservations and worked-time refresh stay
 unchanged.
 
 On a real iPhone, verify Preview with notifications denied, selection auto-preview,
@@ -199,3 +224,107 @@ On a real iPhone, verify Preview with notifications denied, selection auto-previ
 preview, interruption/headphone removal, and one foreground/background interval.
 Confirm one sound with a banner in the foreground, selected sound in the
 background, and no pending chimes after pausing or ending from a widget/Shortcut.
+
+## Focus radio
+
+Settings > Focus radio offers Radio Paradise (Main Mix), Mellow Mix, Global Mix
+and Serenity (ambient). Both apps use the same station ids and names. The last
+choice is saved in `Clockin.RadioStation`; missing or unknown ids use `rp`, the
+main mix. Playback never starts automatically on launch or on a stopped station
+selection. A switch while playing or connecting starts the new stream immediately;
+a switch while paused stays paused until Play.
+
+After Play, Today shows the station menu, play/pause and Stop below the timer
+and companion. Connecting and failed attempts stay visible for cancellation or
+retry. Stop removes the card. Volume stays in Settings. The card observes radio
+state outside the Today timelines, with no timer or repeating animation.
+
+Pause retains Now Playing at rate zero and keeps remote resume available.
+Stop, failure, interruption and route loss clear Now Playing, mark it stopped,
+remove and disable remote commands, detach the player item and release the player.
+The existing stream monitor runs only while playback is requested and stops on
+pause or any terminal path. Queued commands from an ended radio session are ignored.
+
+The radio check covers the catalog, saved-id fallback, card visibility and cleanup
+policy, including session ownership during a chime. It does not exercise system
+media UI. On an iPhone, verify the following with synthetic work sessions:
+
+1. Start each station in Settings, return to Today, switch stations and confirm
+   the audio and Lock Screen title change. Repeat while connecting and paused.
+2. Pause/resume from Today, Lock Screen and Control Center; verify the paused
+   card persists and Now Playing stays resumable. Stop from Today and Settings;
+   verify the card and radio Now Playing entry disappear and headset Play cannot
+   restart it. Start again and verify each remote action runs once.
+3. Disable the network, try Play, wait for the connection failure, and confirm
+   system controls clear while Today offers retry. Restore the network and retry.
+4. Try a call/interruption, headphone removal and stop while connecting. Confirm
+   cleanup and no automatic restart after the interruption ends.
+5. Preview a chime during radio playback, stop the radio during the sound, then
+   preview again. Confirm completion, ambient/silent-switch behavior, and no
+   restored radio metadata or remote commands. Repeat with other audio playing.
+6. Relaunch: the station remains selected, playback and the card stay off. Check
+   large text, VoiceOver, Haptics on/off, and a selection tick only on station changes.
+## Companion celebrations (iPhone)
+
+`CelebrationCenter` owns one event queue, backed by the pure `CelebrationRules`
+and `CelebrationQueue`. `SessionMirror` feeds store changes; RootView's existing
+foreground minute refresh supplies live progress. The level badge, Insights and
+Badges read the shared snapshot instead of each computing it on a separate minute
+loop. No celebration trigger runs from Today or Money Momentum's second ticks.
+Live goal and money crossings can therefore appear at the next minute refresh.
+
+The first observation seeds the current level and unlocked badge IDs silently.
+Later launches compare against `Clockin.LastCelebratedLevel`; unseen badges use
+`Clockin.SeenBadgeIDs`. A batch shows at most three badge banners, then one count.
+RootView hosts the overlay above tabs and desk mode. Sheets, alerts and file pickers
+block delivery, with a UIKit presentation check before showing. Share opens the
+existing stats view. A badge banner opens Badges, leaving desk mode if needed.
+
+The 2.5-second surfaces use a 0.2-second opacity transition. Level celebrations
+sit in a centered, opaque themed card over a 45% black scrim that fades in over
+0.15 seconds; the card scales from 0.9 to 1 unless Reduce Motion is enabled.
+The card grows with Dynamic Type and scrolls when it exceeds the available height.
+Tapping the card or scrim dismisses it. Underlying controls and accessibility stay
+blocked through the exit fade. Badge banners retain their top placement with an
+opaque themed card and a subtle scrim. Confetti sits above the card background,
+below its content and buttons, and never receives touches. Confetti
+uses a CAEmitterLayer with a finite 0.8-second birth-rate animation; the layer is
+removed after its particles expire. Reactions submit the existing drawn clip and
+motion samples to CA once, with no frame callbacks. Reduce Motion uses a rest
+frame and text. Turning off the companion keeps the same card without its mascot.
+Live reactions have a shared 20-second gate, require a visible companion and active
+app, and never replay
+missed events. Tap reactions share the same gate.
+
+The celebration check covers seeding, persisted levels and badge IDs, batches,
+modal/background queueing, reaction crossings and cooldown, and presentation
+variants. On a simulator, use synthetic data to cross a level in each tab and desk
+mode, behind a sheet and alert, and across background/foreground and relaunch.
+Check Share, banner navigation, interrupted dismissal, large text, VoiceOver,
+Reduce Motion and companion off. On a phone, verify one success haptic for a level
+and measure Today with a running session against the approximately 3% CPU target.
+## Companion mood artwork
+
+Generate the tired (`z*`), proud (`p*`) and four `acc-*` full-frame accessories
+from the repository root, without building the app:
+
+```bash
+swift iOS/Tools/make-mood-frames.swift
+```
+
+The generator detects the source art's pixel unit, eyes, visor and core, preserves
+blink silhouettes, and verifies decoded RGBA and alpha outside the edited regions.
+It prints changed image pixels and touched art-grid cells for each output. The
+labeled preview is `/tmp/clockin-mood-frames.png`, with native, 62/32 pixel and
+62/32 point @2x samples, plus blink frames. All scaling uses nearest neighbor.
+The clip manifest is left for the separate app integration task.
+
+Run the dependency-free file, dimensions, alpha and frame-number check from
+this `iOS` folder:
+
+```bash
+swift Tests/manual/moodart/main.swift
+```
+
+Both commands accept `-module-cache-path /tmp/clockin-art-module-cache` immediately
+after `swift` when the default compiler cache is unavailable in a sandbox.
