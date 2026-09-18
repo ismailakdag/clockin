@@ -1,0 +1,218 @@
+{
+  "backpack" : {
+    "anchorPoint" : "back",
+    "layer" : "back",
+    "pivot" : [
+      76,
+      10
+    ],
+    "slot" : "back"
+  },
+  "balloon" : {
+    "anchorPoint" : "handR",
+    "layer" : "front",
+    "pivot" : [
+      2,
+      88
+    ],
+    "slot" : "hand"
+  },
+  "baseball-cap" : {
+    "anchorPoint" : "head",
+    "layer" : "front",
+    "pivot" : [
+      58,
+      32
+    ],
+    "slot" : "head"
+  },
+  "beanie" : {
+    "anchorPoint" : "head",
+    "layer" : "front",
+    "pivot" : [
+      52,
+      48
+    ],
+    "slot" : "head"
+  },
+  "bow-tie" : {
+    "anchorPoint" : "neck",
+    "layer" : "front",
+    "pivot" : [
+      32,
+      14
+    ],
+    "slot" : "neck"
+  },
+  "cape" : {
+    "anchorPoint" : "back",
+    "layer" : "back",
+    "pivot" : [
+      70,
+      6
+    ],
+    "slot" : "back"
+  },
+  "chef-hat" : {
+    "anchorPoint" : "head",
+    "layer" : "front",
+    "pivot" : [
+      52,
+      46
+    ],
+    "slot" : "head"
+  },
+  "coffee-mug" : {
+    "anchorPoint" : "handR",
+    "layer" : "front",
+    "pivot" : [
+      34,
+      16
+    ],
+    "slot" : "hand"
+  },
+  "cowboy-hat" : {
+    "anchorPoint" : "head",
+    "layer" : "front",
+    "pivot" : [
+      66,
+      36
+    ],
+    "slot" : "head"
+  },
+  "crown" : {
+    "anchorPoint" : "head",
+    "layer" : "front",
+    "pivot" : [
+      54,
+      44
+    ],
+    "slot" : "head"
+  },
+  "gold-medal" : {
+    "anchorPoint" : "neck",
+    "layer" : "front",
+    "pivot" : [
+      30,
+      4
+    ],
+    "slot" : "neck"
+  },
+  "headphones" : {
+    "anchorPoint" : "visor",
+    "layer" : "front",
+    "pivot" : [
+      58,
+      46
+    ],
+    "slot" : "head"
+  },
+  "jetpack" : {
+    "anchorPoint" : "back",
+    "layer" : "back",
+    "pivot" : [
+      70,
+      6
+    ],
+    "slot" : "back"
+  },
+  "monocle" : {
+    "anchorPoint" : "visor",
+    "layer" : "front",
+    "pivot" : [
+      4,
+      14
+    ],
+    "slot" : "face"
+  },
+  "necktie" : {
+    "anchorPoint" : "neck",
+    "layer" : "front",
+    "pivot" : [
+      12,
+      8
+    ],
+    "slot" : "neck"
+  },
+  "party-hat" : {
+    "anchorPoint" : "head",
+    "layer" : "front",
+    "pivot" : [
+      48,
+      46
+    ],
+    "slot" : "head"
+  },
+  "pixel-shades" : {
+    "anchorPoint" : "visor",
+    "layer" : "front",
+    "pivot" : [
+      36,
+      10
+    ],
+    "slot" : "face"
+  },
+  "round-glasses" : {
+    "anchorPoint" : "visor",
+    "layer" : "front",
+    "pivot" : [
+      34,
+      14
+    ],
+    "slot" : "face"
+  },
+  "scarf" : {
+    "anchorPoint" : "neck",
+    "layer" : "front",
+    "pivot" : [
+      34,
+      10
+    ],
+    "slot" : "neck"
+  },
+  "small-flag" : {
+    "anchorPoint" : "handR",
+    "layer" : "front",
+    "pivot" : [
+      4,
+      62
+    ],
+    "slot" : "hand"
+  },
+  "sunglasses" : {
+    "anchorPoint" : "visor",
+    "layer" : "front",
+    "pivot" : [
+      38,
+      10
+    ],
+    "slot" : "face"
+  },
+  "trophy" : {
+    "anchorPoint" : "handR",
+    "layer" : "front",
+    "pivot" : [
+      26,
+      48
+    ],
+    "slot" : "hand"
+  },
+  "wings" : {
+    "anchorPoint" : "back",
+    "layer" : "back",
+    "pivot" : [
+      90,
+      34
+    ],
+    "slot" : "back"
+  },
+  "wizard-hat" : {
+    "anchorPoint" : "head",
+    "layer" : "front",
+    "pivot" : [
+      60,
+      48
+    ],
+    "slot" : "head"
+  }
+}

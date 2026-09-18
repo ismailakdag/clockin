@@ -469,3 +469,82 @@ Check VoiceOver and large text. Scroll the Companion header offscreen, dismiss i
 switch tabs, cover Today, and background the app: all live motion must stop. Compare
 Today idle CPU with the existing baseline using PERFORMANCE.md's 120-second runs;
 source/type checks do not establish the CPU or visual result.
+## Companion wardrobe and home artwork
+
+The wardrobe art contract lives in `Shared/Mascot/Frames/mascot-anchors.json`,
+`Frames/colorways.json`, `Wardrobe/wardrobe-sprites.json` and
+`Home/home-items.json`. This tooling does not wire assets into the app.
+Run these commands in order from the repository root:
+
+```bash
+swift -module-cache-path /tmp/clockin-art-module-cache iOS/Tools/make-mascot-anchors.swift
+swift -module-cache-path /tmp/clockin-art-module-cache iOS/Tools/make-wardrobe.swift
+swift -module-cache-path /tmp/clockin-art-module-cache iOS/Tools/make-home.swift
+swift -module-cache-path /tmp/clockin-art-module-cache iOS/Tools/make-wardrobe-preview.swift
+swift -module-cache-path /tmp/clockin-art-module-cache iOS/Tests/manual/wardrobeart/main.swift
+```
+
+The entry points invoke the shared `Tools/MascotArt.swift` engine with the system
+Swift interpreter. It uses Foundation, ImageIO and CoreGraphics only. New art is
+rasterized on an integer art grid and expanded to 2x2 image pixels, with no
+antialiasing. Assets are deterministic; the source frame PNGs remain untouched.
+The wardrobe test also works from this `iOS` folder:
+
+```bash
+swift -module-cache-path /tmp/clockin-art-module-cache Tests/manual/wardrobeart/main.swift
+```
+
+The output includes 63 frame entries with anchors, 24 wardrobe items
+(8 head, 4 face, 4 neck, 4 back, 4 hand), six colorways, three 360x240 rooms and
+16 furniture items. The 59 numbered `h/t/c/e/a/z/p` frames and four older `acc-*` full-frame
+composites are covered, since the latter also match the contract's `a*` prefix.
+Legacy accessories keep h01's detected underlying pose; `acc-mug` marks its
+occupied image-left hand null.
+
+Geometry follows connected visor and shell contours, the torso and individual
+knuckle lobes. Raised mug contours are clipped to the helmet region before visor
+measurement. Dark coffee gloves use a separate color mask; a mug's round orange
+emblem distinguishes occupied hands from free resting hands. Hidden typing hands
+are null. Hand L/R means image left/right. Tilt is clockwise in top-left image
+coordinates and comes from the upper visor contour.
+
+Compositing uses `anchorPoint` from each wardrobe entry, not an inferred point
+from its slot. Headphones use the visor anchor so both the upright and wider
+three-quarter helmets fit inside their ear cups. All other head items use `head`.
+Place each pivot on its anchor in image pixels, rotate head/face items by `tilt`
+around that pivot, draw the back layer, then the recolored robot, then front items.
+Skip an item when its anchor is null. Apply one uniform nearest-neighbor scale to
+the composed canvas. RGB maps preserve source alpha and keep every original dark
+visor tone unchanged. The observed opaque RGB colors include the source
+art's many resampled fringe shades; all six maps cover the full set. The generator
+prints the most common exact colors. Global RGB replacement also affects any
+matching colors in the original laptop or cup, as required by the color-map
+contract.
+
+Room and furniture coordinates are image pixels too. Floor slots are floor
+contact points; `desk` is the tabletop, `shelf` is the shelf bottom and `window`
+is the window sill. The desk-monitor sprite extends down from its tabletop pivot.
+The preview draws the rug first, then furniture, then the companion. It places the
+bottom of the companion's opaque feet at `mascotSpot`, using a uniform 0.46 canvas
+scale before the whole room is resized to 340 pixels wide.
+
+Visual checks are written outside the repository:
+
+- `/tmp/clockin-anchors.png`: every frame, with colored crosses and IDs.
+- `/tmp/clockin-anchors-{h,t,c,e,a,z,p}.png`: larger per-family anchor sheets.
+- `/tmp/clockin-wardrobe-preview.png`: five-slot outfits on hello, typing and
+  celebrating poses; native, 62-pixel and 62-point @2x samples; all garment sprites
+  with IDs; all six colorways; furnished rooms at 340 pixels wide; every home item.
+- `/tmp/clockin-wardrobe-fit.png` and `clockin-wardrobe-fit-1.png` through `-4.png`:
+  each item individually on hello, typing, a raised-cup pose and celebrating.
+- `/tmp/clockin-home-{cozy,studio,night}.png`: furnished rooms at native resolution.
+
+The independent test checks exact frame coverage, in-canvas anchors and pivots,
+slot counts and layer bindings, file decoding, tight wardrobe crops, 2x2 art cells,
+full source-palette coverage, classic identity, preserved black visor colors,
+room coordinates and unclipped placement of every furniture item in every room.
+
+At the smallest 62-pixel preview, the monocle chain and medal engraving lose
+fine detail. Backpacks and jetpacks are partly hidden by the typing pose's torso
+and laptop, consistently with the required back layer. Their outer silhouettes
+remain visible. The 62-point @2x preview retains more of these details.
