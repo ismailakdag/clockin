@@ -93,6 +93,7 @@ final class SessionMirror {
         snapshot.companionFriendly = UserDefaults.standard.string(forKey: NudgePlanner.toneKey) == NudgeTone.friendly.rawValue
         snapshot.companionLastWorkedDay = CelebrationCenter.shared.lastWorkedDay
         snapshot.companionProudUntil = CelebrationCenter.shared.proudUntil
+        snapshot.wardrobeJSON = WardrobeStore.shared.state.json
         snapshot.companionAccessoryID = CompanionAccessory.resolve(
             UserDefaults.standard.string(forKey: CompanionAccessory.storageKey) ?? "Auto",
             totalHours: (store.totalDuration + store.elapsed()) / 3600)?.id

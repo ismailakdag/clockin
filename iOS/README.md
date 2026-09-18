@@ -47,13 +47,14 @@ diff ../Sources/Clockin/ClockStore.swift Shared/Core/ClockStore.swift
 Each check prints `ok` lines and exits non-zero on the first failure. Run from this folder.
 
 ```bash
+swiftc -swift-version 6 -strict-concurrency=complete -D WIDGET_EXTENSION -module-cache-path /tmp/clockin-wardrobe-cache Shared/Mascot/MascotMotion.swift Shared/Mascot/MascotFrames.swift Shared/Mascot/WardrobeArt.swift Shared/Mascot/CompanionAccessory.swift Clockin/Celebrations/CelebrationRules.swift Shared/Core/Models.swift Shared/Core/WardrobeBackup.swift Shared/Mascot/Wardrobe.swift Shared/Mascot/WardrobeCatalog.swift Clockin/Views/Goals/GoalProgress.swift Clockin/Views/Insights/InsightsSnapshot.swift Clockin/Views/Insights/InsightsBadges.swift Clockin/Views/Companion/WardrobeEarnings.swift Tests/manual/wardrobe/main.swift -o /tmp/clockin-wardrobe-tests && /tmp/clockin-wardrobe-tests
 swiftc -swift-version 6 -strict-concurrency=complete -module-cache-path /tmp/clockin-radio-module-cache Clockin/Audio/RadioStation.swift Tests/manual/radio/main.swift -o /tmp/clockin-radio-tests && /tmp/clockin-radio-tests
 swiftc -swift-version 6 -strict-concurrency=complete -module-cache-path /tmp/clockin-celebrate-module-cache Shared/Mascot/CompanionAccessory.swift Clockin/Celebrations/CelebrationRules.swift Tests/manual/celebrations/main.swift -o /tmp/clockin-celebration-tests && /tmp/clockin-celebration-tests
 swiftc -swift-version 6 -strict-concurrency=complete -module-cache-path /tmp/clockin-rolling-module-cache Clockin/Views/Components/RollingNumber.swift Tests/manual/rolling/main.swift -o /tmp/clockin-rolling-tests && /tmp/clockin-rolling-tests
 swiftc -swift-version 6 -strict-concurrency=complete -module-cache-path /tmp/clockin-haptics-module-cache Shared/Theme/HapticEvent.swift Tests/manual/haptics/main.swift -o /tmp/clockin-haptics-tests && /tmp/clockin-haptics-tests
 swiftc -swift-version 6 -strict-concurrency=complete Shared/Theme/ClockinThemeChoice.swift Shared/Core/Models.swift Shared/Sync/ClockinSnapshot.swift Tests/manual/snapshot/main.swift -o /tmp/clockin-snapshot-tests && /tmp/clockin-snapshot-tests
-swiftc -swift-version 6 Shared/Core/Models.swift Shared/Core/ClockStore.swift Shared/Core/ImportComparison.swift Shared/Core/PastedTextImporter.swift Shared/Core/CSVImporter.swift Shared/Core/SessionOverlap.swift Tests/manual/import/main.swift -o /tmp/clockin-import-tests && /tmp/clockin-import-tests
-swiftc -swift-version 6 Shared/Core/Models.swift Shared/Core/ClockStore.swift Shared/Core/ImportComparison.swift Shared/Core/PastedTextImporter.swift Shared/Core/CSVImporter.swift Shared/Core/SessionOverlap.swift Tests/manual/backups/main.swift -o /tmp/clockin-backup-tests && /tmp/clockin-backup-tests
+swiftc -swift-version 6 Shared/Core/Models.swift Shared/Core/ClockStore.swift Shared/Core/WardrobeBackup.swift Shared/Core/ImportComparison.swift Shared/Core/PastedTextImporter.swift Shared/Core/CSVImporter.swift Shared/Core/SessionOverlap.swift Tests/manual/import/main.swift -o /tmp/clockin-import-tests && /tmp/clockin-import-tests
+swiftc -swift-version 6 Shared/Core/Models.swift Shared/Core/ClockStore.swift Shared/Core/WardrobeBackup.swift Shared/Core/ImportComparison.swift Shared/Core/PastedTextImporter.swift Shared/Core/CSVImporter.swift Shared/Core/SessionOverlap.swift Tests/manual/backups/main.swift -o /tmp/clockin-backup-tests && /tmp/clockin-backup-tests
 swiftc -swift-version 6 Shared/Core/Models.swift Shared/Core/SessionOverlap.swift Tests/manual/overlap/main.swift -o /tmp/clockin-overlap-tests && /tmp/clockin-overlap-tests
 swiftc -swift-version 6 Shared/Core/ExchangeRates.swift Tests/manual/raterange/main.swift -o /tmp/clockin-ratedate-tests && TZ=Europe/Istanbul /tmp/clockin-ratedate-tests
 swiftc -swift-version 6 Shared/Core/Models.swift Clockin/Views/Earnings/EarningsPeriod.swift Clockin/Views/Earnings/EarningsSnapshot.swift Clockin/Views/Earnings/MonthPerformance.swift Clockin/Views/Goals/GoalProgress.swift Clockin/Views/Insights/InsightsSnapshot.swift Clockin/Views/Insights/InsightsBadges.swift Tests/manual/earnings/main.swift -o /tmp/clockin-earnings-tests && /tmp/clockin-earnings-tests
@@ -71,9 +72,9 @@ swiftc -swift-version 6 -strict-concurrency=complete -module-cache-path /tmp/clo
 swiftc -swift-version 6 -strict-concurrency=complete -module-cache-path /tmp/clockin-reminder-module-cache Shared/Core/Models.swift Clockin/Audio/LongSessionReminderSchedule.swift Tests/manual/reminder/main.swift -o /tmp/clockin-reminder-tests && /tmp/clockin-reminder-tests
 swiftc -swift-version 6 -strict-concurrency=complete -module-cache-path /tmp/clockin-nudges-module-cache Shared/Core/Models.swift Clockin/Companion/NudgePlanner.swift Clockin/Companion/NudgeCopy.swift Tests/manual/nudges/main.swift -o /tmp/clockin-nudges-tests && /tmp/clockin-nudges-tests
 swiftc -swift-version 6 Clockin/Views/Goals/GoalProgress.swift Clockin/Views/Goals/DecimalEditing.swift Tests/manual/goals/main.swift -o /tmp/clockin-goals-tests && /tmp/clockin-goals-tests
-swiftc -swift-version 6 Shared/Core/Models.swift Shared/Core/ClockStore.swift Shared/Core/ImportComparison.swift Shared/Core/PastedTextImporter.swift Shared/Core/CSVImporter.swift Shared/Core/SessionOverlap.swift Tests/manual/sessions/main.swift -o /tmp/clockin-sessions-tests && /tmp/clockin-sessions-tests
-swiftc -swift-version 6 Shared/Core/Models.swift Shared/Core/ClockStore.swift Shared/Core/ImportComparison.swift Shared/Core/PastedTextImporter.swift Shared/Core/CSVImporter.swift Shared/Core/SessionOverlap.swift Shared/Theme/ClockinThemeChoice.swift Shared/Sync/ClockinSnapshot.swift Shared/Sync/ClockinSnapshot+Store.swift Tests/manual/rates/main.swift -o /tmp/clockin-rates-tests && /tmp/clockin-rates-tests
-swiftc -swift-version 6 Shared/Core/Models.swift Shared/Core/ClockStore.swift Shared/Core/ImportComparison.swift Shared/Core/PastedTextImporter.swift Shared/Core/CSVImporter.swift Shared/Core/SessionOverlap.swift Shared/Theme/ClockinThemeChoice.swift Shared/Sync/ClockinSnapshot.swift Shared/Sync/ClockinSnapshot+Store.swift Tests/manual/feedback/main.swift -o /tmp/clockin-feedback-tests && /tmp/clockin-feedback-tests
+swiftc -swift-version 6 Shared/Core/Models.swift Shared/Core/ClockStore.swift Shared/Core/WardrobeBackup.swift Shared/Core/ImportComparison.swift Shared/Core/PastedTextImporter.swift Shared/Core/CSVImporter.swift Shared/Core/SessionOverlap.swift Tests/manual/sessions/main.swift -o /tmp/clockin-sessions-tests && /tmp/clockin-sessions-tests
+swiftc -swift-version 6 Shared/Core/Models.swift Shared/Core/ClockStore.swift Shared/Core/WardrobeBackup.swift Shared/Core/ImportComparison.swift Shared/Core/PastedTextImporter.swift Shared/Core/CSVImporter.swift Shared/Core/SessionOverlap.swift Shared/Theme/ClockinThemeChoice.swift Shared/Sync/ClockinSnapshot.swift Shared/Sync/ClockinSnapshot+Store.swift Tests/manual/rates/main.swift -o /tmp/clockin-rates-tests && /tmp/clockin-rates-tests
+swiftc -swift-version 6 Shared/Core/Models.swift Shared/Core/ClockStore.swift Shared/Core/WardrobeBackup.swift Shared/Core/ImportComparison.swift Shared/Core/PastedTextImporter.swift Shared/Core/CSVImporter.swift Shared/Core/SessionOverlap.swift Shared/Theme/ClockinThemeChoice.swift Shared/Sync/ClockinSnapshot.swift Shared/Sync/ClockinSnapshot+Store.swift Tests/manual/feedback/main.swift -o /tmp/clockin-feedback-tests && /tmp/clockin-feedback-tests
 swiftc -swift-version 6 -strict-concurrency=complete Shared/Core/Models.swift Shared/Core/PastedTextImporter.swift Shared/Core/CSVImporter.swift Tests/manual/sessiondisplay/main.swift -o /tmp/clockin-sessiondisplay-tests && /tmp/clockin-sessiondisplay-tests
 ```
 
@@ -290,8 +291,8 @@ blocked through the exit fade. Badge banners retain their top placement with an
 opaque themed card and a subtle scrim. Confetti sits above the card background,
 below its content and buttons, and never receives touches. Confetti
 uses a CAEmitterLayer with a finite 0.8-second birth-rate animation; the layer is
-removed after its particles expire. Reactions submit the existing drawn clip and
-motion samples to CA once, with no frame callbacks. Reduce Motion uses a rest
+removed after its particles expire. Reactions use the shared layered companion host. Motion samples go to CA once;
+existing clip tasks swap drawings only at authored frame boundaries. Reduce Motion uses a rest
 frame and text. Turning off the companion keeps the same card without its mascot.
 Live reactions have a shared 20-second gate, require a visible companion and active
 app, and never replay
@@ -306,7 +307,7 @@ Reduce Motion and companion off. On a phone, verify one success haptic for a lev
 and measure Today with a running session against the approximately 3% CPU target.
 ## Companion mood artwork
 
-Generate the tired (`z*`), proud (`p*`) and four `acc-*` full-frame accessories
+Generate the tired (`z*`), proud (`p*`) and four legacy `acc-*` full-frame accessories
 from the repository root, without building the app:
 
 ```bash
@@ -318,7 +319,7 @@ blink silhouettes, and verifies decoded RGBA and alpha outside the edited region
 It prints changed image pixels and touched art-grid cells for each output. The
 labeled preview is `/tmp/clockin-mood-frames.png`, with native, 62/32 pixel and
 62/32 point @2x samples, plus blink frames. All scaling uses nearest neighbor.
-The clip manifest is left for the separate app integration task.
+The legacy `acc-*` files remain for compatibility tests; the app now uses layered wardrobe sprites.
 
 Run the dependency-free file, dimensions, alpha and frame-number check from
 this `iOS` folder:
@@ -352,23 +353,10 @@ entry at pride expiry so it can return to its normal mood without an app timer.
 WidgetKit controls reload delivery: a four-second expression can be skipped if
 iOS delivers the reload after its deadline. The timestamp prevents stale pride.
 
-Settings > Appearance > Accessory stores `Clockin.CompanionAccessory`.
-Auto chooses the highest unlocked item, None hides accessories, and explicit
-choices retain the selected item. Unknown or currently locked values resolve to
-Auto. Headphones unlock at 25h, Mug at 50h, Cape at 100h and Gold antenna at 250h,
-using completed work plus the active session, as companion modes do. The four
-accessory images are complete hello rest drawings. They replace that rest frame
-only; all drawn clips and hops use the plain frames. The medium widget can wear
-the same selected accessory in hello. Badges > Companion lists the requirements,
-unlocked states and remaining time, rounding a partial minute up.
-
-Accessory celebration history is separate from badges in
-`Clockin.SeenAccessoryIDs`. The first refresh in this version silently seeds
-all currently unlocked items, including an empty set. Later unlocks queue one
-"New accessory" banner per item with its name and worn still. Banners wait behind
-sheets and survive interruption like badges; seen items do not celebrate again
-after a restore and re-unlock. Active-session thresholds use the existing minute
-refresh; no accessory timer was added.
+The layered wardrobe below replaces the legacy Accessory picker and hello-rest
+replacement drawings. Existing choices and seen accessory ownership migrate into
+wardrobe slots. New ownership uses completed work, keeps the original hour
+thresholds, and survives archive reductions. Wardrobe banners use the shared queue.
 
 Standing motion uses a finite 5.2-second sway followed by 7.8 seconds with no sway
 animation, one cycle every 13 seconds. Tired uses a 7.8-second sway at 45% amplitude
@@ -380,8 +368,7 @@ the end of a burst. The ordinary clip and hop rhythms are unchanged.
 
 Companion CA animations request 8-15 fps, preferred 12, for normal and tired
 sway; angry shakes, hops (including shadow transform and opacity), pop, wiggle
-and squash request 24-30 fps, preferred 30. Celebration reactions and their
-discrete contents animation use the same 24-30 range. Groups and their children
+and squash request 24-30 fps, preferred 30. Celebration reactions use the same layered host and 24-30 motion range. Groups and their children
 receive the same range. Drawn clip durations and frame-swap key times are
 unchanged. These are Core Animation requests; actual pacing and the idle
 backboardd target below 3% still need measurement.
@@ -412,15 +399,73 @@ Manual visual acceptance with synthetic sessions:
    or alert open, a running session, custom default mode, Reduce Motion, and
    companion off. Exactly 2h and cancellation must not trigger session pride.
    Verify the level card uses proud and widget pride never remains after expiry.
-3. Start just below 25/50/100/250h and cross each threshold with an active session.
-   Check the next minute refresh, one banner, its accessory art and Badges link.
-   Test Auto, None, every unlocked choice, grey locked choices, an unknown saved
-   value, and a stored item locked by restoring a smaller synthetic archive.
-   At 12.5h, Headphones must show "12h 30m to go". On first launch with 100h of
-   synthetic history, the first three accessories must be unlocked without banners.
-4. Watch hello's blink, glow, antenna dip and hop with an accessory selected.
-   The accessory is present at rest, absent throughout each event, then returns.
-   Tired never hops automatically. Check desk layout on a small landscape phone,
-   large text, VoiceOver, theme changes and rotation while Settings is presented.
+3. Save completed sessions crossing 25/50/100/250h. Check one New item banner
+   and its Companion link. Test None, every owned choice, locked requirements,
+   purchases, and ownership after restoring a smaller synthetic archive. On first
+   launch with 100h, earned items seed silently with one Wardrobe unlocked banner.
+4. Watch hello's blink, glow, antenna dip and hop with a layered accessory.
+   It follows each drawn anchor and shares motion; hand items hide for null handR.
+   Tired never hops automatically. Check small landscape, large text, VoiceOver,
+   themes and rotation while Settings or Companion is presented.
 5. For the before/after CPU and rendering comparison, follow the exact capture
    matrix in `PERFORMANCE.md` under Companion idle acceptance measurement.
+
+## Wardrobe and home (iPhone only)
+
+Today companion opens Companion; its text row opens Insights. Badges > Companion
+and Settings also open the screen. Outfit, Home and Shop share `WardrobeCatalog.swift`.
+All ids below are exact art basenames or JSON keys:
+
+| Slot | IDs |
+| --- | --- |
+| Head | cap, headphones, antenna, crown, wizard-hat |
+| Face | round-glasses, sunglasses |
+| Neck | bow-tie, scarf |
+| Back | cape, backpack, wings |
+| Hand | mug, flower |
+| Colorway | classic, mint, rose, midnight |
+| Room | cozy, studio, night |
+| Furniture | plant (floorLeft), lamp (floorRight), poster (wallLeft), clock (wallRight), curtains (window), round-rug (rug), writing-desk (desk), bookshelf (shelf) |
+
+Cap, round glasses, Classic and Cozy start free. The four legacy accessories keep
+25/50/100/250-hour thresholds. Crown needs level 50, Wizard hat a historical 30-day
+streak, Bow tie the First session badge. Purchase prices range from 50 to 1,500.
+Missing manifest entries, images, anchors or room slots are omitted. Test fixtures
+stay under Tests/manual/wardrobe/fixtures and are not app resources. Merge the art
+branch with matching ids before visual acceptance. Legacy fixed pose assets also
+use the layered host and colorway decoder; without optional pose2/pose3/pose4
+anchor entries they remain recolored without overlays, following the missing-anchor
+rule.
+
+Coins use completed sessions only: floor each duration to whole minutes, sum those
+minutes, then floor the sum divided by six. Add 25 for each completed-work day
+meeting the current daily goal, 50 per archive badge (historical longest streak
+for streak badges), and 100 per level including level 1. Recomputing after archive
+or goal edits may reduce available coins; owned items stay owned and the displayed
+balance clamps to zero. No stored earned-coin counter exists.
+
+`Clockin.WardrobeState` stores ownership, outfit, colorway, room, furniture and the
+seed flag as JSON. `Clockin.WardrobeLedger` stores purchase id/cost/date JSON.
+`Clockin.WardrobeShowHomeInDeskMode` defaults true. The legacy accessory preference
+is migrated on first seed; Auto chooses the highest earned legacy item and None
+keeps slots empty. Previously selected and seen legacy items retain ownership
+even if the archive was reduced. Milestones seed silently with one Wardrobe unlocked banner.
+Later unlocks use CelebrationCenter's queue, capped at three item banners plus a
+summary. Equip/buy gives one reaction and one gated haptic.
+
+Backups remain portable JSON. Export, automatic backups and before-restore copies
+include an optional top-level `wardrobe` section without changing `ClockinData` or
+the live archive format. That section holds the two preference JSON strings and
+the desk toggle. Existing decoders ignore it. Restoring an older file without the
+section preserves the local wardrobe. Settings export now writes a backup rather
+than sharing the raw archive. Widgets receive outfit JSON in their existing snapshot.
+
+After merging art, verify Today, every drawn mood/clip, celebration cards and the
+medium widget with a back item, hat, hand item and non-classic colorway. Check null
+hand anchors, tilted head pivots, None, equip, purchase confirm/cancel, insufficient
+funds, first launch migration, new unlock navigation and backup restore. Open each
+room, place every furniture slot, rotate into desk mode and toggle its home setting.
+Check VoiceOver and large text. Scroll the Companion header offscreen, dismiss it,
+switch tabs, cover Today, and background the app: all live motion must stop. Compare
+Today idle CPU with the existing baseline using PERFORMANCE.md's 120-second runs;
+source/type checks do not establish the CPU or visual result.

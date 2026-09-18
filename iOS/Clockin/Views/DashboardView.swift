@@ -2,6 +2,7 @@ import SwiftUI
 
 // Ayarlar ve oturum ekranlari ayni sunum secimini paylasir; iki sheet yarismaz.
 private enum DashboardSheet: Identifiable {
+    case companion
     case settings
     case newEntry
     case edit(WorkSession)
@@ -11,6 +12,7 @@ private enum DashboardSheet: Identifiable {
 
     var id: String {
         switch self {
+        case .companion: "companion"
         case .settings: "settings"
         case .newEntry: "new"
         case .edit(let session): "edit-\(session.id)"
@@ -55,7 +57,7 @@ struct DashboardView: View {
                             onStartWithElapsed: { sheet = .manualStart }
                         )
                     }
-                    if mascotEnabled { MascotCard(showInsights: showProgress) }
+                    if mascotEnabled { MascotCard(showInsights: showInsights, showCompanion: { sheet = .companion }) }
                     FocusRadioCard()
                     ActiveTimeline(interval: store.running?.isPaused == false ? 1 : 60) { now in
                         VStack(spacing: 14) {
@@ -85,6 +87,7 @@ struct DashboardView: View {
         .sheet(item: $sheet, onDismiss: presentReminderEnd) { destination in
             Group {
                 switch destination {
+                case .companion: CompanionView()
                 case .settings: SettingsView()
                 case .newEntry: ManualEntryView()
                 case .edit(let session): ManualEntryView(editing: session)

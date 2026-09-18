@@ -12,6 +12,8 @@ struct BadgesView: View {
     @ObservedObject private var celebrations = CelebrationCenter.shared
     @Environment(\.palette) private var palette
 
+    @State private var showCompanion = false
+
     var body: some View {
         NavigationStack {
             Group {
@@ -30,6 +32,8 @@ struct BadgesView: View {
             .background(palette.background)
             .navigationTitle("Badges")
         }
+        .sheet(isPresented: $showCompanion) { CompanionView() }
+        .celebrationBlocked(by: showCompanion)
         .tint(palette.accent)
         .fontDesign(palette.fontDesign)
     }
@@ -37,31 +41,11 @@ struct BadgesView: View {
     private func companionSection(totalHours: Double) -> some View {
         VStack(alignment: .leading, spacing: 14) {
             SectionTitle("COMPANION")
-            ForEach(CompanionAccessory.allCases) { accessory in
-                let unlocked = accessory.isUnlocked(totalHours: totalHours)
-                HStack(spacing: 12) {
-                    Image(systemName: accessory.symbol)
-                        .font(.title3)
-                        .frame(width: 32)
-                        .foregroundStyle(unlocked ? palette.accent : Color.secondary)
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(accessory.name).font(.subheadline.weight(.semibold))
-                        Text("\(Int(accessory.requiredHours))h of total work")
-                            .font(.caption).foregroundStyle(.secondary)
-                        Text(accessory.progressText(totalHours: totalHours))
-                            .font(.caption).monospacedDigit().foregroundStyle(.secondary)
-                    }
-                    Spacer(minLength: 0)
-                    Image(systemName: unlocked ? "checkmark.seal.fill" : "lock.fill")
-                        .foregroundStyle(unlocked ? palette.accent : Color.secondary)
-                }
-                .padding(10)
-                .background(unlocked ? palette.accent.opacity(0.12) : palette.surface,
-                            in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-                .opacity(unlocked ? 1 : 0.6)
-                .accessibilityElement(children: .combine)
-                .accessibilityValue(unlocked ? "Unlocked" : "Locked")
+            Button { showCompanion = true } label: {
+                Label("Outfits, coins and home", systemImage: "tshirt.fill")
+                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
             }
+
         }
         .padding(16).card(palette)
     }

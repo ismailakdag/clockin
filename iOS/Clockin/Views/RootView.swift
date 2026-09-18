@@ -25,6 +25,7 @@ struct RootView: View {
     @State private var goalEditorRequest = false
     @ObservedObject private var nudges = NudgeController.shared
     @ObservedObject private var reminder = LongSessionReminderController.shared
+    @State private var showCompanion = false
     @State private var tab: AppTab = .today
     @State private var deskSummary: WorkSession?
     @State private var celebrationShare: StatsShareSnapshot?
@@ -83,8 +84,13 @@ struct RootView: View {
             }, openBadges: {
                 deskSuppressed = true
                 tab = .badges
+            }, openCompanion: {
+                deskSuppressed = true
+                showCompanion = true
             })
         }
+        .sheet(isPresented: $showCompanion) { CompanionView() }
+        .celebrationBlocked(by: showCompanion)
         .background(CelebrationWindowProbe())
         .onChange(of: verticalSizeClass) { _, _ in deskSuppressed = false }
         .hapticFeedback(selectionFeedback)

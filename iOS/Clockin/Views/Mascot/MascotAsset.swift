@@ -14,10 +14,24 @@ extension MascotAnimationRate {
 
 struct ClockinMascotImage: View {
     let asset: String
+    @ObservedObject private var wardrobe = WardrobeStore.shared
+    @State private var image: CGImage?
 
     var body: some View {
-        Image(asset).resizable().interpolation(.none).scaledToFit()
+        MascotLayerRepresentable(image: image, frameID: asset, outfit: wardrobe.state,
+            feet: 0.88, moving: false, swaying: false, angry: false, tired: false,
+            hop: .init(id: 0, height: 1), pop: 0, wiggle: 0, squash: 0, dark: false)
             .accessibilityHidden(true)
+            .task(id: asset + "/" + wardrobe.state.colorway) {
+                let asset = asset
+                let colorway = wardrobe.state.colorway
+                let decoded = await Task.detached(priority: .utility) {
+                    UIImage(named: asset)?.cgImage.map { WardrobeArt.recolor($0, colorway: colorway) }
+                }.value
+                await MascotFrames.shared.preload(.hello, colorway: colorway)
+                guard !Task.isCancelled else { return }
+                image = decoded
+            }
     }
 }
 
@@ -27,7 +41,6 @@ struct ClockinMascotStage: View {
     @Environment(\.scenePhase) private var scenePhase
     @EnvironmentObject private var store: ClockStore
     @AppStorage("Clockin.MascotDefault") private var defaultMode = "Auto"
-    @AppStorage(CompanionAccessory.storageKey) private var accessoryChoice = "Auto"
     let state: MascotAsset
     @State private var tap: MascotTap?
     @ObservedObject private var celebrations = CelebrationCenter.shared
@@ -45,8 +58,6 @@ struct ClockinMascotStage: View {
     var body: some View {
         let mode = CompanionMode.resolve(defaultMode, totalHours: (store.totalDuration + store.elapsed()) / 3600)
         let current = mood(for: mode)
-        let accessory = CompanionAccessory.resolve(accessoryChoice,
-            totalHours: (celebrations.snapshot?.totalDuration ?? (store.totalDuration + store.elapsed())) / 3600)
         Group {
             if current == .proud {
                 ClockinMotionMascot(mood: .proud)
@@ -58,7 +69,7 @@ struct ClockinMascotStage: View {
                                   reaction: tap.reaction, moving: true)
                     .id(tap.id)
             } else if let mood = current {
-                ClockinMotionMascot(mood: mood, accessory: accessory, tap: tap)
+                ClockinMotionMascot(mood: mood, tap: tap)
             } else if let fixed = mode.fixedPoseIndex {
                 ClockinMascotImage(asset: "pose\(fixed)")
             }
@@ -112,8 +123,8 @@ struct MascotTap: Equatable {
 @MainActor
 struct ClockinMotionMascot: View {
     let mood: MascotMood
-    var accessory: CompanionAccessory?
     var tap: MascotTap?
+    @ObservedObject private var wardrobe = WardrobeStore.shared
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var colorScheme
@@ -134,6 +145,7 @@ struct ClockinMotionMascot: View {
         let mood: MascotMood
         let moving: Bool
         let lead: Int?
+        let colorway: String
     }
 
     private struct ReactionKey: Equatable {
@@ -157,7 +169,8 @@ struct ClockinMotionMascot: View {
 
     var body: some View {
         MascotLayerRepresentable(
-            image: displayedFrame.flatMap { MascotFrames.shared.image($0) },
+            image: displayedFrame.flatMap { MascotFrames.shared.image($0, colorway: wardrobe.state.colorway) },
+            frameID: displayedFrame, outfit: wardrobe.state,
             feet: mood.feet,
             moving: moving,
             swaying: moving && mood != .angry && clips?.standing == true,
@@ -168,7 +181,7 @@ struct ClockinMotionMascot: View {
         .accessibilityHidden(true)
         .onAppear { appeared = true }
         .onDisappear { appeared = false }
-        .task(id: RunKey(mood: mood, moving: moving, lead: leadClip?.id)) { await run() }
+        .task(id: RunKey(mood: mood, moving: moving, lead: leadClip?.id, colorway: wardrobe.state.colorway)) { await run() }
         .onChange(of: mood) { _, newMood in
             if moving { pop += 1 }
             if let waiting = clipAfterPoseChange {
@@ -201,8 +214,7 @@ struct ClockinMotionMascot: View {
     private var displayedFrame: String? {
         guard loadedMood == mood, let rest = clips?.rest else { return nil }
         let current = (moving && frameMood == mood ? frame : nil) ?? rest
-        return CompanionAccessory.displayFrame(current, helloRest: mood == .hello && current == rest,
-                                               performingEvent: moving && performingEvent, accessory: accessory)
+        return current
     }
 
     private func queueClip(for tap: MascotTap, in mood: MascotMood) {
@@ -223,7 +235,8 @@ struct ClockinMotionMascot: View {
         performingEvent = false
         frame = clips.rest
         frameMood = mood
-        await MascotFrames.shared.preload(mood)
+        loadedMood = nil
+        await MascotFrames.shared.preload(mood, colorway: wardrobe.state.colorway)
         guard !Task.isCancelled else { return }
         loadedMood = mood
         guard moving else { return }
@@ -268,6 +281,8 @@ struct ClockinMotionMascot: View {
 
 private struct MascotLayerRepresentable: UIViewRepresentable {
     let image: CGImage?
+    let frameID: String?
+    let outfit: WardrobeState
     let feet: Double
     let moving: Bool
     let swaying: Bool
@@ -286,7 +301,7 @@ private struct MascotLayerRepresentable: UIViewRepresentable {
     }
 
     func updateUIView(_ view: MascotLayerView, context: Context) {
-        view.update(image: image, feet: feet, moving: moving, swaying: swaying, angry: angry, tired: tired,
+        view.update(image: image, frameID: frameID, outfit: outfit, feet: feet, moving: moving, swaying: swaying, angry: angry, tired: tired,
                     hop: hop, pop: pop, wiggle: wiggle, squash: squash, dark: dark)
     }
 
@@ -308,6 +323,11 @@ final class MascotLayerView: UIView {
     private let popLayer = CALayer()
     private let reactLayer = CALayer()
     private let body = CALayer()
+    private let robot = CALayer()
+    private let canvas = CALayer()
+    private var overlayLayers: [String: CALayer] = [:]
+    private var drawnFrame: String?
+    private var drawnEquipment: [String: String] = [:]
     private var feet = 0.88
     private var swaying = false
     private var lastHop: HopRequest?
@@ -326,9 +346,12 @@ final class MascotLayerView: UIView {
         backgroundColor = .clear
         clipsToBounds = false
         layer.masksToBounds = false
-        body.contentsGravity = .resizeAspect
-        body.minificationFilter = .nearest
-        body.magnificationFilter = .nearest
+        robot.contentsGravity = .resizeAspect
+        robot.minificationFilter = .nearest
+        robot.magnificationFilter = .nearest
+        canvas.anchorPoint = .zero
+        body.addSublayer(canvas)
+        canvas.addSublayer(robot)
         shadowLayer.type = .radial
         shadowLayer.startPoint = CGPoint(x: 0.5, y: 0.5)
         shadowLayer.endPoint = CGPoint(x: 1, y: 1)
@@ -343,10 +366,32 @@ final class MascotLayerView: UIView {
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
 
-    func update(image: CGImage?, feet: Double, moving: Bool, swaying: Bool, angry: Bool, tired: Bool, hop: HopRequest, pop: Int, wiggle: Int, squash: Int, dark: Bool) {
+    func update(image: CGImage?, frameID: String?, outfit: WardrobeState, feet: Double, moving: Bool, swaying: Bool, angry: Bool, tired: Bool, hop: HopRequest, pop: Int, wiggle: Int, squash: Int, dark: Bool) {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        if (body.contents as! CGImage?) !== image { body.contents = image }
+        let imageChanged = (robot.contents as! CGImage?) !== image
+        if imageChanged { robot.contents = image }
+        if imageChanged || drawnFrame != frameID || drawnEquipment != outfit.equipped {
+            drawnFrame = frameID
+            drawnEquipment = outfit.equipped
+            let parts = frameID.map { WardrobeArt.overlays(frame: $0, outfit: outfit, images: MascotFrames.shared.overlayImages) } ?? []
+            let ids = Set(parts.map(\.id))
+            for id in Array(overlayLayers.keys) where !ids.contains(id) {
+                overlayLayers.removeValue(forKey: id)?.removeFromSuperlayer()
+            }
+            for (index, part) in parts.enumerated() {
+                let overlay = overlayLayers[part.id] ?? CALayer()
+                if overlay.superlayer == nil { canvas.addSublayer(overlay); overlayLayers[part.id] = overlay }
+                overlay.anchorPoint = .zero
+                overlay.bounds = CGRect(x: 0, y: 0, width: part.image.width, height: part.image.height)
+                overlay.position = CGPoint(x: part.origin.x, y: part.origin.y)
+                overlay.transform = CATransform3DMakeRotation(part.tilt * .pi / 180, 0, 0, 1)
+                overlay.zPosition = CGFloat(part.behind ? -10 + index : 1 + index)
+                overlay.contents = part.image
+                overlay.minificationFilter = .nearest
+                overlay.magnificationFilter = .nearest
+            }
+        }
         if self.feet != feet {
             self.feet = feet
             setNeedsLayout()
@@ -424,6 +469,10 @@ final class MascotLayerView: UIView {
         rig.position = CGPoint(x: square.midX, y: square.minY + square.height * anchor.y)
         body.anchorPoint = anchor
         body.bounds = CGRect(origin: .zero, size: square.size)
+        canvas.bounds = CGRect(x: 0, y: 0, width: 314, height: 314)
+        canvas.position = .zero
+        canvas.transform = CATransform3DMakeScale(side / 314, side / 314, 1)
+        robot.frame = CGRect(x: 0, y: 0, width: 314, height: 314)
         body.position = CGPoint(x: square.width / 2, y: square.height * anchor.y)
         shadowLayer.bounds = CGRect(x: 0, y: 0, width: side * 0.38, height: side * 0.04)
         shadowLayer.position = CGPoint(x: square.width / 2, y: square.height * anchor.y)

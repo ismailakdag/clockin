@@ -525,7 +525,7 @@ final class ClockStore: ObservableObject {
 
     func exportBackup(to url: URL) {
         do {
-            let encoded = try JSONEncoder().encode(data)
+            let encoded = try WardrobeBackupSection(defaults: .standard).adding(to: JSONEncoder().encode(data))
             try encoded.write(to: url, options: .atomic)
             statusMessage = "Backup exported."
         } catch {
@@ -559,8 +559,11 @@ final class ClockStore: ObservableObject {
     @discardableResult
     func restoreBackup(from url: URL) -> Bool {
         let decoded: ClockinData
+        let wardrobe: WardrobeBackupSection?
         do {
-            decoded = try JSONDecoder().decode(ClockinData.self, from: Data(contentsOf: url))
+            let bytes = try Data(contentsOf: url)
+            decoded = try JSONDecoder().decode(ClockinData.self, from: bytes)
+            wardrobe = try WardrobeBackupSection.read(from: bytes)
         } catch {
             statusMessage = "Could not restore backup: \(error.localizedDescription)"
             return false
@@ -570,7 +573,9 @@ final class ClockStore: ObservableObject {
                 try FileManager.default.createDirectory(at: backupDirectory, withIntermediateDirectories: true)
                 let stamp = Int(Date().timeIntervalSince1970 * 1000)
                 let copy = backupDirectory.appending(path: "\(Self.safetyCopyPrefix)\(stamp)-\(UUID().uuidString).json")
-                try FileManager.default.copyItem(at: fileURL, to: copy)
+                let original = try Data(contentsOf: fileURL)
+                let backup = (try? WardrobeBackupSection(defaults: .standard).adding(to: original)) ?? original
+                try backup.write(to: copy, options: .atomic)
                 // Kopya dosyanin eski degistirme tarihini tasir; listede en ustte,
                 // "simdi alinmis" olarak gorunmesi icin tarihi guncellenir.
                 try? FileManager.default.setAttributes([.modificationDate: Date()], ofItemAtPath: copy.path)
@@ -583,6 +588,7 @@ final class ClockStore: ObservableObject {
         let previous = data
         data = decoded
         guard save() else { data = previous; return false }
+        wardrobe?.restore(to: .standard)
         cachedBackupStats = nil
         statusMessage = "Backup restored. Your previous data was kept as a backup."
         return true
@@ -1004,7 +1010,7 @@ final class ClockStore: ObservableObject {
             try FileManager.default.createDirectory(at: backupDirectory, withIntermediateDirectories: true)
             let stamp = Int(now.timeIntervalSince1970 * 1000)
             let destination = backupDirectory.appending(path: "clockin-\(stamp)-\(UUID().uuidString).json")
-            try FileManager.default.copyItem(at: fileURL, to: destination)
+            try WardrobeBackupSection(defaults: .standard).adding(to: Data(contentsOf: fileURL)).write(to: destination, options: .atomic)
             let backups = try FileManager.default.contentsOfDirectory(at: backupDirectory, includingPropertiesForKeys: [.contentModificationDateKey], options: [.skipsHiddenFiles])
                 .sorted {
                     let left = (try? $0.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast

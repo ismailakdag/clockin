@@ -49,6 +49,8 @@ final class CelebrationCenter: ObservableObject {
     // SessionMirror ve mevcut dakika yenilemesi tek ortak ozeti besler.
     func refresh(store: ClockStore, now: Date = .now) {
         let dailyGoal = defaults.double(forKey: "Clockin.GoalDailyHours")
+        let wardrobe = WardrobeStore.shared.refresh(sessions: store.sessions, now: now, dailyGoal: dailyGoal)
+        queue.wardrobeUnlocked(first: wardrobe.first, names: wardrobe.items.compactMap { WardrobeCatalog.item($0)?.name })
         let stats = InsightsSnapshot(store: store, now: now, dailyGoal: dailyGoal,
                                      monthlyGoal: defaults.double(forKey: "Clockin.GoalMonthlyHours"))
         snapshot = stats
@@ -81,7 +83,7 @@ final class CelebrationCenter: ObservableObject {
         let earnedPride = CelebrationRules.earnsPride(from: queue.previous, to: state)
         let oldPending = queue.pending
         queue.ingest(state, now: ProcessInfo.processInfo.systemUptime,
-                     canReact: active && UIApplication.shared.applicationState == .active && blockers.isEmpty && !visibleCompanions.isEmpty)
+                     canReact: active && UIApplication.shared.applicationState == .active && blockers.isEmpty && !visibleCompanions.isEmpty, includeAccessories: false)
         if earnedPride || queue.pending.contains(where: { $0.startsPride && !oldPending.contains($0) }) {
             // Widget olayi hemen alir; kapali kart sheet sonrasi kendi penceresini acar.
             showPride()

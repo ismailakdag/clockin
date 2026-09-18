@@ -5,6 +5,7 @@ import UniformTypeIdentifiers
 private enum SettingsSheet: String, Identifiable {
     case rateSchedule
     case importTimecards
+    case companion
     case backups
     case guide
 
@@ -19,7 +20,7 @@ struct SettingsView: View {
     @AppStorage("Clockin.Theme") private var themeRaw = ClockinThemeChoice.carbon.rawValue
     @AppStorage("Clockin.MascotEnabled") private var mascotEnabled = true
     @AppStorage("Clockin.MascotDefault") private var mascotDefault = "Auto"
-    @AppStorage(CompanionAccessory.storageKey) private var accessoryChoice = "Auto"
+    @AppStorage(WardrobeState.deskKey) private var showHome = true
     @AppStorage(DeskMode.enabledKey) private var deskModeEnabled = true
     @AppStorage(HapticPolicy.enabledKey) private var hapticsEnabled = true
     @FocusState private var rateIsFocused: Bool
@@ -34,6 +35,8 @@ struct SettingsView: View {
     @State private var showRestoreConfirmation = false
     @State private var restoreMessage: String?
     @State private var sheet: SettingsSheet?
+    @State private var exportDocument: WardrobeBackupDocument?
+    @State private var showExporter = false
 
     @State private var selectionFeedback = HapticSignal()
 
@@ -52,7 +55,7 @@ struct SettingsView: View {
                     Toggle("Focus companion", isOn: $mascotEnabled.hapticSelection($selectionFeedback))
                     if mascotEnabled {
                         companionBehavior
-                        companionAccessory
+                        Button("Outfits, coins and home") { sheet = .companion }
                     }
                 } header: {
                     Text("Appearance")
@@ -68,6 +71,7 @@ struct SettingsView: View {
                     }
                 }
                 Section {
+                    Toggle("Show home in desk mode", isOn: $showHome.hapticSelection($selectionFeedback))
                     Toggle("Desk mode in landscape", isOn: $deskModeEnabled.hapticSelection($selectionFeedback))
                         .onChange(of: deskModeEnabled) { _, _ in DeskMode.refreshOrientations() }
                 } footer: {
@@ -111,7 +115,7 @@ struct SettingsView: View {
                     }
                 }
             }
-            .celebrationBlocked(by: pendingRate != nil || sheet != nil || confirmRemoveSplit || showImporter || showRestoreConfirmation)
+            .celebrationBlocked(by: pendingRate != nil || sheet != nil || confirmRemoveSplit || showImporter || showRestoreConfirmation || showExporter)
             .sheet(item: $pendingRate, onDismiss: { syncRateText() }) { draft in
                 RateChangePrompt(value: draft.value)
                     .environmentObject(store)
@@ -149,6 +153,7 @@ struct SettingsView: View {
                     switch destination {
                     case .rateSchedule: RateScheduleView()
                     case .importTimecards: TimecardImportView()
+                    case .companion: CompanionView()
                     case .backups: BackupsView()
                     case .guide: UsageGuideView()
                     }
@@ -252,31 +257,27 @@ struct SettingsView: View {
         }
     }
 
-    private var companionAccessory: some View {
-        let hours = (celebrations.snapshot?.totalDuration ?? (store.totalDuration + store.elapsed())) / 3600
-        return Picker("Accessory", selection: Binding(
-            get: { CompanionAccessory.selection(accessoryChoice, totalHours: hours) },
-            set: { accessoryChoice = CompanionAccessory.selection($0, totalHours: hours) }
-        ).hapticSelection($selectionFeedback)) {
-            Text("Auto").tag("Auto")
-            Text("None").tag("None")
-            ForEach(CompanionAccessory.allCases) { accessory in
-                Label(accessory.menuLabel(totalHours: hours), systemImage: accessory.symbol)
-                    .foregroundStyle(accessory.isUnlocked(totalHours: hours) ? Color.primary : Color.secondary)
-                    .tag(accessory.id)
-                    .disabled(!accessory.isUnlocked(totalHours: hours))
-            }
-        }
-    }
-
     private var dataSection: some View {
         Section {
             navigationRow("Import timecards", systemImage: "doc.text.magnifyingglass") {
                 rateIsFocused = false
                 sheet = .importTimecards
             }
-            ShareLink(item: AppGroup.dataFileURL) {
+            Button {
+                let url = FileManager.default.temporaryDirectory.appendingPathComponent("clockin-export-\(UUID().uuidString).json")
+                store.exportBackup(to: url)
+                if let data = try? Data(contentsOf: url) {
+                    exportDocument = WardrobeBackupDocument(data: data)
+                    showExporter = true
+                    try? FileManager.default.removeItem(at: url)
+                } else { restoreMessage = store.statusMessage; Haptics.play(.validationFailed) }
+            } label: {
                 Label("Export backup", systemImage: "square.and.arrow.up")
+            }
+            .fileExporter(isPresented: $showExporter, document: exportDocument, contentType: .json,
+                          defaultFilename: "Clockin-backup") { result in
+                if case .failure(let error) = result { restoreMessage = error.localizedDescription }
+                exportDocument = nil
             }
             .disabled(!FileManager.default.fileExists(atPath: AppGroup.dataFileURL.path))
             Button {
@@ -493,4 +494,12 @@ private struct RateChangePrompt: View {
             errorMessage = store.statusMessage
         }
     }
+}
+
+private struct WardrobeBackupDocument: FileDocument {
+    static var readableContentTypes: [UTType] { [.json] }
+    var data: Data
+    init(data: Data) { self.data = data }
+    init(configuration: ReadConfiguration) throws { data = configuration.file.regularFileContents ?? Data() }
+    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper { FileWrapper(regularFileWithContents: data) }
 }

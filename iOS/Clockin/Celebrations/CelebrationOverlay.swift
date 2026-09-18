@@ -10,6 +10,7 @@ struct CelebrationOverlay: View {
     @ScaledMetric(relativeTo: .largeTitle) private var levelFontSize = 44
     let share: () -> Void
     let openBadges: () -> Void
+    let openCompanion: () -> Void
 
     private var policy: CelebrationPresentation {
         CelebrationPresentation(reduceMotion: !animationPolicy.allowsAnimation(
@@ -39,6 +40,8 @@ struct CelebrationOverlay: View {
                         banner(title: badge.title, icon: badge.icon)
                     case .accessory(let accessory):
                         banner(title: accessory.name, icon: accessory.symbol, accessory: accessory)
+                    case .wardrobe(let name, let introductory):
+                        banner(title: name, icon: "tshirt.fill", wardrobeTitle: introductory ? "Wardrobe unlocked" : "New item")
                     case .moreBadges(let ids):
                         banner(title: "and \(ids.count) more", icon: "rosette")
                     case .reaction: EmptyView()
@@ -121,15 +124,15 @@ struct CelebrationOverlay: View {
             .frame(maxWidth: .infinity, minHeight: 44)
     }
 
-    private func banner(title: String, icon: String, accessory: CompanionAccessory? = nil) -> some View {
+    private func banner(title: String, icon: String, accessory: CompanionAccessory? = nil, wardrobeTitle: String? = nil) -> some View {
         Button {
             center.dismiss()
-            openBadges()
+            if wardrobeTitle != nil { openCompanion() } else { openBadges() }
         } label: {
             HStack(spacing: 12) {
                 Image(systemName: icon).font(.title2).foregroundStyle(palette.accent)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(accessory == nil ? "Badge unlocked" : "New accessory").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                    Text(wardrobeTitle ?? (accessory == nil ? "Badge unlocked" : "New accessory")).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
                     Text(title).font(.subheadline.bold()).foregroundStyle(.primary)
                 }
                 .fixedSize(horizontal: false, vertical: true)
@@ -150,7 +153,7 @@ struct CelebrationOverlay: View {
         }
         .buttonStyle(.plain)
         .buttonPressHaptic(false)
-        .accessibilityHint("Opens Badges")
+        .accessibilityHint(wardrobeTitle == nil ? "Opens Badges" : "Opens Companion")
         .padding(.horizontal, 16).padding(.top, 8)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }

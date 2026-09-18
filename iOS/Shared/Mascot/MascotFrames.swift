@@ -33,10 +33,10 @@ enum MascotResources {
 struct ClockinMascotStill: View {
     private let image: CGImage?
 
-    init(mood: MascotMood, accessory: CompanionAccessory? = nil, maxPixelSize: Int = 192) {
+    init(mood: MascotMood, accessory: CompanionAccessory? = nil, maxPixelSize: Int = 192,
+         outfit: WardrobeState = WardrobeState()) {
         let rest = MascotResources.library?[mood].rest ?? "h01"
-        let frame = CompanionAccessory.displayFrame(rest, helloRest: mood == .hello, performingEvent: false, accessory: accessory)
-        image = MascotResources.decode(frame, maxPixelSize: maxPixelSize)
+        image = WardrobeArt.composite(frame: rest, outfit: outfit, size: maxPixelSize)
     }
 
     var body: some View {
@@ -57,23 +57,32 @@ final class MascotFrames {
     static let shared = MascotFrames()
     let library = MascotResources.library
     private var images: [String: CGImage] = [:]
-    private var loading: [MascotMood: Task<Void, Never>] = [:]
+    private var loading: [String: Task<Void, Never>] = [:]
+    private(set) var overlayImages: [String: CGImage] = [:]
 
-    func image(_ id: String) -> CGImage? { images[id] }
+    func image(_ id: String, colorway: String = "classic") -> CGImage? { images[colorway + "/" + id] }
 
-    func preload(_ mood: MascotMood) async {
+    func preload(_ mood: MascotMood, colorway: String = "classic") async {
         guard let library else { return }
-        if let task = loading[mood] { return await task.value }
-        let frames = library[mood].frames.union(mood == .hello ? Set(CompanionAccessory.allCases.map(\.frame)) : [])
-        let missing = frames.filter { images[$0] == nil }
-        // Paylasilan isin omru tek gorunumun iptalinden bagimsizdir.
+        let key = colorway + "/" + mood.rawValue
+        if let task = loading[key] { return await task.value }
+        let missing = library[mood].frames.filter { images[colorway + "/" + $0] == nil }
+        let missingSprites = WardrobeArt.sprites.keys.filter { overlayImages[$0] == nil }
+        // Paylasilan decode isi gorunum kapaninca sonucunu onbellege birakir.
         let task = Task {
             let decoded = await Task.detached(priority: .utility) {
-                missing.compactMap { id in MascotResources.decode(id).map { (id, $0) } }
+                let frames = missing.compactMap { id in
+                    MascotResources.decode(id).map { (id, WardrobeArt.recolor($0, colorway: colorway)) }
+                }
+                let sprites = missingSprites.compactMap { id in
+                    WardrobeArt.decode(id + ".png", folder: "Wardrobe").map { (id, $0) }
+                }
+                return (frames, sprites)
             }.value
-            for (id, image) in decoded { images[id] = image }
+            for (id, image) in decoded.0 { images[colorway + "/" + id] = image }
+            for (id, image) in decoded.1 { overlayImages[id] = image }
         }
-        loading[mood] = task
+        loading[key] = task
         await task.value
     }
 }

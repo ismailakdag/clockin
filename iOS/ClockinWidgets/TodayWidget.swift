@@ -135,7 +135,7 @@ private struct TodayWidgetView: View {
         ClockinMascotStill(
             mood: snapshot.companionState(at: entry.date).mood,
             accessory: snapshot.companionAccessoryID.flatMap(CompanionAccessory.init(rawValue:)),
-            maxPixelSize: 240
+            maxPixelSize: 240, outfit: WardrobeState.decode(snapshot.wardrobeJSON)
         )
         .frame(width: ReadyWidgetPlacement.companionWidth, height: 80)
     }
