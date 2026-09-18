@@ -1,0 +1,279 @@
+{
+  "items" : {
+    "bean-bag" : {
+      "file" : "bean-bag.png",
+      "name" : "Bean bag",
+      "pivot" : [
+        58,
+        72
+      ],
+      "slot" : "floorRight"
+    },
+    "big-plant" : {
+      "file" : "big-plant.png",
+      "name" : "Big plant",
+      "pivot" : [
+        44,
+        136
+      ],
+      "slot" : "floorRight"
+    },
+    "bookshelf" : {
+      "file" : "bookshelf.png",
+      "name" : "Bookshelf",
+      "pivot" : [
+        48,
+        108
+      ],
+      "slot" : "shelf"
+    },
+    "cat-bed" : {
+      "file" : "cat-bed.png",
+      "name" : "Sleeping cat bed",
+      "pivot" : [
+        56,
+        46
+      ],
+      "slot" : "floorLeft"
+    },
+    "certificate" : {
+      "file" : "certificate.png",
+      "name" : "Framed certificate",
+      "pivot" : [
+        46,
+        30
+      ],
+      "slot" : "wallRight"
+    },
+    "coffee-machine" : {
+      "file" : "coffee-machine.png",
+      "name" : "Coffee machine on stool",
+      "pivot" : [
+        42,
+        102
+      ],
+      "slot" : "floorLeft"
+    },
+    "desk-lamp" : {
+      "file" : "desk-lamp.png",
+      "name" : "Desk lamp",
+      "pivot" : [
+        28,
+        58
+      ],
+      "slot" : "desk"
+    },
+    "desk-monitor" : {
+      "file" : "desk-monitor.png",
+      "name" : "Desk and monitor",
+      "pivot" : [
+        64,
+        48
+      ],
+      "slot" : "desk"
+    },
+    "floor-lamp" : {
+      "file" : "floor-lamp.png",
+      "name" : "Floor lamp",
+      "pivot" : [
+        40,
+        136
+      ],
+      "slot" : "floorLeft"
+    },
+    "guitar" : {
+      "file" : "guitar.png",
+      "name" : "Guitar on stand",
+      "pivot" : [
+        28,
+        118
+      ],
+      "slot" : "floorRight"
+    },
+    "poster" : {
+      "file" : "poster.png",
+      "name" : "Mountain poster",
+      "pivot" : [
+        34,
+        38
+      ],
+      "slot" : "wallLeft"
+    },
+    "potted-plant" : {
+      "file" : "potted-plant.png",
+      "name" : "Potted plant",
+      "pivot" : [
+        22,
+        60
+      ],
+      "slot" : "window"
+    },
+    "record-player" : {
+      "file" : "record-player.png",
+      "name" : "Record player",
+      "pivot" : [
+        46,
+        28
+      ],
+      "slot" : "desk"
+    },
+    "round-rug" : {
+      "file" : "round-rug.png",
+      "name" : "Round rug",
+      "pivot" : [
+        74,
+        28
+      ],
+      "slot" : "rug"
+    },
+    "string-lights" : {
+      "file" : "string-lights.png",
+      "name" : "String lights",
+      "pivot" : [
+        80,
+        16
+      ],
+      "slot" : "wallLeft"
+    },
+    "wall-clock" : {
+      "file" : "wall-clock.png",
+      "name" : "Wall clock",
+      "pivot" : [
+        32,
+        32
+      ],
+      "slot" : "wallRight"
+    }
+  },
+  "rooms" : {
+    "cozy" : {
+      "file" : "room-cozy.png",
+      "floorY" : 180,
+      "mascotSpot" : [
+        214,
+        218
+      ],
+      "name" : "Cozy hut",
+      "slots" : {
+        "desk" : [
+          94,
+          154
+        ],
+        "floorLeft" : [
+          64,
+          218
+        ],
+        "floorRight" : [
+          300,
+          218
+        ],
+        "rug" : [
+          184,
+          208
+        ],
+        "shelf" : [
+          60,
+          150
+        ],
+        "wallLeft" : [
+          95,
+          45
+        ],
+        "wallRight" : [
+          210,
+          91
+        ],
+        "window" : [
+          282,
+          120
+        ]
+      }
+    },
+    "night" : {
+      "file" : "room-night.png",
+      "floorY" : 180,
+      "mascotSpot" : [
+        214,
+        218
+      ],
+      "name" : "Night hut",
+      "slots" : {
+        "desk" : [
+          94,
+          154
+        ],
+        "floorLeft" : [
+          64,
+          218
+        ],
+        "floorRight" : [
+          300,
+          218
+        ],
+        "rug" : [
+          184,
+          208
+        ],
+        "shelf" : [
+          60,
+          150
+        ],
+        "wallLeft" : [
+          95,
+          45
+        ],
+        "wallRight" : [
+          210,
+          91
+        ],
+        "window" : [
+          282,
+          120
+        ]
+      }
+    },
+    "studio" : {
+      "file" : "room-studio.png",
+      "floorY" : 180,
+      "mascotSpot" : [
+        214,
+        218
+      ],
+      "name" : "Studio",
+      "slots" : {
+        "desk" : [
+          94,
+          154
+        ],
+        "floorLeft" : [
+          64,
+          218
+        ],
+        "floorRight" : [
+          300,
+          218
+        ],
+        "rug" : [
+          184,
+          208
+        ],
+        "shelf" : [
+          60,
+          150
+        ],
+        "wallLeft" : [
+          95,
+          45
+        ],
+        "wallRight" : [
+          210,
+          91
+        ],
+        "window" : [
+          282,
+          120
+        ]
+      }
+    }
+  }
+}
