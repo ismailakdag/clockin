@@ -397,10 +397,14 @@ func makeWardrobe() throws {
         let anchor=id == "headphones" ? "visor" : ["head":"head","face":"visor","neck":"neck","back":"back","hand":"handR"][slot]!
         catalog[id]=["slot":slot,"anchorPoint":anchor,"pivot":p,"layer":slot=="back" ? "back":"front"]
     }
-    item("baseball-cap","head",[40,34]) { a in
+    item("cap","head",[40,34]) { a in
         a.ellipse(16,20,48,34,teal); a.rect(12,37,58,4,teal); a.rect(49,39,24,3,teal)
         a.line(40,21,40,35,color("2A706D")); a.rect(39,19,4,2,gold); a.rect(23,34,35,3,color("2A706D"))
         a.star(32,26,paper); a.rect(16,42,52,14,.clear)
+    }
+    item("antenna","head",[40,34]) { a in
+        a.box(35,30,11,5,gold); a.line(40,29,40,23,gold,3)
+        a.oval(35,15,11,10,gold); a.rect(37,17,3,3,paper)
     }
     item("beanie","head",[40,34]) { a in
         a.ellipse(17,16,46,44,purple); a.rect(15,35,50,7,color("55436F")); a.rect(16,42,50,24,.clear)
@@ -491,7 +495,7 @@ func makeWardrobe() throws {
         }
         a.rect(35,21,11,19,paper)
     }
-    item("coffee-mug","hand",[39,32]) { a in
+    item("mug","hand",[39,32]) { a in
         a.oval(32,22,12,15,paper); a.ellipse(35,25,6,8,.clear)
         a.box(15,20,21,22,paper); a.rect(17,21,17,3,woodDark); a.rect(18,25,3,12,color("D4D7DF")); a.star(24,28,orange)
     }
@@ -513,57 +517,36 @@ func makeWardrobe() throws {
     print("Wardrobe: \(catalog.count) cropped 2-pixel sprites")
 }
 func makeColorways() throws {
-    // Count exact opaque RGB values across ALL contract frames. Resampled source
-    // art has many fringe shades, so map every observed color, not only the top six.
-    var counts=[String:Int]()
-    for url in frameFiles {
-        let b=Bitmap(url:url)
-        for y in 0..<b.height { for x in 0..<b.width where b[x,y].a==255 { counts[hex(b[x,y]),default:0]+=1 } }
+    let ramps: [(String, String, [String], String, String)] = [
+        ("classic", "Classic", ["505050","787878","AFAFAF","E8E8E8","FFFFFF"], "FF771A", "49EBFF"),
+        ("midnight", "Midnight", ["19253D","2A3C5B","3F577C","567196","718BA9"], "F2C458", "74E7FF"),
+        ("mint", "Mint", ["294C49","488378","7CB8A4","B4E3CC","E7FFF0"], "E69F63", "79E9FA"),
+        ("sunset", "Sunset", ["58384B","97556A","D8898E","FFC0A2","FFE6CB"], "F58B45", "80E4ED"),
+        ("gold", "Gold", ["58482D","947341","C8A15C","EDC879","FFF0BB"], "E08B40", "A2EEEC"),
+        ("stealth", "Stealth", ["222329","36383F","4B4E58","626670","81858F"], "D85450", "FF534F")]
+    func dark(_ hexValue: String) -> String {
+        let p = color(hexValue)
+        return hex(Pixel(r: p.r / 10, g: p.g / 10, b: p.b / 10, a: 255))
     }
-    let ranked=counts.keys.sorted { counts[$0]==counts[$1] ? $0<$1:counts[$0]!>counts[$1]! }
-    print("Most common opaque colors: "+ranked.prefix(18).map{"\($0):\(counts[$0]!)"}.joined(separator:", "))
-    // Ordered shell ramps: dark joints, mid shadow, pale shadow, shell, highlight.
-    let ramps:[(String,String,[String],String,String)] = [
-        ("classic","Classic",[],"FF771A","49EBFF"),
-        ("midnight","Midnight",["19253D","2A3C5B","3F577C","567196","718BA9"],"F2C458","74E7FF"),
-        ("mint","Mint",["294C49","488378","7CB8A4","B4E3CC","E7FFF0"],"E69F63","79E9FA"),
-        ("sunset","Sunset",["58384B","97556A","D8898E","FFC0A2","FFE6CB"],"F58B45","80E4ED"),
-        ("gold","Gold",["58482D","947341","C8A15C","EDC879","FFF0BB"],"E08B40","A2EEEC"),
-        ("stealth","Stealth",["222329","36383F","4B4E58","626670","81858F"],"D85450","FF534F")]
-    func mix(_ a:Pixel,_ b:Pixel,_ t:Double)->Pixel {
-        Pixel(r:UInt8((Double(a.r)*(1-t)+Double(b.r)*t).rounded()),g:UInt8((Double(a.g)*(1-t)+Double(b.g)*t).rounded()),b:UInt8((Double(a.b)*(1-t)+Double(b.b)*t).rounded()),a:255)
-    }
-    var output=[String:Any]()
-    for (id,name,ramp,warm,glow) in ramps {
-        var map=[String:String]()
-        for source in ranked {
-            let p=color(source), hi=Int(max(p.r,p.g,p.b)), lo=Int(min(p.r,p.g,p.b))
-            var target=p
-            if id != "classic" && hi>=80 {
-                if Int(p.g)-Int(p.r)>22 && Int(p.b)-Int(p.r)>22 {
-                    target=mix(ink,color(glow),Double(hi)/255)
-                } else if Int(p.r)-Int(p.b)>35 && Int(p.r)-Int(p.g)>25 {
-                    target=mix(ink,color(warm),Double(hi)/255)
-                } else {
-                    let lum=Double(Int(p.r)+Int(p.g)+Int(p.b))/3
-                    let stops:[Double]=[80,120,175,232,255]
-                    let colors=ramp.map{color($0)}
-                    var index=0
-                    while index<3 && lum>stops[index+1] { index+=1 }
-                    let t=max(0,min(1,(lum-stops[index])/(stops[index+1]-stops[index])))
-                    target=mix(colors[index],colors[index+1],t)
-                    // Very saturated mood marks retain their established identity.
-                    if hi-lo>150 && Int(p.r)>220 && Int(p.g)<80 { target = id=="stealth" ? color(glow):p }
-                }
-            }
-            // Every original black visor/joint value is identity, including fringes
-            // below 80. This keeps visor black under all six global color maps.
-            map[source]=hex(target)
+    var output = [String: WardrobeColorway]()
+    for (id, name, ramp, warm, glow) in ramps {
+        var rules = [
+            WardrobeColorRule(kind: "glow", hue: [160, 220], saturation: [0.12, 1], luminance: [0, 255], targets: [dark(glow), "#" + glow]),
+            WardrobeColorRule(kind: "accents", hue: [0, 55], saturation: [0.16, 1], luminance: [0, 255], targets: [dark(warm), "#" + warm])
+        ]
+        let stops: [Double] = [80, 120, 175, 232, 255]
+        for (index, kind) in ["joints", "grays", "shell", "highlights"].enumerated() {
+            rules.append(.init(kind: kind, hue: [0, 360], saturation: [0, 0.55],
+                               luminance: [stops[index], stops[index + 1]],
+                               targets: ["#" + ramp[index], "#" + ramp[index + 1]]))
         }
-        output[id]=["name":name,"map":map]
+        output[id] = WardrobeColorway(name: name, identity: id == "classic", rules: rules)
     }
-    try saveJSON(output,framesDir.appendingPathComponent("colorways.json"))
-    print("Colorways: \(output.count), \(counts.count) exact source colors each")
+    let encoder = JSONEncoder()
+    encoder.outputFormatting = [.sortedKeys]
+    let data = try encoder.encode(output)
+    try data.write(to: framesDir.appendingPathComponent("colorways.json"))
+    print("Colorways: \(output.count), six rules each, \(data.count) bytes")
 }
 if CommandLine.arguments.last == "wardrobe" { try makeWardrobe() }
 func makeHome() throws {
@@ -720,19 +703,15 @@ if CommandLine.arguments.last == "home" { try makeHome() }
 func makePreview() throws {
     let anchors=try json(framesDir.appendingPathComponent("mascot-anchors.json"))
     let wardrobe=try json(wardrobeDir.appendingPathComponent("wardrobe-sprites.json"))
-    let colorways=try json(framesDir.appendingPathComponent("colorways.json"))
+    let colorways = try JSONDecoder().decode([String: WardrobeColorway].self, from: Data(contentsOf: framesDir.appendingPathComponent("colorways.json")))
     let home=try json(homeDir.appendingPathComponent("home-items.json"))
     let rooms=home["rooms"] as! [String:[String:Any]], furniture=home["items"] as! [String:[String:Any]]
     let clips=try json(framesDir.appendingPathComponent("mascot-clips.json"))
     let hello=(clips["hello"] as! [String:Any])["rest"] as! String
     let typing=(clips["working"] as! [String:Any])["rest"] as! String
     func recolored(_ b:Bitmap,_ id:String)->Bitmap {
-        let map=(colorways[id] as! [String:Any])["map"] as! [String:String]
-        var out=b
-        for y in 0..<b.height { for x in 0..<b.width where b[x,y].a>0 {
-            let p=b[x,y]
-            if let target=map[hex(p)] { var c=color(target); c.a=p.a; out[x,y]=c }
-        } }
+        var out = b
+        WardrobePalette.recolor(&out.bytes, colorway: colorways[id]!)
         return out
     }
     func dressed(_ frame:String,_ ids:[String],_ way:String="classic")->Bitmap {
@@ -760,10 +739,10 @@ func makePreview() throws {
         for id in ids where (wardrobe[id] as! [String:Any])["layer"] as! String=="front" { overlay(id) }
         return out
     }
-    var sheet=Bitmap(width:1440,height:2400,fill:color("252C37"))
+    var sheet=Bitmap(width:1440,height:2600,fill:color("252C37"))
     label("COMPANION / WARDROBE AND HOME",&sheet,28,24,3)
     label("PIVOT ON ANCHOR / BACK THEN ROBOT THEN FRONT / NEAREST NEIGHBOR",&sheet,28,51)
-    let outfit=["beanie","round-glasses","scarf","wings","coffee-mug"]
+    let outfit=["beanie","round-glasses","scarf","wings","mug"]
     for (i,id) in [hello,typing,"e01"].enumerated() {
         let x=28+i*466, b=dressed(id,outfit)
         label(id+" / FIVE SLOTS",&sheet,x,85)
@@ -773,8 +752,8 @@ func makePreview() throws {
         sheet.blit(b,x+343,297,width:62,height:62)
         label("62 PX",&sheet,x+328,371,1)
     }
-    label("24 WARDROBE SPRITES / NATIVE IMAGE PIXELS",&sheet,28,438)
-    let order=["baseball-cap","beanie","party-hat","crown","wizard-hat","chef-hat","cowboy-hat","headphones","round-glasses","sunglasses","pixel-shades","monocle","scarf","bow-tie","gold-medal","necktie","cape","backpack","jetpack","wings","coffee-mug","trophy","balloon","small-flag"]
+    label("25 WARDROBE SPRITES / NATIVE IMAGE PIXELS",&sheet,28,438)
+    let order=["cap","beanie","party-hat","crown","wizard-hat","chef-hat","cowboy-hat","headphones","round-glasses","sunglasses","pixel-shades","monocle","scarf","bow-tie","gold-medal","necktie","cape","backpack","jetpack","wings","mug","trophy","balloon","small-flag","antenna"]
     for (i,id) in order.enumerated() {
         let x=24+i%6*236,y=468+i/6*176
         sheet.rect(x,y,220,160,color("303A47"))
@@ -782,13 +761,13 @@ func makePreview() throws {
         sheet.blit(b,x+(220-b.width)/2,y+6+(132-b.height)/2)
         label(id,&sheet,x+10,y+145,1)
     }
-    label("SIX COLORWAYS / EXACT SOURCE COLOR MAP",&sheet,28,1196)
+    label("SIX COLORWAYS / SHADING RULES",&sheet,28,1372)
     for (i,id) in ["classic","midnight","mint","sunset","gold","stealth"].enumerated() {
         let x=24+i*236,b=recolored(Bitmap(url:framesDir.appendingPathComponent(hello+".png")),id)
-        sheet.blit(b,x+10,1230,width:206,height:206)
-        label(id,&sheet,x+15,1450)
+        sheet.blit(b,x+10,1406,width:206,height:206)
+        label(id,&sheet,x+15,1626)
     }
-    label("HOME / 340 PX WIDE / FEET ON MASCOT SPOT",&sheet,28,1490)
+    label("HOME / 340 PX WIDE / FEET ON MASCOT SPOT",&sheet,28,1666)
     let sets=[
         ["round-rug","wall-clock","bookshelf","desk-monitor","potted-plant","big-plant","cat-bed"],
         ["round-rug","certificate","poster","desk-monitor","potted-plant","guitar"],
@@ -807,21 +786,37 @@ func makePreview() throws {
         let feet=bounds(footPixels,width:b.width), scale=0.46, size=Int(314*scale)
         scene.blit(b,spot[0]-Int(Double(feet.midX)*scale),spot[1]-Int(Double(feet.y1)*scale),width:size,height:size)
         let x=60+i*466
-        label(id,&sheet,x,1530)
-        sheet.blit(scene,x,1555,width:340,height:227)
+        label(id,&sheet,x,1706)
+        sheet.blit(scene,x,1731,width:340,height:227)
         scene.write(URL(fileURLWithPath:"/tmp/clockin-home-"+id+".png"))
     }
-    label("16 FURNITURE SPRITES / NATIVE IMAGE PIXELS",&sheet,28,1830)
+    label("16 FURNITURE SPRITES / NATIVE IMAGE PIXELS",&sheet,28,2006)
     for (i,id) in furniture.keys.sorted().enumerated() {
-        let x=24+i%8*177,y=1864+i/8*225,b=Bitmap(url:homeDir.appendingPathComponent(id+".png"))
+        let x=24+i%8*177,y=2040+i/8*225,b=Bitmap(url:homeDir.appendingPathComponent(id+".png"))
         sheet.rect(x,y,165,208,color("303A47")); sheet.blit(b,x+(165-b.width)/2,y+18+(160-b.height)/2)
         label(id,&sheet,x+5,y+192,1)
     }
-    label("SOURCE CANVAS 314 X 314 / ART CELL 2 X 2 / ROOMS 360 X 240",&sheet,28,2340)
+    label("SOURCE CANVAS 314 X 314 / ART CELL 2 X 2 / ROOMS 360 X 240",&sheet,28,2516)
     sheet.write(URL(fileURLWithPath:"/tmp/clockin-wardrobe-preview.png"))
+    let baseline = URL(fileURLWithPath: "/tmp/clockin-wardrobe-preview-before.png")
+    if FileManager.default.fileExists(atPath: baseline.path) {
+        let before = Bitmap(url: baseline)
+        var comparison = Bitmap(width: 1440, height: 540, fill: color("252C37"))
+        for (i, id) in ["classic","midnight","mint","sunset","gold","stealth"].enumerated() {
+            let left = (i % 3) * 480, top = (i / 3) * 270
+            label(id, &comparison, left + 16, top + 8)
+            label("BEFORE", &comparison, left + 20, top + 34)
+            label("RULES", &comparison, left + 250, top + 34)
+            for y in 0..<206 { for x in 0..<206 {
+                comparison[left + 12 + x, top + 58 + y] = before[34 + i * 236 + x, 1230 + y]
+                comparison[left + 246 + x, top + 58 + y] = sheet[34 + i * 236 + x, 1406 + y]
+            } }
+        }
+        comparison.write(URL(fileURLWithPath: "/tmp/clockin-colorways-comparison.png"))
+    }
     // Every sprite is additionally tried on both required poses, avoiding a
     // showcase outfit that hides a poorly fitting individual item.
-    var fit=Bitmap(width:1440,height:24*174,fill:color("252C37"))
+    var fit=Bitmap(width:1440,height:order.count*174,fill:color("252C37"))
     for (i,id) in order.enumerated() {
         label(id,&fit,12,i*174+12)
         for (j,frame) in [hello,typing,"c07","e01"].enumerated() {
@@ -831,9 +826,9 @@ func makePreview() throws {
         }
     }
     fit.write(URL(fileURLWithPath:"/tmp/clockin-wardrobe-fit.png"))
-    for page in 0..<4 {
-        var detail=Bitmap(width:1440,height:1044)
-        for y in 0..<1044 { for x in 0..<1440 { detail[x,y]=fit[x,page*1044+y] } }
+    for page in 0..<5 {
+        var detail=Bitmap(width:1440,height:min(1044,fit.height-page*1044))
+        for y in 0..<detail.height { for x in 0..<1440 { if page*1044+y < fit.height { detail[x,y]=fit[x,page*1044+y] } } }
         detail.write(URL(fileURLWithPath:"/tmp/clockin-wardrobe-fit-\(page+1).png"))
     }
     print("Preview: /tmp/clockin-wardrobe-preview.png; all-item pose checks: /tmp/clockin-wardrobe-fit.png")

@@ -25,7 +25,7 @@ struct CompanionHomeView: View {
                     Image(decorative: background, scale: 1).resizable().interpolation(.none)
                         .frame(width: 360 * scale, height: 240 * scale)
                 }
-                ForEach(WardrobeSlot.furniture, id: \.self) { slot in
+                ForEach([WardrobeSlot.rug] + WardrobeSlot.furniture.filter { $0 != .rug }, id: \.self) { slot in
                     if let id = wardrobe.state.furniture[slot.rawValue],
                        let item = WardrobeArt.home.items[id], item.slot == slot.rawValue,
                        let anchor = room?.slots[slot.rawValue], let image = images[item.file] {

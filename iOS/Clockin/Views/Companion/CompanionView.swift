@@ -132,7 +132,7 @@ private struct WardrobeThumbnail: View {
             let item = item
             let decoded = await Task.detached(priority: .utility) {
                 if item.slot == .colorway {
-                    return MascotResources.decode("h01").map { WardrobeArt.recolor($0, colorway: item.id) }
+                    return await WardrobeFrameCache.shared.image("h01", colorway: item.id)
                 }
                 if item.slot == .room { return WardrobeArt.home.rooms[item.id].flatMap { WardrobeArt.decode($0.file, folder: "Home") } }
                 if WardrobeSlot.furniture.contains(item.slot) { return WardrobeArt.home.items[item.id].flatMap { WardrobeArt.decode($0.file, folder: "Home") } }

@@ -1,4 +1,13 @@
 {
+  "antenna" : {
+    "anchorPoint" : "head",
+    "layer" : "front",
+    "pivot" : [
+      10,
+      38
+    ],
+    "slot" : "head"
+  },
   "backpack" : {
     "anchorPoint" : "back",
     "layer" : "back",
@@ -16,15 +25,6 @@
       88
     ],
     "slot" : "hand"
-  },
-  "baseball-cap" : {
-    "anchorPoint" : "head",
-    "layer" : "front",
-    "pivot" : [
-      58,
-      32
-    ],
-    "slot" : "head"
   },
   "beanie" : {
     "anchorPoint" : "head",
@@ -44,6 +44,15 @@
     ],
     "slot" : "neck"
   },
+  "cap" : {
+    "anchorPoint" : "head",
+    "layer" : "front",
+    "pivot" : [
+      58,
+      32
+    ],
+    "slot" : "head"
+  },
   "cape" : {
     "anchorPoint" : "back",
     "layer" : "back",
@@ -61,15 +70,6 @@
       46
     ],
     "slot" : "head"
-  },
-  "coffee-mug" : {
-    "anchorPoint" : "handR",
-    "layer" : "front",
-    "pivot" : [
-      34,
-      16
-    ],
-    "slot" : "hand"
   },
   "cowboy-hat" : {
     "anchorPoint" : "head",
@@ -124,6 +124,15 @@
       14
     ],
     "slot" : "face"
+  },
+  "mug" : {
+    "anchorPoint" : "handR",
+    "layer" : "front",
+    "pivot" : [
+      34,
+      16
+    ],
+    "slot" : "hand"
   },
   "necktie" : {
     "anchorPoint" : "neck",

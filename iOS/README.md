@@ -47,7 +47,7 @@ diff ../Sources/Clockin/ClockStore.swift Shared/Core/ClockStore.swift
 Each check prints `ok` lines and exits non-zero on the first failure. Run from this folder.
 
 ```bash
-swiftc -swift-version 6 -strict-concurrency=complete -D WIDGET_EXTENSION -module-cache-path /tmp/clockin-wardrobe-cache Shared/Mascot/MascotMotion.swift Shared/Mascot/MascotFrames.swift Shared/Mascot/WardrobeArt.swift Shared/Mascot/CompanionAccessory.swift Clockin/Celebrations/CelebrationRules.swift Shared/Core/Models.swift Shared/Core/WardrobeBackup.swift Shared/Mascot/Wardrobe.swift Shared/Mascot/WardrobeCatalog.swift Clockin/Views/Goals/GoalProgress.swift Clockin/Views/Insights/InsightsSnapshot.swift Clockin/Views/Insights/InsightsBadges.swift Clockin/Views/Companion/WardrobeEarnings.swift Tests/manual/wardrobe/main.swift -o /tmp/clockin-wardrobe-tests && /tmp/clockin-wardrobe-tests
+swiftc -swift-version 6 -strict-concurrency=complete -D WIDGET_EXTENSION -module-cache-path /tmp/clockin-wardrobe-cache Shared/Mascot/MascotMotion.swift Shared/Mascot/MascotFrames.swift Shared/Mascot/WardrobeArt.swift Shared/Mascot/CompanionAccessory.swift Clockin/Celebrations/CelebrationRules.swift Shared/Core/Models.swift Shared/Core/WardrobeBackup.swift Shared/Mascot/Wardrobe.swift Shared/Mascot/WardrobePalette.swift Shared/Mascot/WardrobeCatalog.swift Clockin/Views/Goals/GoalProgress.swift Clockin/Views/Insights/InsightsSnapshot.swift Clockin/Views/Insights/InsightsBadges.swift Clockin/Views/Companion/WardrobeEarnings.swift Tests/manual/wardrobe/main.swift -o /tmp/clockin-wardrobe-tests && /tmp/clockin-wardrobe-tests
 swiftc -swift-version 6 -strict-concurrency=complete -module-cache-path /tmp/clockin-radio-module-cache Clockin/Audio/RadioStation.swift Tests/manual/radio/main.swift -o /tmp/clockin-radio-tests && /tmp/clockin-radio-tests
 swiftc -swift-version 6 -strict-concurrency=complete -module-cache-path /tmp/clockin-celebrate-module-cache Shared/Mascot/CompanionAccessory.swift Clockin/Celebrations/CelebrationRules.swift Tests/manual/celebrations/main.swift -o /tmp/clockin-celebration-tests && /tmp/clockin-celebration-tests
 swiftc -swift-version 6 -strict-concurrency=complete -module-cache-path /tmp/clockin-rolling-module-cache Clockin/Views/Components/RollingNumber.swift Tests/manual/rolling/main.swift -o /tmp/clockin-rolling-tests && /tmp/clockin-rolling-tests
@@ -422,17 +422,20 @@ All ids below are exact art basenames or JSON keys:
 | Face | round-glasses, sunglasses |
 | Neck | bow-tie, scarf |
 | Back | cape, backpack, wings |
-| Hand | mug, flower |
-| Colorway | classic, mint, rose, midnight |
+| Hand | mug, balloon |
+| Colorway | classic, mint, sunset, midnight, gold, stealth |
 | Room | cozy, studio, night |
-| Furniture | plant (floorLeft), lamp (floorRight), poster (wallLeft), clock (wallRight), curtains (window), round-rug (rug), writing-desk (desk), bookshelf (shelf) |
+| Furniture | cat-bed (floorLeft), big-plant (floorRight), poster (wallLeft), wall-clock (wallRight), potted-plant (window), round-rug (rug), desk-monitor (desk), bookshelf (shelf) |
 
 Cap, round glasses, Classic and Cozy start free. The four legacy accessories keep
 25/50/100/250-hour thresholds. Crown needs level 50, Wizard hat a historical 30-day
 streak, Bow tie the First session badge. Purchase prices range from 50 to 1,500.
 Missing manifest entries, images, anchors or room slots are omitted. Test fixtures
-stay under Tests/manual/wardrobe/fixtures and are not app resources. Merge the art
-branch with matching ids before visual acceptance. Legacy fixed pose assets also
+stay under Tests/manual/wardrobe/fixtures and are not app resources.
+The merged art uses `cap` and `mug` for the original baseball-cap and coffee-mug
+sprites; the generator also supplies the earned gold `antenna` overlay. Placeholder
+shop entries now use the real `balloon`, `sunset` and furniture ids above.
+Legacy fixed pose assets also
 use the layered host and colorway decoder; without optional pose2/pose3/pose4
 anchor entries they remain recolored without overlays, following the missing-anchor
 rule.
@@ -460,7 +463,7 @@ the desk toggle. Existing decoders ignore it. Restoring an older file without th
 section preserves the local wardrobe. Settings export now writes a backup rather
 than sharing the raw archive. Widgets receive outfit JSON in their existing snapshot.
 
-After merging art, verify Today, every drawn mood/clip, celebration cards and the
+For device acceptance, verify Today, every drawn mood/clip, celebration cards and the
 medium widget with a back item, hat, hand item and non-classic colorway. Check null
 hand anchors, tilted head pivots, None, equip, purchase confirm/cancel, insufficient
 funds, first launch migration, new unlock navigation and backup restore. Open each
@@ -473,7 +476,7 @@ source/type checks do not establish the CPU or visual result.
 
 The wardrobe art contract lives in `Shared/Mascot/Frames/mascot-anchors.json`,
 `Frames/colorways.json`, `Wardrobe/wardrobe-sprites.json` and
-`Home/home-items.json`. This tooling does not wire assets into the app.
+`Home/home-items.json`. The app and widget decode these same manifests.
 Run these commands in order from the repository root:
 
 ```bash
@@ -485,7 +488,9 @@ swift -module-cache-path /tmp/clockin-art-module-cache iOS/Tests/manual/wardrobe
 ```
 
 The entry points invoke the shared `Tools/MascotArt.swift` engine with the system
-Swift interpreter. It uses Foundation, ImageIO and CoreGraphics only. New art is
+Swift compiler through `Tools/run-art.swift`. The tools and runtime compile the
+same `Shared/Mascot/WardrobePalette.swift`; Foundation, ImageIO and CoreGraphics
+are the only art dependencies. New art is
 rasterized on an integer art grid and expanded to 2x2 image pixels, with no
 antialiasing. Assets are deterministic; the source frame PNGs remain untouched.
 The wardrobe test also works from this `iOS` folder:
@@ -494,8 +499,8 @@ The wardrobe test also works from this `iOS` folder:
 swift -module-cache-path /tmp/clockin-art-module-cache Tests/manual/wardrobeart/main.swift
 ```
 
-The output includes 63 frame entries with anchors, 24 wardrobe items
-(8 head, 4 face, 4 neck, 4 back, 4 hand), six colorways, three 360x240 rooms and
+The output includes 63 frame entries with anchors, 25 wardrobe items
+(9 head, 4 face, 4 neck, 4 back, 4 hand), six colorways, three 360x240 rooms and
 16 furniture items. The 59 numbered `h/t/c/e/a/z/p` frames and four older `acc-*` full-frame
 composites are covered, since the latter also match the contract's `a*` prefix.
 Legacy accessories keep h01's detected underlying pose; `acc-mug` marks its
@@ -514,37 +519,72 @@ three-quarter helmets fit inside their ear cups. All other head items use `head`
 Place each pivot on its anchor in image pixels, rotate head/face items by `tilt`
 around that pivot, draw the back layer, then the recolored robot, then front items.
 Skip an item when its anchor is null. Apply one uniform nearest-neighbor scale to
-the composed canvas. RGB maps preserve source alpha and keep every original dark
-visor tone unchanged. The observed opaque RGB colors include the source
-art's many resampled fringe shades; all six maps cover the full set. The generator
-prints the most common exact colors. Global RGB replacement also affects any
-matching colors in the original laptop or cup, as required by the color-map
-contract.
+the composed canvas.
+
+Colorways use a 4,194-byte rule file, with no exact source-color dictionary.
+Each of the six entries has a name, an identity flag and six ordered rules:
+
+| Class | Hue (degrees) | HSV saturation | Source brightness |
+| --- | --- | --- | --- |
+| Glow | 160 to 220 | 0.12 to 1 | max RGB, 0 to 255 |
+| Accents | 0 to 55 | 0.16 to 1 | max RGB, 0 to 255 |
+| Joints | any | 0 to 0.55 | mean RGB, 80 to 120 |
+| Grays | any | 0 to 0.55 | mean RGB, 120 to 175 |
+| Shell | any | 0 to 0.55 | mean RGB, 175 to 232 |
+| Highlights | any | 0 to 0.55 | mean RGB, 232 to 255 |
+
+The first matching rule wins. Each rule has two target colors; the source pixel's
+relative brightness within its range interpolates target hue, saturation and
+lightness in HSL, preserving shading instead of flattening a class to one color.
+Hue takes the shortest path. Every source RGB with max channel below 80 remains
+unchanged, protecting the black visor. Transparent pixels and all alpha values
+are unchanged; partially transparent pixels are recolored in straight RGBA.
+Unclassified saturated mood marks keep their source colors. Classic returns the
+original image before allocating or visiting pixels.
+
+`WardrobeFrameCache` serializes decoding and recoloring off the main actor, without
+suspension between lookup and insertion. Animated frames, fixed poses and shop
+colorway thumbnails share the frame/colorway cache. Widget timeline preparation
+uses the same actor and passes prepared still images to its view; body evaluation
+never recolors. The still-composition cache is bounded to 32 outfits. Head and face
+items rotate around their anchor; neck, back and hand items stay upright.
+`pose2`, `pose3` and `pose4` intentionally have no anchors: Stretch, Dance and Music
+are recolored and cached, with all overlays hidden.
 
 Room and furniture coordinates are image pixels too. Floor slots are floor
 contact points; `desk` is the tabletop, `shelf` is the shelf bottom and `window`
 is the window sill. The desk-monitor sprite extends down from its tabletop pivot.
-The preview draws the rug first, then furniture, then the companion. It places the
+The app and preview draw the rug first, then furniture, then the companion. It places the
 bottom of the companion's opaque feet at `mascotSpot`, using a uniform 0.46 canvas
 scale before the whole room is resized to 340 pixels wide.
 
 Visual checks are written outside the repository:
 
+- `/tmp/clockin-colorways-comparison.png`: side-by-side old/rule colorways when
+  `/tmp/clockin-wardrobe-preview-before.png` is present.
+- `/tmp/clockin-app-composition-{h01,t01,c07,e01}.png`: real runtime composites
+  written by the wardrobe test, with five equipped slots.
 - `/tmp/clockin-anchors.png`: every frame, with colored crosses and IDs.
 - `/tmp/clockin-anchors-{h,t,c,e,a,z,p}.png`: larger per-family anchor sheets.
 - `/tmp/clockin-wardrobe-preview.png`: five-slot outfits on hello, typing and
   celebrating poses; native, 62-pixel and 62-point @2x samples; all garment sprites
   with IDs; all six colorways; furnished rooms at 340 pixels wide; every home item.
-- `/tmp/clockin-wardrobe-fit.png` and `clockin-wardrobe-fit-1.png` through `-4.png`:
+- `/tmp/clockin-wardrobe-fit.png` and `clockin-wardrobe-fit-1.png` through `-5.png`:
   each item individually on hello, typing, a raised-cup pose and celebrating.
 - `/tmp/clockin-home-{cozy,studio,night}.png`: furnished rooms at native resolution.
 
 The independent test checks exact frame coverage, in-canvas anchors and pivots,
 slot counts and layer bindings, file decoding, tight wardrobe crops, 2x2 art cells,
-full source-palette coverage, classic identity, preserved black visor colors,
-room coordinates and unclipped placement of every furniture item in every room.
+the under-20-KB rule schema, tiny RGBA recoloring, classic identity, every source
+black visor shade, room coordinates and unclipped placement of every furniture item in every room.
 
 At the smallest 62-pixel preview, the monocle chain and medal engraving lose
 fine detail. Backpacks and jetpacks are partly hidden by the typing pose's torso
 and laptop, consistently with the required back layer. Their outer silhouettes
 remain visible. The 62-point @2x preview retains more of these details.
+
+The wardrobe check also composes all 63 real frames with the app renderer, verifies
+every catalog id and slot against actual files, checks null hand anchors and the
+three fixed-pose omissions, and checks concurrent frame-cache identity off the
+main thread. These checks do not replace the device-only interaction, VoiceOver,
+large-text and 120-second CPU acceptance runs described above.

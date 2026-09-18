@@ -1,6 +1,9 @@
 import Foundation
 import CoreGraphics
 import ImageIO
+#if canImport(UIKit)
+import UIKit
+#endif
 
 struct WardrobeOverlay {
     let id: String
@@ -49,45 +52,53 @@ enum WardrobeArt {
     }
 
     static func recolor(_ image: CGImage, colorway: String) -> CGImage {
-        recolor(image, map: colorways[colorway]?.map ?? [:])
+        guard colorway != "classic", let rules = colorways[colorway] else { return image }
+        return recolor(image, colorway: rules)
     }
 
-    static func recolor(_ image: CGImage, map: [String: String]) -> CGImage {
-        guard !map.isEmpty else { return image }
+    static func recolor(_ image: CGImage, colorway: WardrobeColorway) -> CGImage {
+        guard !colorway.identity, !colorway.rules.isEmpty else { return image }
         let width = image.width, height = image.height
         var bytes = [UInt8](repeating: 0, count: width * height * 4)
         let info = CGBitmapInfo.byteOrder32Big.rawValue | CGImageAlphaInfo.premultipliedLast.rawValue
-        bytes.withUnsafeMutableBytes { buffer in
-            guard let context = CGContext(data: buffer.baseAddress, width: width, height: height, bitsPerComponent: 8,
-                                          bytesPerRow: width * 4, space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: info) else { return }
-            context.interpolationQuality = .none
-            context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+        let straight = image.bitsPerComponent == 8 && image.bitsPerPixel == 32 && image.alphaInfo == .last
+            && image.bitmapInfo.intersection(.byteOrderMask).isEmpty
+        if straight, let data = image.dataProvider?.data {
+            let raw = data as Data
+            for y in 0..<height {
+                bytes.replaceSubrange((y * width * 4)..<((y + 1) * width * 4),
+                    with: raw[(y * image.bytesPerRow)..<(y * image.bytesPerRow + width * 4)])
+            }
+        } else {
+            bytes.withUnsafeMutableBytes { buffer in
+                guard let context = CGContext(data: buffer.baseAddress, width: width, height: height, bitsPerComponent: 8,
+                                              bytesPerRow: width * 4, space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: info) else { return }
+                context.interpolationQuality = .none
+                context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+            }
+            // Sinir piksellerini duz RGBA ile isle.
+            for i in stride(from: 0, to: bytes.count, by: 4) where bytes[i + 3] > 0 && bytes[i + 3] < 255 {
+                for c in 0..<3 { bytes[i + c] = UInt8(min(255, (Int(bytes[i + c]) * 255 + Int(bytes[i + 3]) / 2) / Int(bytes[i + 3]))) }
+            }
         }
-        WardrobePalette.recolor(&bytes, map: map)
+        WardrobePalette.recolor(&bytes, colorway: colorway)
         guard let provider = CGDataProvider(data: Data(bytes) as CFData) else { return image }
         return CGImage(width: width, height: height, bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: width * 4,
-                       space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGBitmapInfo(rawValue: info),
+                       space: straight ? (image.colorSpace ?? CGColorSpaceCreateDeviceRGB()) : CGColorSpaceCreateDeviceRGB(),
+                       bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.last.rawValue),
                        provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent) ?? image
     }
 
-    static func overlays(frame: String, outfit: WardrobeState, images: [String: CGImage]) -> [WardrobeOverlay] {
-        guard let anchors = anchors[frame] else { return [] }
+    static func overlays(frame: String, outfit: WardrobeState, images: [String: CGImage],
+                         anchorManifest: [String: WardrobeAnchors] = anchors,
+                         spriteManifest: [String: WardrobeSprite] = sprites) -> [WardrobeOverlay] {
+        guard let anchors = anchorManifest[frame] else { return [] }
         return WardrobeSlot.outfit.compactMap { slot in
-            guard let id = outfit.equipped[slot.rawValue], let sprite = sprites[id], sprite.slot == slot.rawValue,
+            guard let id = outfit.equipped[slot.rawValue], let sprite = spriteManifest[id], sprite.slot == slot.rawValue,
                   ["front", "back"].contains(sprite.layer), let image = images[id],
                   let origin = WardrobeGeometry.placement(sprite: sprite, frame: anchors) else { return nil }
-            return WardrobeOverlay(id: id, image: image, origin: origin, tilt: anchors.tilt, behind: sprite.layer == "back")
+            return WardrobeOverlay(id: id, image: image, origin: origin, tilt: WardrobeGeometry.tilt(sprite: sprite, frame: anchors), behind: sprite.layer == "back")
         }
-    }
-
-    static func composite(frame: String, outfit: WardrobeState, size: Int) -> CGImage? {
-        guard let base = MascotResources.decode(frame) else { return nil }
-        let robot = recolor(base, colorway: outfit.colorway)
-        let images = outfit.equipped.values.reduce(into: [String: CGImage]()) { result, id in
-            result[id] = decode(id + ".png", folder: "Wardrobe")
-        }
-        let parts = overlays(frame: frame, outfit: outfit, images: images)
-        return composite(robot: robot, parts: parts, size: size)
     }
 
     static func composite(robot: CGImage, parts: [WardrobeOverlay], size: Int) -> CGImage? {
@@ -115,5 +126,47 @@ enum WardrobeArt {
         draw(robot, CGRect(x: 0, y: 0, width: 314, height: 314))
         parts.filter { !$0.behind }.forEach(overlay)
         return context.makeImage()
+    }
+}
+
+// Actor icinde await yok; eszamanli istekler ayni kareyi tekrar boyamaz.
+actor WardrobeFrameCache {
+    static let shared = WardrobeFrameCache()
+    private var frames: [String: CGImage] = [:]
+    private var stills: [String: CGImage] = [:]
+    private let decode: @Sendable (String, Bool) -> CGImage?
+
+    init(decode: @escaping @Sendable (String, Bool) -> CGImage? = { id, fixedPose in
+        if fixedPose {
+            #if canImport(UIKit)
+            return UIImage(named: id)?.cgImage
+            #else
+            return nil
+            #endif
+        }
+        return MascotResources.decode(id)
+    }) { self.decode = decode }
+
+    func composite(frame: String, outfit: WardrobeState, size: Int) -> CGImage? {
+        let key = "\(size)/\(frame)/\(outfit.colorway)/" + outfit.equipped.sorted { $0.key < $1.key }.map { $0.key + "=" + $0.value }.joined(separator: ";")
+        if let image = stills[key] { return image }
+        guard let robot = image(frame, colorway: outfit.colorway) else { return nil }
+        let images = outfit.equipped.values.reduce(into: [String: CGImage]()) { result, id in
+            result[id] = WardrobeArt.decode(id + ".png", folder: "Wardrobe")
+        }
+        let parts = WardrobeArt.overlays(frame: frame, outfit: outfit, images: images)
+        let result = WardrobeArt.composite(robot: robot, parts: parts, size: size)
+        if stills.count >= 32 { stills.removeAll() }
+        stills[key] = result
+        return result
+    }
+
+    func image(_ id: String, colorway: String, fixedPose: Bool = false) -> CGImage? {
+        let key = (fixedPose ? "pose/" : "frame/") + colorway + "/" + id
+        if let image = frames[key] { return image }
+        guard let source = decode(id, fixedPose) else { return nil }
+        let image = WardrobeArt.recolor(source, colorway: colorway)
+        frames[key] = image
+        return image
     }
 }

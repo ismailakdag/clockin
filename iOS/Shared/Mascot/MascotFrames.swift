@@ -29,25 +29,52 @@ enum MascotResources {
         .flatMap { try? MascotLibrary(data: $0) }
 }
 
-// Widget sadece tek kucuk kareyi tutar; hareket onbellegini kullanmaz.
+// Widget hazir resmi alir; uygulama arka planda hazirlar.
 struct ClockinMascotStill: View {
-    private let image: CGImage?
+    #if WIDGET_EXTENSION
+    private var image: CGImage?
+    #else
+    @State private var image: CGImage?
+    #endif
+    private var mood: MascotMood = .hello
+    private var size = 192
+    private var outfit = WardrobeState()
+    private var prepared = false
+    private var preparedImage: CGImage?
+    private struct Request: Equatable {
+        let mood: MascotMood
+        let size: Int
+        let outfit: WardrobeState
+    }
+
+    init(image: CGImage?) {
+        preparedImage = image
+        prepared = true
+    }
 
     init(mood: MascotMood, accessory: CompanionAccessory? = nil, maxPixelSize: Int = 192,
          outfit: WardrobeState = WardrobeState()) {
-        let rest = MascotResources.library?[mood].rest ?? "h01"
-        image = WardrobeArt.composite(frame: rest, outfit: outfit, size: maxPixelSize)
+        self.mood = mood; size = maxPixelSize; self.outfit = outfit
     }
 
     var body: some View {
         Group {
-            if let image {
-                Image(decorative: image, scale: 1).resizable().interpolation(.none).scaledToFit()
+            if let displayed = prepared ? preparedImage : image {
+                Image(decorative: displayed, scale: 1).resizable().interpolation(.none).scaledToFit()
             } else {
                 Image(systemName: "face.smiling").resizable().scaledToFit()
             }
         }
         .accessibilityHidden(true)
+        #if !WIDGET_EXTENSION
+        .task(id: Request(mood: mood, size: size, outfit: outfit)) {
+            guard !prepared else { return }
+            let rest = MascotResources.library?[mood].rest ?? "h01"
+            let result = await WardrobeFrameCache.shared.composite(frame: rest, outfit: outfit, size: size)
+            guard !Task.isCancelled else { return }
+            image = result
+        }
+        #endif
     }
 }
 
@@ -71,8 +98,9 @@ final class MascotFrames {
         // Paylasilan decode isi gorunum kapaninca sonucunu onbellege birakir.
         let task = Task {
             let decoded = await Task.detached(priority: .utility) {
-                let frames = missing.compactMap { id in
-                    MascotResources.decode(id).map { (id, WardrobeArt.recolor($0, colorway: colorway)) }
+                var frames: [(String, CGImage)] = []
+                for id in missing {
+                    if let image = await WardrobeFrameCache.shared.image(id, colorway: colorway) { frames.append((id, image)) }
                 }
                 let sprites = missingSprites.compactMap { id in
                     WardrobeArt.decode(id + ".png", folder: "Wardrobe").map { (id, $0) }

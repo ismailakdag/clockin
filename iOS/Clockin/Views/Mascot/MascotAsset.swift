@@ -25,10 +25,7 @@ struct ClockinMascotImage: View {
             .task(id: asset + "/" + wardrobe.state.colorway) {
                 let asset = asset
                 let colorway = wardrobe.state.colorway
-                let decoded = await Task.detached(priority: .utility) {
-                    UIImage(named: asset)?.cgImage.map { WardrobeArt.recolor($0, colorway: colorway) }
-                }.value
-                await MascotFrames.shared.preload(.hello, colorway: colorway)
+                let decoded = await WardrobeFrameCache.shared.image(asset, colorway: colorway, fixedPose: true)
                 guard !Task.isCancelled else { return }
                 image = decoded
             }

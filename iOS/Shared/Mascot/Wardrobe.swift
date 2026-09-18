@@ -160,7 +160,6 @@ struct WardrobeSprite: Codable, Sendable {
     let pivot: WardrobePoint
     let layer: String
 }
-struct WardrobeColorway: Codable, Sendable { let name: String; let map: [String: String] }
 struct WardrobeRoom: Codable, Sendable {
     let name: String
     let file: String
@@ -180,6 +179,9 @@ struct WardrobeHome: Codable, Sendable {
 }
 
 enum WardrobeGeometry {
+    static func tilt(sprite: WardrobeSprite, frame: WardrobeAnchors) -> Double {
+        ["head", "face"].contains(sprite.slot) ? frame.tilt : 0
+    }
     static func origin(pivot: WardrobePoint, anchor: WardrobePoint, degrees: Double) -> WardrobePoint {
         let angle = degrees * .pi / 180
         return .init(anchor.x - pivot.x * cos(angle) + pivot.y * sin(angle),
@@ -187,24 +189,6 @@ enum WardrobeGeometry {
     }
     static func placement(sprite: WardrobeSprite, frame: WardrobeAnchors) -> WardrobePoint? {
         guard frame.tilt.isFinite, let anchor = frame.point(sprite.slot == "hand" ? "handR" : sprite.anchorPoint) else { return nil }
-        return origin(pivot: sprite.pivot, anchor: anchor, degrees: frame.tilt)
-    }
-}
-
-enum WardrobePalette {
-    static func rgb(_ hex: String) -> UInt32? {
-        guard hex.count == 7, hex.first == "#" else { return nil }
-        return UInt32(hex.dropFirst(), radix: 16)
-    }
-    static func recolor(_ rgba: inout [UInt8], map: [String: String]) {
-        let colors = map.reduce(into: [UInt32: UInt32]()) { result, pair in
-            if let from = rgb(pair.key), let to = rgb(pair.value) { result[from] = to }
-        }
-        for i in stride(from: 0, to: rgba.count - rgba.count % 4, by: 4) where rgba[i + 3] == 255 {
-            let rgb = UInt32(rgba[i]) << 16 | UInt32(rgba[i + 1]) << 8 | UInt32(rgba[i + 2])
-            if let to = colors[rgb] {
-                rgba[i] = UInt8((to >> 16) & 255); rgba[i + 1] = UInt8((to >> 8) & 255); rgba[i + 2] = UInt8(to & 255)
-            }
-        }
+        return origin(pivot: sprite.pivot, anchor: anchor, degrees: tilt(sprite: sprite, frame: frame))
     }
 }
