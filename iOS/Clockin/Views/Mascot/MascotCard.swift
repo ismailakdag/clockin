@@ -3,6 +3,13 @@ import SwiftUI
 struct MascotCard: View {
     @EnvironmentObject private var store: ClockStore
     @ObservedObject private var nudges = NudgeController.shared
+    @AppStorage("Clockin.Mascot3DEnabled") private var robotEnabled = false
+    @AppStorage("Clockin.MascotDefault") private var defaultMode = "Auto"
+    private enum RobotPresentation: String, Identifiable {
+        case detail
+        var id: String { rawValue }
+    }
+    @State private var robotPresentation: RobotPresentation?
     @Environment(\.palette) private var palette
 
     /// Kart Insights'a gotursun. Eskiden "Tap your level..." yaziyordu ama
@@ -18,8 +25,15 @@ struct MascotCard: View {
         HStack(spacing: 12) {
             // Maskotun kendi dokunusu duruslari degistiriyor, o yuzden
             // Insights'a giden dugme yalnizca metin sutunu.
-            ClockinMascotStage(state: state)
-                .frame(width: 62, height: 62)
+            Group {
+                if robotEnabled && state == .idle && defaultMode == "Auto" {
+                    ClockinRobotView(onTap: { robotPresentation = .detail },
+                                     animationEnabled: robotPresentation == nil)
+                } else {
+                    ClockinMascotStage(state: state)
+                }
+            }
+            .frame(width: 62, height: 62)
             Button(action: showInsights) {
                 HStack(spacing: 8) {
                     VStack(alignment: .leading, spacing: 4) {
@@ -47,5 +61,15 @@ struct MascotCard: View {
         }
         .padding(14)
         .card(palette)
+        .task {
+            #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("-clockin-preview-robot") {
+                robotPresentation = .detail
+            }
+            #endif
+        }
+        .sheet(item: $robotPresentation) { _ in
+            ClockinRobotDetail()
+        }
     }
 }
