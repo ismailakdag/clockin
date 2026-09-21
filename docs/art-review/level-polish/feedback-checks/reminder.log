@@ -1,0 +1,45 @@
+ok: zero work reaches default threshold in ten hours
+ok: partial work subtracts worked time
+ok: eight hour choice
+ok: twelve hour choice
+ok: subsecond boundary uses minimum notification delay
+ok: paused session has no reminder
+ok: off has no reminder
+ok: already past threshold fires once
+ok: exact threshold fires once
+ok: consumed reminder never repeats automatically
+ok: snooze is one hour of wall time
+ok: explicit snooze overrides consumed threshold
+ok: pause suppresses snooze
+ok: off suppresses snooze
+ok: expired snooze does not repeat
+ok: invalid work is rejected
+ok: unknown choices are rejected
+ok: breaks are excluded using RunningSession elapsed
+ok: metadata edit preserves fire date
+ok: pause removes pending date
+ok: resume shifts threshold by pause duration
+ok: off clears an existing schedule
+ok: re-enabling before threshold restores reminder
+ok: delivered threshold is consumed on refresh
+ok: cold launch and lowered setting cannot repeat a consumed reminder
+ok: refresh preserves explicit snooze deadline
+ok: snooze survives cold launch
+ok: delivered snooze is consumed
+ok: pause cancels queued snooze
+ok: resume does not revive a cancelled snooze
+ok: lowering threshold schedules a single overdue reminder
+ok: rapid refresh retains overdue deadline
+ok: persisted overdue reminder cannot loop
+ok: matching notification identity accepted
+ok: stale session identity rejected
+ok: ended or cancelled session rejected
+ok: missing identity rejected
+ok: earliest end is the last resume
+ok: both end time boundaries accepted
+ok: end inside the worked time before the break is rejected
+ok: future end rejected
+ok: ending at the last resume keeps the earlier worked time
+ok: paused session falls back to start
+ok: future resume clamps to now
+44 reminder checks passed

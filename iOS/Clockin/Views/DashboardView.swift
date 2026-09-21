@@ -3,6 +3,8 @@ import SwiftUI
 // Ayarlar ve oturum ekranlari ayni sunum secimini paylasir; iki sheet yarismaz.
 private enum DashboardSheet: Identifiable {
     case companion
+    case customize
+    case shortcut(DashboardShortcut)
     case settings
     case newEntry
     case edit(WorkSession)
@@ -13,6 +15,8 @@ private enum DashboardSheet: Identifiable {
     var id: String {
         switch self {
         case .companion: "companion"
+        case .customize: "customize"
+        case .shortcut(let feature): "shortcut-\(feature.rawValue)"
         case .settings: "settings"
         case .newEntry: "new"
         case .edit(let session): "edit-\(session.id)"
@@ -57,8 +61,8 @@ struct DashboardView: View {
                             onStartWithElapsed: { sheet = .manualStart }
                         )
                     }
+                    DashboardPinnedTools(open: { sheet = .shortcut($0) })
                     if mascotEnabled { MascotCard(showInsights: showInsights, showCompanion: { sheet = .companion }) }
-                    FocusRadioCard()
                     ActiveTimeline(interval: store.running?.isPaused == false ? 1 : 60) { now in
                         VStack(spacing: 14) {
                             TodayCard(now: now)
@@ -70,6 +74,9 @@ struct DashboardView: View {
                         exchangeCard
                     }
                     recentSection
+                    Button("Customize Today", systemImage: "slider.horizontal.3") { sheet = .customize }
+                        .font(.footnote.weight(.medium)).frame(minHeight: 44)
+                        .accessibilityIdentifier("dashboard.customize")
                 }
                 .padding(.horizontal, 16)
                 .padding(.bottom, 16)
@@ -89,6 +96,8 @@ struct DashboardView: View {
                 switch destination {
                 case .companion: CompanionView()
                 case .settings: SettingsView()
+                case .customize: DashboardCustomizationView()
+                case .shortcut(let feature): DashboardShortcutSheet(feature: feature)
                 case .newEntry: ManualEntryView()
                 case .edit(let session): ManualEntryView(editing: session)
                 case .summary(let session): SessionSummaryView(session: session)

@@ -1,0 +1,104 @@
+ok existing archive is silent on first run
+ok first run seeds current level
+ok first run seeds every unlocked badge
+ok first run has no presentation
+ok stored level catches background progress
+ok queued level is not marked shown
+ok sheet queues level
+ok inactive scene queues level
+ok multiple gained levels coalesce to latest
+ok free screen presents latest level
+ok shown level is persisted
+ok same level never repeats
+ok lower restored level does not celebrate
+ok persistence suppresses replay after relaunch
+ok six unlocks create three banners plus summary
+ok seen ids excluded
+ok second unseen id ordered
+ok third unseen id ordered
+ok overflow preserves exact count and ids
+ok queued ids deduplicated
+ok badge waits behind sheet
+ok queued badges are not marked shown
+ok badge 3 presents in order
+ok presented badge 3 marked seen
+ok badge 4 presents in order
+ok presented badge 4 marked seen
+ok badge 5 presents in order
+ok presented badge 5 marked seen
+ok fourth banner is and N more
+ok summary marks overflow ids seen
+ok relocked streak badges do not repeat
+ok empty installation seeds an empty set
+ok clock in queues only a live reaction
+ok clock in reaction plays
+ok reaction gate uses presentation time
+ok reaction suppressed before 20 seconds
+ok reaction allowed at 20 seconds
+ok no overlapping reactions
+ok background drops in-flight reaction
+ok first state never generates live reactions
+ok clock in trigger
+ok pause trigger
+ok resume is silent
+ok saved clock out trigger
+ok cancel is not clock out
+ok daily goal crossing
+ok reached goal does not repeat
+ok goal edits are silent
+ok new day does not replay old goal
+ok MoneyMomentum next target crossed
+ok multiple money targets produce one reaction
+ok currency change does not cross a milestone
+ok new session resets money target
+ok streak 3 trigger
+ok streak 3 does not repeat
+ok streak 7 trigger
+ok streak 7 does not repeat
+ok streak 14 trigger
+ok streak 14 does not repeat
+ok streak 30 trigger
+ok streak 30 does not repeat
+ok streak 60 trigger
+ok streak 60 does not repeat
+ok several streak thresholds collapse
+ok hidden skips reaction without queueing
+ok hidden does not replay skipped reaction
+ok inactive skips reaction without queueing
+ok inactive does not replay skipped reaction
+ok covered skips reaction without queueing
+ok covered does not replay skipped reaction
+ok companion off skips reaction without queueing
+ok companion off does not replay skipped reaction
+ok reduce motion skips reaction without queueing
+ok reduce motion does not replay skipped reaction
+ok visibility rechecked before delivery
+ok tap reserves shared reaction gate
+ok tap cannot overlap automatic gate
+ok tap allowed after cooldown
+ok companion visibility false false
+ok motion variant false false
+ok confetti variant false false
+ok companion visibility false true
+ok motion variant false true
+ok confetti variant false true
+ok companion visibility true false
+ok motion variant true false
+ok confetti variant true false
+ok companion visibility true true
+ok motion variant true true
+ok confetti variant true true
+ok blocked or inactive delivery drops live reaction false
+ok blocked or inactive delivery drops live reaction true
+ok suspending old level preserves only newer pending level
+ok interrupted overlay resumes after modal
+ok multiple modal blockers keep queue closed
+ok interrupted overlay resumes with same level
+ok resumed badge does not consume batch limit twice
+ok batch cap spans updates during presentation
+ok level persistence key
+ok badge persistence key
+ok level card waits for explicit dismissal
+ok brief companion reaction still expires
+ok badge banner allows reading time
+103 celebration checks passed

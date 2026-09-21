@@ -1,0 +1,32 @@
+{
+  "inputBytes": 21220900,
+  "outputBytes": 6140596,
+  "geometryAndAllAnimationSamplesUnchanged": true,
+  "repairedSourceZeroTangents": 2,
+  "textures": [
+    {
+      "name": "normal",
+      "size": [
+        1024,
+        1024
+      ],
+      "format": "image/png"
+    },
+    {
+      "name": "texture_0",
+      "size": [
+        1024,
+        1024
+      ],
+      "format": "image/jpeg"
+    },
+    {
+      "name": "texture_0_metallic_roughness",
+      "size": [
+        1024,
+        1024
+      ],
+      "format": "image/png"
+    }
+  ]
+}

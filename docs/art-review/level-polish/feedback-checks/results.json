@@ -1,0 +1,26 @@
+[
+  {
+    "suite": "radio",
+    "exit": 0
+  },
+  {
+    "suite": "celebrations",
+    "exit": 0
+  },
+  {
+    "suite": "rolling",
+    "exit": 0
+  },
+  {
+    "suite": "chimesound",
+    "exit": 0
+  },
+  {
+    "suite": "reminder",
+    "exit": 0
+  },
+  {
+    "suite": "prestige",
+    "exit": 0
+  }
+]

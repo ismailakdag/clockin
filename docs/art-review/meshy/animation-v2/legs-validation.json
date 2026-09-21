@@ -1,0 +1,13 @@
+{
+  "sampleCount": 253,
+  "footVertexCount": 340,
+  "maximumFootDriftMeters": 0,
+  "maximumFootDeviationFromOriginalMeshMeters": 8.526729831324578e-08,
+  "soleHeightRangeMeters": [
+    0.000923325920309724,
+    0.000923325920309724
+  ],
+  "sampledHandHeadOverlapFrames": 0,
+  "geometryTexturesSkinAndOtherClipsUnchanged": true,
+  "sha256": "35149ab2962b88c9fa1ad37c7553c4500c886ff9c36f25ad9a2433fce1098eaf"
+}

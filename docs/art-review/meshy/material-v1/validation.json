@@ -1,0 +1,21 @@
+{
+  "sourceSha256": "faff7aad78631a0007a1a514679d9285d839033b68fbf3e44f07668025844e0b",
+  "outputSha256": "5c34db08140deeb18dd196c86e095990014f6846a90951cfa14b91e0962f3298",
+  "triangles": 632548,
+  "vertices": 337268,
+  "tintedVertices": 75575,
+  "originalBinaryPrefixPreserved": true,
+  "embeddedTexturesUnchanged": true,
+  "geometryUVsAndNormalsUnchanged": true,
+  "changes": {
+    "orangeVertexTint": [
+      1,
+      0.5,
+      0.35
+    ],
+    "roughnessFactor": 0.8,
+    "metallicFactor": 0,
+    "normalScale": 0.22,
+    "specularFactor": 0.55
+  }
+}

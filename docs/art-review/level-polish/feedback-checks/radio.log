@@ -1,0 +1,110 @@
+ok: shared station preference key
+ok: exactly four Paradise channels
+ok: station ids are unique
+ok: stored rp selects Radio Paradise
+ok: rp uses the supplied HTTPS stream
+ok: rp has a short description
+ok: stored rp-mellow selects Mellow Mix
+ok: rp-mellow uses the supplied HTTPS stream
+ok: rp-mellow has a short description
+ok: stored rp-global selects Global Mix
+ok: rp-global uses the supplied HTTPS stream
+ok: rp-global has a short description
+ok: stored rp-serenity selects Serenity
+ok: rp-serenity uses the supplied HTTPS stream
+ok: rp-serenity has a short description
+ok: missing or invalid id nil falls back to main
+ok: missing or invalid id  falls back to main
+ok: missing or invalid id unknown falls back to main
+ok: missing or invalid id RP falls back to main
+ok: missing or invalid id removed-provider falls back to main
+ok: stopped card visibility
+ok: stopped playback request
+ok: stopped Now Playing lifetime
+ok: connecting card visibility
+ok: connecting playback request
+ok: connecting Now Playing lifetime
+ok: playing card visibility
+ok: playing playback request
+ok: playing Now Playing lifetime
+ok: paused card visibility
+ok: paused playback request
+ok: paused Now Playing lifetime
+ok: failed card visibility
+ok: failed playback request
+ok: failed Now Playing lifetime
+ok: pause keeps lock screen resume: pause, radio false, chime false
+ok: pause retains playback resources: pause, radio false, chime false
+ok: pause keeps Today card: pause, radio false, chime false
+ok: pause keeps lock screen resume: pause, radio false, chime true
+ok: pause retains playback resources: pause, radio false, chime true
+ok: pause keeps Today card: pause, radio false, chime true
+ok: pause keeps lock screen resume: pause, radio true, chime false
+ok: pause retains playback resources: pause, radio true, chime false
+ok: pause keeps Today card: pause, radio true, chime false
+ok: pause keeps lock screen resume: pause, radio true, chime true
+ok: pause retains playback resources: pause, radio true, chime true
+ok: pause keeps Today card: pause, radio true, chime true
+ok: terminal cleanup removes system player: stop, radio false, chime false
+ok: terminal cleanup releases player: stop, radio false, chime false
+ok: only release unused radio session: stop, radio false, chime false
+ok: terminal state cannot publish Now Playing: stop, radio false, chime false
+ok: failure offers retry; stop hides card: stop, radio false, chime false
+ok: terminal cleanup removes system player: stop, radio false, chime true
+ok: terminal cleanup releases player: stop, radio false, chime true
+ok: only release unused radio session: stop, radio false, chime true
+ok: terminal state cannot publish Now Playing: stop, radio false, chime true
+ok: failure offers retry; stop hides card: stop, radio false, chime true
+ok: terminal cleanup removes system player: stop, radio true, chime false
+ok: terminal cleanup releases player: stop, radio true, chime false
+ok: only release unused radio session: stop, radio true, chime false
+ok: terminal state cannot publish Now Playing: stop, radio true, chime false
+ok: failure offers retry; stop hides card: stop, radio true, chime false
+ok: terminal cleanup removes system player: stop, radio true, chime true
+ok: terminal cleanup releases player: stop, radio true, chime true
+ok: only release unused radio session: stop, radio true, chime true
+ok: terminal state cannot publish Now Playing: stop, radio true, chime true
+ok: failure offers retry; stop hides card: stop, radio true, chime true
+ok: terminal cleanup removes system player: failure, radio false, chime false
+ok: terminal cleanup releases player: failure, radio false, chime false
+ok: only release unused radio session: failure, radio false, chime false
+ok: terminal state cannot publish Now Playing: failure, radio false, chime false
+ok: failure offers retry; stop hides card: failure, radio false, chime false
+ok: terminal cleanup removes system player: failure, radio false, chime true
+ok: terminal cleanup releases player: failure, radio false, chime true
+ok: only release unused radio session: failure, radio false, chime true
+ok: terminal state cannot publish Now Playing: failure, radio false, chime true
+ok: failure offers retry; stop hides card: failure, radio false, chime true
+ok: terminal cleanup removes system player: failure, radio true, chime false
+ok: terminal cleanup releases player: failure, radio true, chime false
+ok: only release unused radio session: failure, radio true, chime false
+ok: terminal state cannot publish Now Playing: failure, radio true, chime false
+ok: failure offers retry; stop hides card: failure, radio true, chime false
+ok: terminal cleanup removes system player: failure, radio true, chime true
+ok: terminal cleanup releases player: failure, radio true, chime true
+ok: only release unused radio session: failure, radio true, chime true
+ok: terminal state cannot publish Now Playing: failure, radio true, chime true
+ok: failure offers retry; stop hides card: failure, radio true, chime true
+ok: terminal cleanup removes system player: interruption, radio false, chime false
+ok: terminal cleanup releases player: interruption, radio false, chime false
+ok: only release unused radio session: interruption, radio false, chime false
+ok: terminal state cannot publish Now Playing: interruption, radio false, chime false
+ok: failure offers retry; stop hides card: interruption, radio false, chime false
+ok: terminal cleanup removes system player: interruption, radio false, chime true
+ok: terminal cleanup releases player: interruption, radio false, chime true
+ok: only release unused radio session: interruption, radio false, chime true
+ok: terminal state cannot publish Now Playing: interruption, radio false, chime true
+ok: failure offers retry; stop hides card: interruption, radio false, chime true
+ok: terminal cleanup removes system player: interruption, radio true, chime false
+ok: terminal cleanup releases player: interruption, radio true, chime false
+ok: only release unused radio session: interruption, radio true, chime false
+ok: terminal state cannot publish Now Playing: interruption, radio true, chime false
+ok: failure offers retry; stop hides card: interruption, radio true, chime false
+ok: terminal cleanup removes system player: interruption, radio true, chime true
+ok: terminal cleanup releases player: interruption, radio true, chime true
+ok: only release unused radio session: interruption, radio true, chime true
+ok: terminal state cannot publish Now Playing: interruption, radio true, chime true
+ok: failure offers retry; stop hides card: interruption, radio true, chime true
+ok: play then pause then stop removes the card
+ok: failed playback offers in-app retry without remote resurrection
+109 radio checks passed

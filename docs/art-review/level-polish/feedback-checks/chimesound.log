@@ -1,0 +1,97 @@
+ok: stable catalog ids and order
+ok: unique bundled file names
+ok: default is Chime
+ok: catalog: soft-bell has display name
+ok: catalog: soft-bell has CAF file name
+ok: catalog: glass has display name
+ok: catalog: glass has CAF file name
+ok: catalog: marimba has display name
+ok: catalog: marimba has CAF file name
+ok: catalog: chime has display name
+ok: catalog: chime has CAF file name
+ok: catalog: pop has display name
+ok: catalog: pop has CAF file name
+ok: catalog: wood-block has display name
+ok: catalog: wood-block has CAF file name
+ok: catalog: singing-bowl has display name
+ok: catalog: singing-bowl has CAF file name
+ok: catalog: tiny-ping has display name
+ok: catalog: tiny-ping has CAF file name
+ok: legacy Glass maps to glass
+ok: legacy or unknown Default notification maps to chime
+ok: legacy or unknown Default ringtone maps to chime
+ok: legacy or unknown Ping maps to chime
+ok: legacy or unknown Pop maps to chime
+ok: legacy or unknown Tink maps to chime
+ok: legacy or unknown Funk maps to chime
+ok: legacy or unknown Submarine maps to chime
+ok: legacy or unknown Sosumi maps to chime
+ok: legacy or unknown unknown maps to chime
+ok: legacy or unknown  maps to chime
+ok: missing sound defaults to chime
+ok: default volume is 75 percent
+ok: volume bounds retained
+ok: valid volume retained
+ok: volume lower bound
+ok: volume upper bound
+ok: nonfinite volume defaults safely
+ok: nonfinite volume defaults safely
+ok: nonfinite volume defaults safely
+ok: missing stored volume defaults
+ok: empty defaults migrate
+ok: migration writes stable default
+ok: stored legacy Glass migrates
+ok: migration persists id
+ok: migration is idempotent
+ok: Mac-compatible fractional volume
+ok: stored zero clamps to ten percent
+ok: file exists: clockin-soft-bell.caf
+ok: notification duration: soft-bell
+ok: 44.1 kHz mono: soft-bell
+ok: 16-bit linear PCM: soft-bell
+ok: unclipped -3 dBFS peak: soft-bell
+ok: zero endpoints: soft-bell
+ok: file exists: clockin-glass.caf
+ok: notification duration: glass
+ok: 44.1 kHz mono: glass
+ok: 16-bit linear PCM: glass
+ok: unclipped -3 dBFS peak: glass
+ok: zero endpoints: glass
+ok: file exists: clockin-marimba.caf
+ok: notification duration: marimba
+ok: 44.1 kHz mono: marimba
+ok: 16-bit linear PCM: marimba
+ok: unclipped -3 dBFS peak: marimba
+ok: zero endpoints: marimba
+ok: file exists: clockin-chime.caf
+ok: notification duration: chime
+ok: 44.1 kHz mono: chime
+ok: 16-bit linear PCM: chime
+ok: unclipped -3 dBFS peak: chime
+ok: zero endpoints: chime
+ok: file exists: clockin-pop.caf
+ok: notification duration: pop
+ok: 44.1 kHz mono: pop
+ok: 16-bit linear PCM: pop
+ok: unclipped -3 dBFS peak: pop
+ok: zero endpoints: pop
+ok: file exists: clockin-wood-block.caf
+ok: notification duration: wood-block
+ok: 44.1 kHz mono: wood-block
+ok: 16-bit linear PCM: wood-block
+ok: unclipped -3 dBFS peak: wood-block
+ok: zero endpoints: wood-block
+ok: file exists: clockin-singing-bowl.caf
+ok: notification duration: singing-bowl
+ok: 44.1 kHz mono: singing-bowl
+ok: 16-bit linear PCM: singing-bowl
+ok: unclipped -3 dBFS peak: singing-bowl
+ok: zero endpoints: singing-bowl
+ok: file exists: clockin-tiny-ping.caf
+ok: notification duration: tiny-ping
+ok: 44.1 kHz mono: tiny-ping
+ok: 16-bit linear PCM: tiny-ping
+ok: unclipped -3 dBFS peak: tiny-ping
+ok: zero endpoints: tiny-ping
+ok: RMS levels within 3 dB
+96 chime sound checks passed

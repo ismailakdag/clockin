@@ -185,6 +185,7 @@ struct RootView: View {
             // acilan bir yer degil; sekmeyi ilerleme icin kullanmak sayfalari
             // daha anlasilir boluyor.
             BadgesView()
+                .environment(\.clockinContentActive, tab == .badges && !showsDeskMode && !celebrations.hasBlockingPresentation && !showsCelebration)
                 .tabItem { Label("Badges", systemImage: "rosette") }
                 .tag(AppTab.badges)
         }

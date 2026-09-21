@@ -49,6 +49,13 @@ struct SettingsView: View {
                         sheet = .guide
                     }
                 }
+                Section("Today") {
+                    NavigationLink {
+                        DashboardPinOptions()
+                    } label: {
+                        Label("Pinned controls", systemImage: "pin")
+                    }
+                }
                 paySection
                 Section {
                     Toggle("Haptics", isOn: $hapticsEnabled.hapticSelection($selectionFeedback))

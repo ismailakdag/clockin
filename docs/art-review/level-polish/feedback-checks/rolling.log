@@ -1,0 +1,198 @@
+ok: only the changed seconds digit rolls
+ok: identity counts positions from the right
+ok: old and new glyphs are retained
+ok: increasing timer rolls up
+ok: timer separators stay static
+ok: 09 to 10 carries both digits upward
+ok: 59 to 00 follows the increasing full timer
+ok: seconds-only carry uses semantic value
+ok: reverse minute carry rolls down
+ok: 10 to 09 rolls down
+ok: seconds-only reverse carry uses semantic value
+ok: timer length change is instant
+ok: length fallback renders the complete new string
+ok: ones position stays zero after length change
+ok: shorter timer is instant
+ok: new thousands separator is instant
+ok: removed thousands separator is instant
+ok: prefix currency and decimal carry
+ok: prefix currency symbol is static
+ok: suffix currency preserves right-based positions
+ok: suffix currency and space stay static
+ok: Turkish thousands and decimal separators are preserved
+ok: Turkish formatted text is not parsed or reformatted
+ok: Turkish suffix thousands carry changes only digits
+ok: Turkish money decrement rolls down
+ok: changed symbol and separator update instantly
+ok: letters and spaces remain static
+ok: remaining amount rolls independently of its suffix
+ok: digit becoming a letter does not roll
+ok: letter becoming a digit does not roll
+ok: empty strings are valid
+ok: initial nonempty value is instant
+ok: clearing value is instant
+ok: unrounded changes do not animate unchanged text
+ok: equal semantic values do not roll
+ok: negative values compare numerically
+ok: crossing zero downward compares numerically
+ok: NaN disables rolling
+ok: nonfinite new value disables rolling
+ok: first UIKit render snaps
+ok: identical UIKit update does no glyph work
+ok: unrounded update does no glyph work
+ok: unrounded update retains latest semantic value
+ok: UIKit update uses the existing digit diff
+ok: interruption replaces the pair using the latest model value
+ok: closing a gate cancels even an unchanged value
+ok: disabled ticks replace glyphs instantly
+ok: enabling alongside a tick does not replay motion
+ok: a later enabled tick rolls again
+ok: font or color changes stop an in-flight roll
+ok: length changes snap the entire UIKit value
+ok: empty update releases every cell
+ok: reattaching a detached UIKit view starts settled
+ok: intrinsic size sums advances and rounds outward
+ok: extra width does not enlarge glyphs
+ok: narrow width scales the entire value uniformly
+ok: desk scale floor is respected
+ok: baseline includes the label's centered line box
+ok: compressed baseline follows the rendered glyphs
+ok: empty text has no intrinsic size or baseline
+ok: visible active nominal state animates
+ok: fair thermal state animates
+ok: Reduce Motion disables rolling
+ok: Low Power Mode disables rolling
+ok: serious thermal state disables rolling
+ok: critical thermal state disables rolling
+ok: covered or deselected content disables rolling
+ok: inactive app disables rolling
+ok: disappeared view disables rolling
+ok: policy combination false/false/0/false/false/false
+ok: policy combination false/false/0/false/false/true
+ok: policy combination false/false/0/false/true/false
+ok: policy combination false/false/0/false/true/true
+ok: policy combination false/false/0/true/false/false
+ok: policy combination false/false/0/true/false/true
+ok: policy combination false/false/0/true/true/false
+ok: policy combination false/false/0/true/true/true
+ok: policy combination false/false/1/false/false/false
+ok: policy combination false/false/1/false/false/true
+ok: policy combination false/false/1/false/true/false
+ok: policy combination false/false/1/false/true/true
+ok: policy combination false/false/1/true/false/false
+ok: policy combination false/false/1/true/false/true
+ok: policy combination false/false/1/true/true/false
+ok: policy combination false/false/1/true/true/true
+ok: policy combination false/false/2/false/false/false
+ok: policy combination false/false/2/false/false/true
+ok: policy combination false/false/2/false/true/false
+ok: policy combination false/false/2/false/true/true
+ok: policy combination false/false/2/true/false/false
+ok: policy combination false/false/2/true/false/true
+ok: policy combination false/false/2/true/true/false
+ok: policy combination false/false/2/true/true/true
+ok: policy combination false/false/3/false/false/false
+ok: policy combination false/false/3/false/false/true
+ok: policy combination false/false/3/false/true/false
+ok: policy combination false/false/3/false/true/true
+ok: policy combination false/false/3/true/false/false
+ok: policy combination false/false/3/true/false/true
+ok: policy combination false/false/3/true/true/false
+ok: policy combination false/false/3/true/true/true
+ok: policy combination false/true/0/false/false/false
+ok: policy combination false/true/0/false/false/true
+ok: policy combination false/true/0/false/true/false
+ok: policy combination false/true/0/false/true/true
+ok: policy combination false/true/0/true/false/false
+ok: policy combination false/true/0/true/false/true
+ok: policy combination false/true/0/true/true/false
+ok: policy combination false/true/0/true/true/true
+ok: policy combination false/true/1/false/false/false
+ok: policy combination false/true/1/false/false/true
+ok: policy combination false/true/1/false/true/false
+ok: policy combination false/true/1/false/true/true
+ok: policy combination false/true/1/true/false/false
+ok: policy combination false/true/1/true/false/true
+ok: policy combination false/true/1/true/true/false
+ok: policy combination false/true/1/true/true/true
+ok: policy combination false/true/2/false/false/false
+ok: policy combination false/true/2/false/false/true
+ok: policy combination false/true/2/false/true/false
+ok: policy combination false/true/2/false/true/true
+ok: policy combination false/true/2/true/false/false
+ok: policy combination false/true/2/true/false/true
+ok: policy combination false/true/2/true/true/false
+ok: policy combination false/true/2/true/true/true
+ok: policy combination false/true/3/false/false/false
+ok: policy combination false/true/3/false/false/true
+ok: policy combination false/true/3/false/true/false
+ok: policy combination false/true/3/false/true/true
+ok: policy combination false/true/3/true/false/false
+ok: policy combination false/true/3/true/false/true
+ok: policy combination false/true/3/true/true/false
+ok: policy combination false/true/3/true/true/true
+ok: policy combination true/false/0/false/false/false
+ok: policy combination true/false/0/false/false/true
+ok: policy combination true/false/0/false/true/false
+ok: policy combination true/false/0/false/true/true
+ok: policy combination true/false/0/true/false/false
+ok: policy combination true/false/0/true/false/true
+ok: policy combination true/false/0/true/true/false
+ok: policy combination true/false/0/true/true/true
+ok: policy combination true/false/1/false/false/false
+ok: policy combination true/false/1/false/false/true
+ok: policy combination true/false/1/false/true/false
+ok: policy combination true/false/1/false/true/true
+ok: policy combination true/false/1/true/false/false
+ok: policy combination true/false/1/true/false/true
+ok: policy combination true/false/1/true/true/false
+ok: policy combination true/false/1/true/true/true
+ok: policy combination true/false/2/false/false/false
+ok: policy combination true/false/2/false/false/true
+ok: policy combination true/false/2/false/true/false
+ok: policy combination true/false/2/false/true/true
+ok: policy combination true/false/2/true/false/false
+ok: policy combination true/false/2/true/false/true
+ok: policy combination true/false/2/true/true/false
+ok: policy combination true/false/2/true/true/true
+ok: policy combination true/false/3/false/false/false
+ok: policy combination true/false/3/false/false/true
+ok: policy combination true/false/3/false/true/false
+ok: policy combination true/false/3/false/true/true
+ok: policy combination true/false/3/true/false/false
+ok: policy combination true/false/3/true/false/true
+ok: policy combination true/false/3/true/true/false
+ok: policy combination true/false/3/true/true/true
+ok: policy combination true/true/0/false/false/false
+ok: policy combination true/true/0/false/false/true
+ok: policy combination true/true/0/false/true/false
+ok: policy combination true/true/0/false/true/true
+ok: policy combination true/true/0/true/false/false
+ok: policy combination true/true/0/true/false/true
+ok: policy combination true/true/0/true/true/false
+ok: policy combination true/true/0/true/true/true
+ok: policy combination true/true/1/false/false/false
+ok: policy combination true/true/1/false/false/true
+ok: policy combination true/true/1/false/true/false
+ok: policy combination true/true/1/false/true/true
+ok: policy combination true/true/1/true/false/false
+ok: policy combination true/true/1/true/false/true
+ok: policy combination true/true/1/true/true/false
+ok: policy combination true/true/1/true/true/true
+ok: policy combination true/true/2/false/false/false
+ok: policy combination true/true/2/false/false/true
+ok: policy combination true/true/2/false/true/false
+ok: policy combination true/true/2/false/true/true
+ok: policy combination true/true/2/true/false/false
+ok: policy combination true/true/2/true/false/true
+ok: policy combination true/true/2/true/true/false
+ok: policy combination true/true/2/true/true/true
+ok: policy combination true/true/3/false/false/false
+ok: policy combination true/true/3/false/false/true
+ok: policy combination true/true/3/false/true/false
+ok: policy combination true/true/3/false/true/true
+ok: policy combination true/true/3/true/false/false
+ok: policy combination true/true/3/true/false/true
+ok: policy combination true/true/3/true/true/false
+ok: policy combination true/true/3/true/true/true
+197 rolling checks passed

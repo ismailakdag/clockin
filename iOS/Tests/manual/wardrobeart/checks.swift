@@ -59,7 +59,7 @@ func point(_ p:[Double],_ w:Int,_ h:Int,_ message:String) {
 struct Anchor: Decodable {
     let head:[Double],visor:[Double],neck:[Double],back:[Double],handL:[Double]?,handR:[Double]?,tilt:Double
 }
-struct Garment: Decodable { let slot:String,anchorPoint:String,pivot:[Double],layer:String }
+struct Garment: Decodable { let slot:String,anchorPoint:String,pivot:[Double],layer:String; let poseOffsets:[String:[Double]]? }
 struct Room: Decodable { let name:String,file:String,floorY:Double,slots:[String:[Double]],mascotSpot:[Double] }
 struct Furniture: Decodable { let name:String,file:String,slot:String,pivot:[Double] }
 struct Home: Decodable { let rooms:[String:Room],items:[String:Furniture] }
@@ -84,6 +84,11 @@ for url in frameURLs {
     for i in stride(from:0,to:png.pixels.count,by:4) where png.pixels[i+3]==255 { sourceColors.insert(png.rgb(i)) }
 }
 print("ok: \(anchors.count) frames, exact coverage, finite in-canvas anchors and anatomical order")
+let fixedAnchors = try decode([String:Anchor].self, frames.appendingPathComponent("fixed-pose-anchors.json"))
+require(Set(fixedAnchors.keys) == Set(["pose2", "pose3", "pose4"]), "Fixed pose coverage")
+let fixedRaw = try JSONSerialization.jsonObject(with: Data(contentsOf: frames.appendingPathComponent("fixed-pose-anchors.json"))) as! [String:[String:Any]]
+let everyAnchor = anchors.merging(fixedAnchors) { original, _ in original }
+let everyRaw = rawAnchors.merging(fixedRaw) { original, _ in original }
 let wardrobeURL=mascot.appendingPathComponent("Wardrobe")
 let wardrobe=try decode([String:Garment].self,wardrobeURL.appendingPathComponent("wardrobe-sprites.json"))
 require(wardrobe.count>=24,"Need at least 24 garments")
@@ -96,8 +101,24 @@ for (id,g) in wardrobe {
     let png=PNG(wardrobeURL.appendingPathComponent(id+".png"))
     point(g.pivot,png.width,png.height,id+" pivot")
     png.checkArtGrid(id,cropped:true)
+    // A garment must remain visible during the highest celebration poses too.
+    for (frameID, frame) in everyAnchor {
+        let raw = everyRaw[frameID]!
+        guard var anchor = raw[g.anchorPoint] as? [Double] else { continue }
+        let offset = g.poseOffsets?[frameID] ?? g.poseOffsets?[String(frameID.prefix(1))] ?? [0, 0]
+        require(offset.count == 2 && offset.allSatisfy { $0.isFinite }, "Invalid pose offset: \(id)/\(frameID)")
+        anchor[0] += offset[0]; anchor[1] += offset[1]
+        let angle = (["head", "face"].contains(g.slot) ? frame.tilt : 0) * Double.pi / 180
+        for (x, y) in [(0.0, 0.0), (Double(png.width), 0.0),
+                       (0.0, Double(png.height)), (Double(png.width), Double(png.height))] {
+            let dx = x - g.pivot[0], dy = y - g.pivot[1]
+            let px = anchor[0] + dx * cos(angle) - dy * sin(angle)
+            let py = anchor[1] + dx * sin(angle) + dy * cos(angle)
+            require((0...314).contains(px) && (0...314).contains(py), "Garment clipped: \(frameID)/\(id)")
+        }
+    }
 }
-print("ok: \(wardrobe.count) garments, slot counts, layers, pivots, tight crops and 2x2 pixel cells")
+print("ok: \(wardrobe.count) garments, slot counts, layers, pivots, tight crops, 2x2 pixel cells and unclipped placement in every frame")
 func rgbValue(_ s:String)->Int? {
     guard s.range(of:"^#[0-9A-F]{6}$",options:.regularExpression) != nil else { return nil }
     return Int(s.dropFirst(),radix:16)

@@ -1,0 +1,17 @@
+{
+  "triangles": 31105,
+  "vertices": 28659,
+  "clipNames": [
+    "Running",
+    "Walking",
+    "Wave_One_Hand",
+    "restpose"
+  ],
+  "unchangedGeometrySkinTexturesOtherClips": true,
+  "sampleCount": 253,
+  "sourceSHA256": "ea70f0655d636a5f13df5410480c161e11eeff0416fec4db3aba6370992af7f7",
+  "outputSHA256": "f3f6b505d3a09078f7235791411495a9dfd87337669b55799b1709be7f0b2e3c",
+  "metric": "Strongly hand-weighted vertices inside head-local bounding box; conservative sampled regression, not continuous full-body collision proof",
+  "originalHandOverlapFrames": 157,
+  "correctedHandOverlapFrames": 0
+}
