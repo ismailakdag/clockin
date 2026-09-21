@@ -1,0 +1,14 @@
+{
+  "name": "clockin-live-activity",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "@netlify/blobs": "^10.0.0"
+  },
+  "devDependencies": {
+    "netlify-cli": "^27.8.0"
+  }
+}

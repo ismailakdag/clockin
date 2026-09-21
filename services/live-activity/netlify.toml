@@ -1,0 +1,6 @@
+[build]
+  publish = "../../website/dist"
+
+[functions]
+  directory = "functions"
+  node_bundler = "esbuild"
