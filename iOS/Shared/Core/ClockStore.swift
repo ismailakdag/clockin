@@ -15,6 +15,7 @@ final class ClockStore: ObservableObject {
         }
     }
     @Published var statusMessage: String?
+    @Published var timerPersistenceError: String?
 
     private let fileURL: URL
     private let calendar: Calendar
@@ -214,14 +215,16 @@ final class ClockStore: ObservableObject {
             statusMessage = "Invalid elapsed time or date."
             return
         }
+        let previous = data
         data.running = running
-        save()
+        guard persistTimerChange(previous: previous) else { return }
     }
 
     func cancelRunning() {
         guard data.running != nil else { return }
+        let previous = data
         data.running = nil
-        save()
+        guard persistTimerChange(previous: previous) else { return }
         statusMessage = "Active session cancelled. No earnings were added."
     }
 
@@ -233,8 +236,9 @@ final class ClockStore: ObservableObject {
         }
         running.accumulated = running.elapsed(at: date)
         running.resumedAt = nil
+        let previous = data
         data.running = running
-        save()
+        guard persistTimerChange(previous: previous) else { return }
     }
 
     func resume(at date: Date = .now) {
@@ -244,8 +248,9 @@ final class ClockStore: ObservableObject {
             statusMessage = "Invalid elapsed time or date."
             return
         }
+        let previous = data
         data.running = running
-        save()
+        guard persistTimerChange(previous: previous) else { return }
     }
 
     @discardableResult
@@ -259,9 +264,10 @@ final class ClockStore: ObservableObject {
             id: UUID(), start: running.start, end: date, duration: running.elapsed(at: date),
             note: running.note, hourlyRate: hourlyRate, source: "Clockin"
         )
+        let previous = data
         data.sessions.append(session)
         data.running = nil
-        save()
+        guard persistTimerChange(previous: previous) else { return nil }
         return session
     }
 
@@ -980,6 +986,17 @@ final class ClockStore: ObservableObject {
     /// ardindan "Entry updated." yazip hatanin uzerini ortuyordu. Kullanici
     /// kaydedildi saniyor, disk eski halde kaliyordu. Mac'te ayni hata PR #9 ile
     /// kapandi, bu kopyaya tasinmamisti.
+    /// Keep the visible timer and the persisted timer in agreement on write failure.
+    private func persistTimerChange(previous: ClockinData) -> Bool {
+        guard save() else {
+            data = previous
+            timerPersistenceError = "Your timer change could not be saved. The previous timer state has been kept. Check available storage and try again."
+            return false
+        }
+        timerPersistenceError = nil
+        return true
+    }
+
     @discardableResult
     private func save() -> Bool {
         do {

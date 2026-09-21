@@ -19,6 +19,8 @@ struct ClockinApp: App {
     var body: some Scene {
         WindowGroup {
             RootView()
+                .liveActivitySetup()
+                .timerPersistenceAlert()
                 .environmentObject(store)
                 .environmentObject(exchangeRates)
                 .task(id: rateDates) {
