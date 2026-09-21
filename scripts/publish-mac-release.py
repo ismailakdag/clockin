@@ -204,6 +204,11 @@ def deploy_website():
     if not token:
         fail(f'No Netlify token in the Keychain (service "{NETLIFY_KEYCHAIN_SERVICE}"). '
              'See "One-time setup" in docs/macos-releases.md.')
+    _, functions = api_json('GET', f'https://api.netlify.com/api/v1/sites/{NETLIFY_SITE}/functions', token)
+    if functions:
+        fail('This site has serverless functions. A static ZIP upload would remove them. '
+             'Deploy website/dist and services/live-activity/functions together with Netlify CLI; '
+             'see services/live-activity/README.md.')
     index = WEBSITE / 'index.html'
     if DOWNLOAD_URL not in index.read_text():
         fail(f'website/dist/index.html does not link to {DOWNLOAD_URL}.')

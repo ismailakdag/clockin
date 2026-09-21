@@ -1,5 +1,10 @@
 # Clockin for iPhone
 
+> iOS release source: 0.2 (8) came from the `clockin-companion-art` **working
+> tree**, including uncommitted approved UI changes. Main alone is older.
+> Before the next release, read `../docs/ios-live-activity-build-12.md` and use
+> `../scripts/prepare-ios-live-activity-release.py` with an explicit UI source.
+
 The iPhone version of Clockin: the same time tracker as the Mac app, with a
 home screen and lock screen widget, a Live Activity while the timer runs, and
 Shortcuts actions for clocking in and out.
@@ -54,8 +59,8 @@ swiftc -swift-version 6 Shared/Core/Models.swift Shared/Core/ClockStore.swift Sh
 swiftc -swift-version 6 Shared/Core/Models.swift Shared/Core/ClockStore.swift Shared/Core/ImportComparison.swift Shared/Core/PastedTextImporter.swift Shared/Core/CSVImporter.swift Shared/Core/SessionOverlap.swift Tests/manual/backups/main.swift -o /tmp/clockin-backup-tests && /tmp/clockin-backup-tests
 swiftc -swift-version 6 Shared/Core/Models.swift Shared/Core/SessionOverlap.swift Tests/manual/overlap/main.swift -o /tmp/clockin-overlap-tests && /tmp/clockin-overlap-tests
 swiftc -swift-version 6 Shared/Core/ExchangeRates.swift Tests/manual/raterange/main.swift -o /tmp/clockin-ratedate-tests && TZ=Europe/Istanbul /tmp/clockin-ratedate-tests
-swiftc -swift-version 6 Shared/Core/Models.swift Clockin/Views/Earnings/EarningsPeriod.swift Clockin/Views/Earnings/EarningsSnapshot.swift Clockin/Views/Earnings/MonthPerformance.swift Clockin/Views/Goals/GoalProgress.swift Clockin/Views/Insights/InsightsSnapshot.swift Clockin/Views/Insights/InsightsBadges.swift Tests/manual/earnings/main.swift -o /tmp/clockin-earnings-tests && /tmp/clockin-earnings-tests
-swiftc -swift-version 6 Shared/Core/Models.swift Clockin/Views/Goals/GoalProgress.swift Clockin/Views/Insights/InsightsSnapshot.swift Clockin/Views/Insights/InsightsBadges.swift Clockin/Views/Insights/InsightsPeriods.swift Tests/manual/insights/main.swift -o /tmp/clockin-insights-tests && /tmp/clockin-insights-tests
+swiftc -swift-version 6 Shared/Core/Models.swift Clockin/Views/Earnings/EarningsPeriod.swift Clockin/Views/Earnings/EarningsSnapshot.swift Clockin/Views/Earnings/MonthPerformance.swift Clockin/Views/Goals/GoalProgress.swift Clockin/Views/Insights/InsightsSnapshot.swift Clockin/Views/Insights/InsightsBadges.swift Clockin/Views/Insights/MonthWeek.swift Tests/manual/earnings/main.swift -o /tmp/clockin-earnings-tests && /tmp/clockin-earnings-tests
+swiftc -swift-version 6 Shared/Core/Models.swift Clockin/Views/Goals/GoalProgress.swift Clockin/Views/Insights/InsightsSnapshot.swift Clockin/Views/Insights/InsightsBadges.swift Clockin/Views/Insights/InsightsPeriods.swift Clockin/Views/Insights/MonthWeek.swift Tests/manual/insights/main.swift -o /tmp/clockin-insights-tests && /tmp/clockin-insights-tests
 swiftc -swift-version 6 -strict-concurrency=complete -module-cache-path /tmp/clockin-mascot-module-cache Shared/Core/Models.swift Shared/Theme/ClockinThemeChoice.swift Shared/Sync/AppGroup.swift Shared/Sync/ClockinSnapshot.swift Shared/Mascot/MascotMotion.swift Shared/Mascot/MascotState.swift Tests/manual/mascot/main.swift -o /tmp/clockin-mascot-tests && /tmp/clockin-mascot-tests
 swiftc -swift-version 6 Clockin/Views/Mascot/CompanionMode.swift Tests/manual/companion/main.swift -o /tmp/clockin-companion-tests && /tmp/clockin-companion-tests
 swiftc -swift-version 6 Clockin/Views/Momentum/MoneyMomentum.swift Tests/manual/momentum/main.swift -o /tmp/clockin-momentum-tests && /tmp/clockin-momentum-tests
@@ -134,8 +139,13 @@ and what differs on purpose.
 Things that cost time to find and are easy to break again:
 
 - **Live Activity values.** A Live Activity only advances time by itself.
-  Earnings change when the app sends an update, so the app refreshes it on
-  launch, when going to the background and from its buttons.
+  Opted-in sessions register for timestamp-only APNs signals; the widget calculates
+  earnings locally. The app also refreshes on launch, backgrounding and button actions.
+  iOS controls remote delivery timing.
+- **Live Activity setup.** The first foreground launch shows an optional guide for
+  consent and the system Live Activities / More Frequent Updates settings. It can
+  be reopened under Settings → Privacy & Live Activity. The connection panel reports
+  token and server-registration status, not proof of delivery to the device.
 - **Hours and minutes in the Dynamic Island.** `Text(timerInterval:)` always
   shows seconds, and the timer and stopwatch format styles spell minutes out as
   words. On iOS 18, `Text(.durationOffset(to:), format:
