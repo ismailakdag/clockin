@@ -4,15 +4,16 @@ struct CompanionView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.palette) private var palette
     @Environment(\.scenePhase) private var scenePhase
-    @EnvironmentObject private var store: ClockStore
     @ObservedObject private var wardrobe = WardrobeStore.shared
-    @State private var tab = "Outfit"
-    @State private var purchase: WardrobeItem?
-    @State private var reaction: MascotTap?
+    @State private var category: WardrobeCategory?
+    @State private var preview: WardrobeItem?
+    @State private var showing3D = false
     @State private var visible = false
     @State private var headerVisible = false
-    @State private var purchaseError = false
-    private let columns = [GridItem(.adaptive(minimum: 140), spacing: 10)]
+    @Environment(\.dynamicTypeSize) private var typeSize
+    private var columns: [GridItem] {
+        [GridItem(.adaptive(minimum: typeSize.isAccessibilitySize ? 150 : 96), spacing: 8)]
+    }
 
     var body: some View {
         NavigationStack {
@@ -20,36 +21,58 @@ struct CompanionView: View {
             let viewportHeight = viewport.size.height
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
-                    CompanionHomeView(reaction: reaction)
-                        .frame(height: 260)
+                    Group {
+                        if category?.isHome == false {
+                            CompanionHomeView(outfitCloseup: true)
+                        } else {
+                            CompanionHomeView()
+                        }
+                    }
+                        .modifier(CompanionPreviewFrame(isHome: category?.isHome != false, outfitHeight: 156))
                         .background(palette.surface, in: RoundedRectangle(cornerRadius: 20))
-                        .environment(\.clockinContentActive, visible && headerVisible && purchase == nil && !purchaseError && scenePhase == .active)
+                        .clipShape(RoundedRectangle(cornerRadius: 20))
+                        .environment(\.clockinContentActive, visible && headerVisible && preview == nil && !showing3D && scenePhase == .active)
                         .onGeometryChange(for: Bool.self) { proxy in
                             let frame = proxy.frame(in: .named("companionScroll"))
                             return frame.maxY > 0 && frame.minY < viewportHeight
                         } action: { headerVisible = $0 }
                         .onDisappear { headerVisible = false }
+                    if #available(iOS 18.0, *) {
+                        Button { showing3D = true } label: {
+                            Label("Try the 3D companion", systemImage: "cube.transparent")
+                                .font(.subheadline.weight(.semibold)).frame(maxWidth: .infinity).padding(12)
+                        }
+                        .background(palette.surface, in: RoundedRectangle(cornerRadius: 14))
+                        .accessibilityIdentifier("companion.preview3D")
+                    }
                     Label("\(wardrobe.balance.formatted()) focus coins", systemImage: "circle.circle.fill")
                         .font(.title3.bold()).foregroundStyle(palette.accent)
                     DisclosureGroup("How coins work") {
                         Text("Earn 10 coins per completed hour. Each session is rounded down to whole minutes; those minutes are added together, then divided by six. Earn 25 per day meeting your current daily goal, 50 per badge achieved in your archive, and 100 per level, including level 1. Running sessions do not earn coins yet. Editing the archive or daily goal recalculates earnings. Purchases stay owned and your balance never drops below zero.")
                             .font(.footnote).foregroundStyle(.secondary).padding(.top, 8)
                     }
-                    Picker("Companion", selection: $tab) {
-                        ForEach(["Outfit", "Home", "Shop"], id: \.self) { Text($0) }
-                    }.pickerStyle(.segmented)
-                    if tab == "Shop" {
-                        grid(WardrobeCatalog.items.filter { $0.unlock.price != nil && WardrobeArt.available($0) }
-                            .sorted { ($0.unlock.price ?? 0, $0.id) < ($1.unlock.price ?? 0, $1.id) })
-                    } else {
-                        ForEach(tab == "Outfit" ? WardrobeSlot.outfit : [.room] + WardrobeSlot.furniture, id: \.self) { slot in
+                    CompanionCategoryTabs(selection: $category, accent: palette.accent, surface: palette.surface)
+                    Text("\(displayedItems.count) items")
+                        .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                    Text("Tap any item to preview it. Owned and locked items stay together in their category.")
+                        .font(.footnote).foregroundStyle(.secondary)
+                    if category == nil || category?.isHome == true {
+                        DisclosureGroup("Room settings") {
+                            VStack(spacing: 12) {
+                                Picker("Room layout", selection: Binding(get: { wardrobe.state.homeLayout }, set: { wardrobe.setHomeLayout($0) })) {
+                                    ForEach(CompanionHomeLayout.allCases, id: \.self) { Text($0.title).tag($0) }
+                                }.pickerStyle(.segmented)
+                                Toggle("Room lamp", isOn: Binding(get: { wardrobe.state.homeLampOn }, set: { wardrobe.setHomeLamp($0) }))
+                            }.padding(.top, 8)
+                        }
+                    }
+                    ForEach(displayedCategories) { section in
+                        let items = displayedItems.filter { $0.category == section }
+                        if !items.isEmpty {
                             VStack(alignment: .leading, spacing: 10) {
-                                Text(title(slot)).font(.headline)
-                                if slot != .room {
-                                    Button(slot == .colorway ? "Classic" : "None") { wardrobe.clear(slot); react() }
-                                        .buttonStyle(.bordered).buttonPressHaptic(false)
-                                }
-                                grid(WardrobeCatalog.items.filter { $0.slot == slot && WardrobeArt.available($0) })
+                                Label(section.title, systemImage: section.symbol)
+                                    .font(.headline).accessibilityAddTraits(.isHeader)
+                                grid(items)
                             }
                         }
                     }
@@ -61,63 +84,46 @@ struct CompanionView: View {
             .navigationTitle("Companion")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
-            .confirmationDialog("Buy \(purchase?.name ?? "item")?", isPresented: Binding(
-                get: { purchase != nil }, set: { if !$0 { purchase = nil } }), titleVisibility: .visible) {
-                if let item = purchase {
-                    Button("Buy for \(item.unlock.price ?? 0) coins") {
-                        CelebrationCenter.shared.refresh(store: store)
-                        if wardrobe.buy(item) { react() } else { purchaseError = true }
-                        purchase = nil
-                    }
-                }
-                Button("Cancel", role: .cancel) { purchase = nil }
-            } message: { Text("Balance: \(wardrobe.balance) coins. This item will be equipped.") }
-            .alert("Not enough coins", isPresented: $purchaseError) { Button("OK", role: .cancel) {} }
+            .sheet(item: $preview) { item in CompanionHomePreview(item: item) }
+            .fullScreenCover(isPresented: $showing3D) {
+                if #available(iOS 18.0, *) { Companion3DPreview() }
+            }
+
         }
         .tint(palette.accent).fontDesign(palette.fontDesign).preferredColorScheme(palette.colorScheme)
         .onAppear { visible = true }
-        .onDisappear { visible = false; reaction = nil }
-        .celebrationBlocked(by: purchase != nil || purchaseError)
+        .onDisappear { visible = false }
+        .celebrationBlocked(by: preview != nil || showing3D)
     }
 
     private func grid(_ items: [WardrobeItem]) -> some View {
         LazyVGrid(columns: columns, alignment: .leading, spacing: 10) {
             ForEach(items) { item in
                 let owned = wardrobe.state.owned.contains(item.id)
-                Button {
-                    if owned { wardrobe.equip(item); react() } else { purchase = item }
-                } label: {
-                    VStack(alignment: .leading, spacing: 8) {
-                        WardrobeThumbnail(item: item).frame(height: 58).frame(maxWidth: .infinity)
-                        Text(item.name).font(.subheadline.bold())
-                        Label(owned ? (wardrobe.selected(item) ? "Equipped" : "Owned") : item.unlock.label,
-                              systemImage: owned ? (wardrobe.selected(item) ? "checkmark.circle.fill" : "checkmark") : "lock.fill")
-                            .font(.caption).foregroundStyle(.secondary)
-                    }
-                    .frame(maxWidth: .infinity, minHeight: 110, alignment: .leading).padding(12)
-                    .background(wardrobe.selected(item) ? palette.accent.opacity(0.15) : palette.surface,
-                                in: RoundedRectangle(cornerRadius: 12))
+                Button { preview = item } label: {
+                    CompanionProductTile(
+                        name: item.name,
+                        status: owned ? (wardrobe.selected(item) ? "Equipped" : "Owned") : item.unlock.label,
+                        symbol: owned ? (wardrobe.selected(item) ? "checkmark.circle.fill" : "checkmark") : (item.unlock.price == nil ? "lock.fill" : "circle.circle"),
+                        selected: wardrobe.selected(item), accent: palette.accent, surface: palette.surface
+                    ) { WardrobeThumbnail(item: item) }
                 }
                 .buttonStyle(.plain).buttonPressHaptic(false)
-                .disabled(!owned && (item.unlock.price == nil || (item.unlock.price ?? 0) > wardrobe.balance))
                 .accessibilityElement(children: .combine)
+                .accessibilityHint("Preview before choosing")
+                .accessibilityIdentifier("companion.item.\(item.id)")
             }
         }
     }
 
-    private func react() {
-        Haptics.play(.companionReaction)
-        reaction = MascotTap(id: (reaction?.id ?? 0) + 1, reaction: .wiggle)
+    private var displayedCategories: [WardrobeCategory] {
+        category.map { [$0] } ?? WardrobeCategory.allCases
     }
-    private func title(_ slot: WardrobeSlot) -> String {
-        switch slot {
-        case .floorLeft: "Floor left"
-        case .floorRight: "Floor right"
-        case .wallLeft: "Wall left"
-        case .wallRight: "Wall right"
-        default: slot.rawValue.capitalized
-        }
+
+    private var displayedItems: [WardrobeItem] {
+        WardrobeCatalog.items.filter { (category == nil || $0.category == category) && WardrobeArt.available($0) }
     }
+
 }
 
 private struct WardrobeThumbnail: View {

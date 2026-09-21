@@ -55,6 +55,9 @@ struct ClockinMascotStill: View {
     init(mood: MascotMood, accessory: CompanionAccessory? = nil, maxPixelSize: Int = 192,
          outfit: WardrobeState = WardrobeState()) {
         self.mood = mood; size = maxPixelSize; self.outfit = outfit
+        if let accessory, let item = WardrobeCatalog.item(accessory.rawValue) {
+            self.outfit.equipped[item.slot.rawValue] = item.id
+        }
     }
 
     var body: some View {
@@ -87,28 +90,41 @@ final class MascotFrames {
     private var loading: [String: Task<Void, Never>] = [:]
     private(set) var overlayImages: [String: CGImage] = [:]
 
-    func image(_ id: String, colorway: String = "classic") -> CGImage? { images[colorway + "/" + id] }
+    func image(_ id: String, colorway: String = "classic", hidingAntenna: Bool = false) -> CGImage? { images[colorway + "/" + id + "/" + String(hidingAntenna)] }
 
-    func preload(_ mood: MascotMood, colorway: String = "classic") async {
+    private var outfitLoading: Task<Void, Never>?
+
+    func preloadOutfit() async {
+        if let task = outfitLoading { return await task.value }
+        let ids = Array(WardrobeArt.sprites.keys)
+        let task = Task {
+            let decoded = await Task.detached(priority: .utility) {
+                ids.compactMap { id in
+                    WardrobeArt.decode(id + ".png", folder: "Wardrobe").map { (id, $0) }
+                }
+            }.value
+            for (id, image) in decoded { overlayImages[id] = image }
+        }
+        outfitLoading = task
+        await task.value
+    }
+
+    func preload(_ mood: MascotMood, colorway: String = "classic", hidingAntenna: Bool = false) async {
+        await preloadOutfit()
         guard let library else { return }
-        let key = colorway + "/" + mood.rawValue
+        let key = colorway + "/" + mood.rawValue + "/" + String(hidingAntenna)
         if let task = loading[key] { return await task.value }
-        let missing = library[mood].frames.filter { images[colorway + "/" + $0] == nil }
-        let missingSprites = WardrobeArt.sprites.keys.filter { overlayImages[$0] == nil }
+        let missing = library[mood].frames.filter { images[colorway + "/" + $0 + "/" + String(hidingAntenna)] == nil }
         // Paylasilan decode isi gorunum kapaninca sonucunu onbellege birakir.
         let task = Task {
             let decoded = await Task.detached(priority: .utility) {
                 var frames: [(String, CGImage)] = []
                 for id in missing {
-                    if let image = await WardrobeFrameCache.shared.image(id, colorway: colorway) { frames.append((id, image)) }
+                    if let image = await WardrobeFrameCache.shared.image(id, colorway: colorway, hidingAntenna: hidingAntenna) { frames.append((id, image)) }
                 }
-                let sprites = missingSprites.compactMap { id in
-                    WardrobeArt.decode(id + ".png", folder: "Wardrobe").map { (id, $0) }
-                }
-                return (frames, sprites)
+                return frames
             }.value
-            for (id, image) in decoded.0 { images[colorway + "/" + id] = image }
-            for (id, image) in decoded.1 { overlayImages[id] = image }
+            for (id, image) in decoded { images[colorway + "/" + id + "/" + String(hidingAntenna)] = image }
         }
         loading[key] = task
         await task.value

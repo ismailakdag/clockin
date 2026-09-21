@@ -354,6 +354,39 @@ struct Art {
         for i in 0...max(1,n) { rect(x0+(x1-x0)*i/max(1,n),y0+(y1-y0)*i/max(1,n),thick,thick,p) }
     }
     mutating func star(_ x:Int,_ y:Int,_ p:Pixel) { rect(x+2,y,1,5,p); rect(x,y+2,5,1,p); rect(x+1,y+1,3,3,p) }
+    mutating func material(_ base: Pixel, shadow: Pixel, light: Pixel) {
+        let original = b
+        func same(_ x: Int, _ y: Int) -> Bool {
+            x >= 0 && y >= 0 && x < original.width && y < original.height && original[x,y] == base
+        }
+        for y in 2..<(b.height-3) { for x in 2..<(b.width-3) where same(x,y) {
+            // Only shade broad surfaces. Preserve tiny stitching and facial details.
+            guard same(x-1,y) && same(x+1,y) && same(x,y-1) && same(x,y+1) else { continue }
+            if !same(x+3,y) || !same(x,y+3) { b[x,y] = shadow }
+            else if !same(x-2,y) || !same(x,y-2) { b[x,y] = light }
+        } }
+    }
+    mutating func finishMaterials() {
+        material(color("3C785F"), shadow: color("285348"), light: color("8BBE78"))
+        material(teal, shadow: color("286A70"), light: color("86D9BD"))
+        material(purple, shadow: color("493C73"), light: color("BCA0DC"))
+        material(coral, shadow: color("A54758"), light: color("FFB59A"))
+        material(gold, shadow: color("B67635"), light: color("FFF0B0"))
+        material(paper, shadow: color("A5B0CA"), light: color("FFFFFF"))
+        material(steel, shadow: color("283040"), light: color("778BA4"))
+        material(wood, shadow: color("754A3D"), light: color("DBA875"))
+        material(woodLight, shadow: color("AC704D"), light: color("F4D4A0"))
+    }
+    mutating func worktable() {
+        // Every desk option is a complete station, so its object never floats.
+        box(8,42,66,6,woodLight)
+        rect(10,43,62,1,color("FFE0AE"))
+        box(12,48,6,26,wood); box(64,48,6,26,wood)
+        box(18,49,45,10,wood); rect(21,50,39,1,woodLight)
+        box(37,52,9,3,gold)
+        rect(13,49,2,23,woodLight); rect(65,49,2,23,woodLight)
+        rect(18,59,46,2,woodDark)
+    }
     // A one-art-cell outline surrounds the union, including thin strings. This
     // does not fill transparent holes in glasses or handles.
     func sprite(pivot:[Int], outline:Bool=true) -> (Bitmap,[Int]) {
@@ -380,137 +413,235 @@ func makeWardrobe() throws {
     precondition(g.unit==2)
     var catalog=[String:Any]()
     func item(_ id:String,_ slot:String,_ pivot:[Int],_ draw:(inout Art)->Void) {
-        var a=Art(); draw(&a)
-        var fittedPivot=pivot
-        // A fixed-size overlay must fit the smallest upright visor and raised fist.
-        let factor = slot == "face" ? 0.8 : (slot == "hand" ? 0.7 : 1.0)
-        let scaleX = ["wings","backpack","jetpack"].contains(id) ? 1.25 : factor
-        let scaleY = id == "cape" ? 0.85 : factor
-        if scaleX != 1 || scaleY != 1 {
-            let original=a.b
-            a.b=Bitmap(width:180,height:140)
-            a.b.blit(original,0,0,width:Int(180*scaleX),height:Int(140*scaleY))
-            fittedPivot=[Int(Double(pivot[0])*scaleX),Int(Double(pivot[1])*scaleY)]
+        var a=Art(); draw(&a); a.finishMaterials()
+        // Fit in whole art cells around the authored attachment point. Visor
+        // accessories stay inside the face; neck and hand items stay subordinate
+        // to the robot. Hats retain enough clearance for the highest dance pose.
+        let fit: [String: (Double, Double)] = [
+            "cap": (0.80, 0.80), "antenna": (0.85, 0.65),
+            "beanie": (0.84, 0.65), "party-hat": (0.55, 0.48),
+            "chef-hat": (0.78, 0.60), "crown": (0.80, 0.60),
+            "cowboy-hat": (0.80, 0.72), "wizard-hat": (0.70, 0.48),
+            "round-glasses": (0.80, 0.80), "sunglasses": (0.80, 0.80),
+            "pixel-shades": (0.80, 0.80), "monocle": (0.78, 0.78),
+            "scarf": (0.76, 0.76), "bow-tie": (0.62, 0.62),
+            "gold-medal": (0.65, 0.65), "necktie": (0.68, 0.68),
+            "cape": (0.84, 0.84), "backpack": (0.76, 0.76),
+            "jetpack": (0.82, 0.82), "mug": (0.68, 0.68),
+            "trophy": (0.62, 0.62), "balloon": (0.76, 0.76),
+            "small-flag": (0.70, 0.70)
+        ]
+        let (fitX, fitY) = fit[id] ?? (1.0, 1.0)
+        var fittedPivot = pivot
+        if fitX != 1 || fitY != 1 {
+            let original = a.b
+            a.b = Bitmap(width:180, height:140)
+            a.b.blit(original, 0, 0, width:Int(180 * fitX), height:Int(140 * fitY))
+            fittedPivot = [Int(Double(pivot[0]) * fitX), Int(Double(pivot[1]) * fitY)]
         }
         let (sprite,p)=a.sprite(pivot:fittedPivot)
         sprite.write(wardrobeDir.appendingPathComponent(id+".png"))
         let anchor=id == "headphones" ? "visor" : ["head":"head","face":"visor","neck":"neck","back":"back","hand":"handR"][slot]!
-        catalog[id]=["slot":slot,"anchorPoint":anchor,"pivot":p,"layer":slot=="back" ? "back":"front"]
+        var entry: [String: Any] = ["slot":slot,"anchorPoint":anchor,"pivot":p,"layer":slot=="back" ? "back":"front"]
+        // Expose the near edge of compact packs in side-facing poses. These
+        // offsets affect fitting only, never the behind-the-body layer order.
+        let sideFits: [String: [String: [Int]]] = [
+            "backpack": ["t": [-26, -4], "c": [38, -6], "pose2": [-26, -4], "pose4": [-22, 0]],
+            "jetpack": ["t": [-20, -4], "c": [24, -6], "pose2": [-20, -4], "pose4": [-18, 0]],
+            "cape": ["t": [-10, 0], "c": [12, 0], "pose2": [-10, 0], "pose4": [-10, 0]]
+        ]
+        if let offsets = sideFits[id] { entry["poseOffsets"] = offsets }
+        catalog[id] = entry
     }
     item("cap","head",[40,34]) { a in
-        a.ellipse(16,20,48,34,teal); a.rect(12,37,58,4,teal); a.rect(49,39,24,3,teal)
-        a.line(40,21,40,35,color("2A706D")); a.rect(39,19,4,2,gold); a.rect(23,34,35,3,color("2A706D"))
-        a.star(32,26,paper); a.rect(16,42,52,14,.clear)
+        a.ellipse(16,17,48,43,teal); a.rect(10,38,63,5,teal)
+        a.poly([(44,38),(68,38),(78,42),(70,46),(43,44)],color("286A70"))
+        a.rect(14,43,50,20,.clear)
+        a.line(39,19,39,35,color("286A70")); a.line(41,20,41,35,color("86D9BD"))
+        a.rect(22,34,38,4,color("286A70")); a.rect(22,34,34,1,color("86D9BD"))
+        a.box(26,25,13,8,woodLight); a.star(30,26,paper)
+        a.rect(36,16,6,3,gold); a.line(51,40,69,41,color("86D9BD"))
     }
-    item("antenna","head",[40,34]) { a in
-        a.box(35,30,11,5,gold); a.line(40,29,40,23,gold,3)
-        a.oval(35,15,11,10,gold); a.rect(37,17,3,3,paper)
+    item("antenna","head",[40,36]) { a in
+        a.box(31,32,19,6,steel); a.rect(33,32,15,2,gold)
+        a.box(38,19,5,14,steel); a.rect(39,20,2,10,paper)
+        a.oval(32,8,17,15,coral); a.oval(35,10,10,9,gold)
+        a.rect(36,10,4,3,paper); a.rect(35,36,11,2,steel)
     }
     item("beanie","head",[40,34]) { a in
-        a.ellipse(17,16,46,44,purple); a.rect(15,35,50,7,color("55436F")); a.rect(16,42,50,24,.clear)
-        for x in stride(from:21,through:60,by:6) { a.line(x,27,x,34,color("A18ABF")); a.rect(x,37,2,3,purple) }
-        a.oval(35,10,11,9,gold); a.box(45,36,8,5,woodLight)
+        a.ellipse(16,12,48,49,purple); a.rect(14,34,52,10,color("493C73"))
+        a.rect(15,44,52,25,.clear)
+        for x in stride(from:22,through:59,by:6) { a.line(x,23,x,32,color("BCA0DC")); a.line(x,35,x,41,purple) }
+        a.rect(18,34,44,2,color("BCA0DC")); a.oval(33,4,15,13,gold)
+        a.rect(35,6,5,3,paper); a.box(46,36,11,6,woodLight); a.rect(49,38,5,2,woodDark)
     }
-    item("party-hat","head",[40,37]) { a in
-        a.poly([(17,43),(40,17),(64,43)],coral); a.line(29,31,51,31,gold,3); a.line(34,25,47,25,paper,2)
-        a.oval(36,14,8,8,gold); a.rect(17,41,47,3,gold); a.rect(36,34,4,4,teal)
+    item("party-hat","head",[40,39]) { a in
+        a.poly([(16,44),(39,7),(64,44)],coral)
+        a.poly([(40,10),(64,44),(50,44)],color("A54758"))
+        a.poly([(22,34),(27,27),(53,34),(58,41)],gold)
+        a.poly([(30,23),(33,18),(44,21),(48,28)],paper)
+        a.rect(17,42,47,4,gold); a.rect(21,42,37,1,paper)
+        a.oval(35,3,9,9,gold); a.star(34,33,teal)
     }
-    item("crown","head",[40,27]) { a in
-        a.poly([(15,14),(27,22),(40,9),(53,22),(66,14),(61,34),(20,34)],gold)
-        a.rect(20,30,42,4,color("C18B35")); a.box(37,22,7,7,coral); a.rect(24,26,3,3,cyan); a.rect(54,26,3,3,cyan)
-        for x in [14,38,64] { a.ellipse(x,10-(x==38 ? 4:0),4,4,paper) }
+    item("crown","head",[40,30]) { a in
+        a.poly([(14,11),(26,21),(40,6),(53,21),(66,11),(61,38),(20,38)],gold)
+        a.poly([(53,21),(66,11),(61,38),(51,38)],color("B67635"))
+        a.rect(20,32,42,6,gold); a.rect(21,32,39,2,color("FFF0B0"))
+        a.box(35,22,11,10,woodDark); a.poly([(40,23),(45,27),(40,31),(36,27)],coral)
+        a.rect(38,24,3,3,paper); a.box(24,27,5,4,cyan); a.box(52,27,5,4,cyan)
+        for (x,y) in [(12,8),(38,3),(64,8)] { a.oval(x,y,5,5,gold); a.rect(x+1,y+1,2,1,paper) }
     }
-    item("wizard-hat","head",[40,38]) { a in
-        a.poly([(20,42),(34,22),(51,15),(48,25),(61,42)],purple); a.ellipse(11,39,59,7,purple)
-        a.rect(24,36,33,4,color("55436F")); a.star(38,23,gold); a.rect(45,20,2,2,paper); a.rect(49,31,2,2,gold)
+    item("wizard-hat","head",[40,42]) { a in
+        a.poly([(20,44),(30,23),(38,10),(58,6),(48,16),(52,28),(62,44)],purple)
+        a.poly([(44,13),(58,6),(48,17),(54,31),(61,43),(48,43)],color("493C73"))
+        a.oval(8,42,66,9,purple); a.rect(23,38,35,6,color("493C73"))
+        a.line(27,38,53,38,color("BCA0DC")); a.box(38,39,9,5,gold)
+        a.star(36,23,gold); a.star(47,31,color("FFF0B0")); a.rect(39,14,2,2,paper)
     }
-    item("chef-hat","head",[40,33]) { a in
-        a.oval(14,13,23,23,paper); a.oval(27,10,26,26,paper); a.oval(44,13,23,23,paper)
-        a.rect(22,25,38,14,paper); a.rect(24,35,34,4,color("B8BDCA")); a.line(32,27,32,34,color("D4D7DF")); a.line(50,25,50,34,color("D4D7DF"))
+    item("chef-hat","head",[40,34]) { a in
+        a.oval(12,11,25,25,paper); a.oval(26,5,30,31,paper); a.oval(47,12,23,25,paper)
+        a.rect(21,26,40,16,paper); a.rect(22,38,38,6,color("A5B0CA"))
+        a.rect(23,38,35,3,paper)
+        a.line(29,27,29,36,color("A5B0CA")); a.line(41,29,41,36,color("A5B0CA")); a.line(53,27,53,36,color("A5B0CA"))
+        a.rect(20,14,8,2,color("FFFFFF")); a.rect(35,9,10,2,color("FFFFFF"))
     }
     item("cowboy-hat","head",[40,30]) { a in
-        a.poly([(22,34),(26,13),(38,17),(48,13),(58,34)],woodLight)
-        a.poly([(8,29),(22,34),(60,34),(74,27),(68,38),(19,40)],woodLight)
-        a.rect(24,29,35,5,woodDark); a.box(39,29,6,5,gold); a.line(30,16,30,27,color("E9B984"))
+        a.poly([(21,34),(25,10),(37,15),(48,10),(59,33)],woodLight)
+        a.poly([(47,13),(53,13),(59,34),(48,34)],wood)
+        a.poly([(6,26),(18,32),(61,32),(76,25),(72,36),(62,42),(20,42),(9,35)],woodLight)
+        a.line(14,36,24,39,woodDark,2); a.line(24,39,59,39,woodDark,2)
+        a.rect(23,28,36,6,woodDark); a.box(38,29,9,6,gold); a.rect(41,31,3,2,woodDark)
+        a.line(28,15,27,25,color("F4D4A0")); a.line(13,29,21,33,color("F4D4A0"))
     }
     item("headphones","head",[40,32]) { a in
-        a.ellipse(12,10,56,52,steel); a.ellipse(16,14,48,47,.clear); a.rect(20,40,42,28,.clear)
-        a.box(11,22,10,21,steel); a.box(60,22,10,21,steel)
-        a.rect(13,26,3,12,orange); a.rect(65,26,3,12,orange); a.rect(29,11,22,2,purple); a.rect(0,43,80,30,.clear)
+        a.ellipse(10,6,60,51,steel); a.ellipse(16,12,48,43,.clear)
+        a.rect(18,35,45,28,.clear); a.rect(0,44,80,25,.clear)
+        a.line(23,9,55,9,color("778BA4"),2)
+        a.box(9,22,12,23,steel); a.box(60,22,12,23,steel)
+        a.box(10,26,8,14,orange); a.box(64,26,8,14,orange)
+        a.rect(12,28,2,9,gold); a.rect(66,28,2,9,gold)
+        a.rect(18,24,3,19,color("A5B0CA")); a.rect(60,24,3,19,color("A5B0CA"))
     }
     item("round-glasses","face",[40,25]) { a in
-        a.ellipse(20,17,17,17,gold); a.ellipse(22,19,13,13,.clear)
-        a.ellipse(44,17,17,17,gold); a.ellipse(46,19,13,13,.clear)
-        a.line(36,24,44,24,gold); a.line(15,22,20,23,gold); a.line(60,23,66,22,gold)
-        a.rect(24,20,2,3,paper); a.rect(48,20,2,3,paper)
+        for x in [20,43] { a.oval(x,16,18,18,gold); a.ellipse(x+3,19,12,12,.clear); a.rect(x+4,19,2,4,paper) }
+        a.line(37,23,43,23,gold,2); a.line(15,21,20,23,gold,2); a.line(60,23,64,21,gold,2)
     }
     item("sunglasses","face",[40,25]) { a in
-        a.poly([(17,19),(37,20),(34,32),(23,32)],steel); a.poly([(43,20),(63,19),(57,32),(46,32)],steel)
-        a.line(16,19,64,19,ink,2); a.rect(37,22,7,2,ink); a.line(22,22,27,22,cyan,2); a.line(48,22,53,22,cyan,2)
+        a.poly([(17,18),(37,20),(35,33),(22,32)],steel); a.poly([(43,20),(63,18),(58,32),(45,33)],steel)
+        a.line(16,18,64,18,gold,2); a.rect(37,22,7,3,gold)
+        a.line(22,22,30,22,color("778BA4"),2); a.line(24,24,29,24,cyan)
+        a.line(47,22,55,22,color("778BA4"),2); a.line(49,24,54,24,cyan)
     }
     item("pixel-shades","face",[40,25]) { a in
-        a.rect(17,19,46,4,ink); a.rect(20,23,17,7,ink); a.rect(43,23,17,7,ink)
-        for x in [22,28,45,51] { a.rect(x,23,3,2,paper); a.rect(x+3,25,3,2,paper) }
+        a.rect(17,18,46,5,ink); a.rect(20,23,17,9,ink); a.rect(43,23,17,9,ink)
+        a.rect(18,18,44,1,color("778BA4"))
+        for x in [22,28,45,51] { a.rect(x,22,3,3,paper); a.rect(x+3,25,3,3,paper) }
+        a.rect(22,30,13,1,steel); a.rect(45,30,13,1,steel)
     }
-    item("monocle","face",[39,25]) { a in
-        a.ellipse(44,17,18,18,gold); a.ellipse(46,19,14,14,.clear); a.line(38,24,44,24,gold)
-        a.line(60,30,63,42,gold,2); a.line(63,42,60,50,gold,2); a.rect(49,20,2,4,paper)
+    item("monocle","face",[40,25]) { a in
+        a.oval(43,15,20,20,gold); a.ellipse(47,19,12,12,.clear)
+        a.rect(47,19,2,5,paper); a.line(37,23,43,23,gold,2)
+        a.line(61,29,64,37,gold); a.line(64,37,62,47,gold); a.line(62,47,56,50,gold)
+        a.oval(54,48,4,4,gold)
     }
     item("scarf","neck",[40,12]) { a in
-        a.poly([(24,9),(38,12),(56,8),(56,15),(39,19),(24,15)],coral)
-        a.poly([(48,15),(58,13),(63,34),(54,32)],coral); a.line(53,20,59,20,gold,2)
-        a.rect(54,29,2,6,gold); a.rect(58,30,2,5,gold)
+        a.poly([(22,7),(36,11),(58,7),(57,17),(40,21),(23,16)],coral)
+        a.poly([(49,15),(59,12),(64,38),(52,36)],coral)
+        a.poly([(48,16),(53,17),(58,35),(53,35)],color("A54758"))
+        a.line(25,11,38,15,color("FFB59A"),2); a.line(39,15,53,12,color("FFB59A"),2)
+        a.line(55,25,61,24,gold,3)
+        for x in [53,57,61] { a.rect(x,35,2,5,gold) }
     }
     item("bow-tie","neck",[40,14]) { a in
-        a.poly([(25,8),(40,13),(56,8),(56,21),(40,16),(25,21)],purple)
-        a.box(37,11,7,7,gold); a.line(28,12,34,14,color("A18ABF")); a.line(48,14,53,12,color("A18ABF"))
+        a.poly([(23,6),(40,12),(57,6),(57,23),(40,17),(23,23)],purple)
+        a.poly([(25,9),(37,14),(25,19)],color("BCA0DC")); a.poly([(55,10),(43,15),(55,20)],color("493C73"))
+        a.box(37,10,8,10,gold); a.rect(39,12,2,5,paper)
     }
     item("gold-medal","neck",[40,8]) { a in
-        a.line(26,7,39,25,coral,3); a.line(54,7,41,25,coral,3)
-        a.oval(33,23,17,17,gold); a.ellipse(36,26,11,11,color("C18B35")); a.star(39,29,gold)
+        a.line(24,6,39,24,coral,4); a.line(53,6,40,24,coral,4)
+        a.line(26,7,39,22,paper); a.line(54,8,43,22,gold)
+        a.oval(31,21,21,21,gold); a.oval(34,24,15,15,color("B67635"))
+        a.star(39,29,color("FFF0B0")); a.rect(35,24,6,2,paper)
     }
     item("necktie","neck",[40,10]) { a in
-        a.poly([(36,7),(45,7),(43,13),(46,32),(40,37),(35,32),(38,13)],teal)
-        a.line(37,21,44,18,paper,2); a.line(36,29,45,25,color("78C8B6"),2)
+        a.poly([(35,6),(46,6),(43,14),(47,34),(40,40),(34,34),(37,14)],teal)
+        a.poly([(42,15),(47,34),(40,40),(40,16)],color("286A70"))
+        a.line(36,24,44,20,gold,2); a.line(35,32,45,27,color("86D9BD"),2)
+        a.rect(37,8,6,2,color("86D9BD"))
     }
-    item("cape","back",[40,12]) { a in
-        a.poly([(24,9),(56,9),(76,70),(60,74),(42,70),(22,74),(6,70)],coral)
-        a.line(24,17,17,65,color("A24C54"),2); a.line(55,17,65,65,color("A24C54"),2)
-        a.line(40,20,40,66,color("EF9E7E"),2); a.rect(27,9,27,3,gold)
+    item("cape","back",[40,20]) { a in
+        a.poly([(23,12),(57,12),(66,35),(80,70),(63,74),(43,70),(22,75),(3,70),(15,38)],coral)
+        a.poly([(23,16),(30,17),(19,68),(9,69)],color("FFB59A"))
+        a.poly([(53,17),(59,21),(73,69),(63,71)],color("A54758"))
+        a.poly([(37,27),(42,28),(42,68),(33,71)],color("A54758"))
+        a.line(7,69,22,72,gold,2); a.line(23,72,42,68,gold,2); a.line(44,68,63,72,gold,2); a.line(64,72,77,69,gold,2)
+        a.rect(24,12,32,4,gold)
     }
-    item("backpack","back",[40,16]) { a in
-        a.box(13,15,51,40,teal); a.box(18,18,41,32,color("317871")); a.box(15,37,16,15,teal)
-        a.box(10,25,6,18,gold); a.box(60,26,8,17,gold); a.box(29,11,19,7,woodLight)
-        a.rect(23,20,3,29,woodLight); a.rect(51,20,3,29,woodLight); a.rect(19,41,9,2,gold)
+    item("backpack","back",[46,30]) { a in
+        a.oval(7,12,68,55,teal); a.box(15,18,52,44,teal)
+        a.box(29,6,26,9,woodDark); a.rect(34,9,16,6,.clear)
+        a.box(6,36,13,26,woodLight); a.box(66,36,13,26,woodLight)
+        a.box(14,18,56,16,teal); a.rect(18,20,44,2,color("86D9BD"))
+        for x in [21,58] { a.rect(x,27,5,29,woodDark); a.box(x-1,37,7,7,gold) }
+        a.box(28,42,26,19,teal); a.rect(30,45,22,2,gold)
+        a.rect(8,41,7,2,paper); a.rect(69,41,7,2,paper)
     }
-    item("jetpack","back",[40,17]) { a in
-        a.box(12,14,16,38,steel); a.box(52,14,16,38,steel); a.box(26,21,29,22,color("8993A4"))
-        for x in [16,56] { a.rect(x,19,8,17,paper); a.rect(x,37,8,5,orange); a.poly([(x,53),(x+8,53),(x+4,67)],orange); a.poly([(x+2,53),(x+6,53),(x+4,61)],gold) }
-    }
-    item("wings","back",[40,22]) { a in
-        for right in [false,true] {
-            func x(_ v:Int)->Int { right ? 80-v:v }
-            a.poly([(x(37),27),(x(11),6),(x(5),9),(x(9),31),(x(17),39),(x(36),42)],paper)
-            for i in 0..<4 { a.line(x(11+i*5),16+i*3,x(20+i*4),35+i,color("B8BDCA")) }
+    item("jetpack","back",[40,29]) { a in
+        a.box(22,21,38,24,steel)
+        for x in [5,59] {
+            a.oval(x,10,19,54,steel); a.oval(x+2,12,15,18,paper)
+            a.box(x+2,28,15,22,steel); a.rect(x+4,30,3,16,color("778BA4"))
+            a.box(x+2,49,15,7,orange); a.box(x+4,56,11,6,steel)
+            a.poly([(x+4,62),(x+15,62),(x+13,72),(x+9,80),(x+5,71)],orange)
+            a.poly([(x+7,62),(x+12,62),(x+9,73)],gold)
+            a.rect(x+5,23,9,3,cyan)
         }
-        a.rect(35,21,11,19,paper)
     }
-    item("mug","hand",[39,32]) { a in
-        a.oval(32,22,12,15,paper); a.ellipse(35,25,6,8,.clear)
-        a.box(15,20,21,22,paper); a.rect(17,21,17,3,woodDark); a.rect(18,25,3,12,color("D4D7DF")); a.star(24,28,orange)
+    item("wings","back",[58,28]) { a in
+        // Spread below raised forearms instead of following their silhouette.
+        // The root stays on the back; each feather remains readable at 80 px.
+        for right in [false,true] {
+            func x(_ v:Int)->Int { right ? 116-v:v }
+            a.poly([(x(58),28),(x(43),21),(x(21),15),(x(5),9),
+                    (x(7),23),(x(12),34),(x(21),42),(x(34),47),
+                    (x(47),42),(x(58),34)],color("A5B0CA"))
+            a.poly([(x(55),28),(x(39),23),(x(20),17),(x(7),12),
+                    (x(12),25),(x(29),31),(x(46),34)],paper)
+            a.poly([(x(49),33),(x(31),28),(x(10),23),
+                    (x(16),34),(x(32),39),(x(45),39)],color("D6DDEA"))
+            a.poly([(x(46),39),(x(32),35),(x(18),33),
+                    (x(24),41),(x(35),45)],paper)
+            a.line(x(13),17,x(37),25,color("FFFFFF"),2)
+            a.line(x(20),29,x(36),34,paper,2)
+        }
+        a.oval(51,24,15,16,gold)
     }
-    item("trophy","hand",[40,42]) { a in
-        a.oval(22,9,37,20,gold); a.ellipse(25,12,31,13,.clear)
-        a.poly([(29,8),(52,8),(49,25),(42,29),(34,25)],gold); a.rect(38,27,5,10,gold)
-        a.box(31,37,20,7,woodDark); a.rect(36,39,10,3,gold); a.rect(33,11,3,10,paper)
+    item("mug","hand",[15,29]) { a in
+        // Handle meets the raised fist; the cup sits outside the face silhouette.
+        a.oval(9,18,14,18,steel); a.oval(11,20,10,14,paper); a.ellipse(13,23,5,8,.clear)
+        a.box(19,15,23,26,teal); a.oval(19,12,23,8,paper); a.ellipse(22,14,17,4,woodDark)
+        a.rect(22,21,3,14,color("86D9BD")); a.box(28,23,10,10,paper); a.star(30,25,orange)
+        a.line(25,9,23,5,paper); a.line(33,9,35,4,paper)
     }
-    item("balloon","hand",[40,67]) { a in
-        a.line(72,29,55,45,paper,2); a.line(55,45,40,67,paper,2)
-        a.oval(60,4,28,30,coral); a.poly([(73,32),(70,37),(77,37)],coral); a.rect(65,11,3,9,paper)
+    item("trophy","hand",[40,46]) { a in
+        a.oval(20,7,40,24,gold); a.ellipse(24,11,32,14,.clear)
+        a.poly([(28,6),(53,6),(50,25),(41,32),(31,24)],gold)
+        a.poly([(46,8),(51,8),(48,24),(42,28)],color("B67635"))
+        a.rect(32,9,4,12,paper); a.rect(38,29,6,11,gold)
+        a.box(28,40,26,9,woodDark); a.box(35,42,13,4,gold); a.rect(37,43,7,1,paper)
     }
-    item("small-flag","hand",[40,48]) { a in
-        a.line(40,7,40,49,woodLight,2); a.poly([(42,8),(64,11),(59,19),(64,27),(42,24)],teal)
-        a.star(49,15,gold); a.oval(38,4,6,6,gold)
+    item("balloon","hand",[40,45]) { a in
+        a.line(55,34,50,41,paper); a.line(50,41,40,45,paper)
+        a.oval(40,2,32,36,coral); a.poly([(54,36),(51,41),(59,41)],coral)
+        a.ellipse(45,7,8,15,color("FFB59A")); a.rect(47,8,3,6,paper)
+        a.line(63,23,60,30,color("A54758"),2)
+    }
+    item("small-flag","hand",[40,47]) { a in
+        a.box(39,5,4,46,woodLight)
+        a.poly([(43,7),(60,7),(69,11),(64,20),(68,30),(53,26),(43,27)],teal)
+        a.poly([(61,9),(69,11),(64,20),(68,30),(60,27)],color("286A70"))
+        a.line(45,9,57,9,color("86D9BD")); a.star(49,14,gold)
+        a.oval(37,2,8,7,gold)
     }
     try saveJSON(catalog,wardrobeDir.appendingPathComponent("wardrobe-sprites.json"))
     try makeColorways()
@@ -555,27 +686,27 @@ func makeHome() throws {
     for id in ["cozy","studio","night"] {
         let night=id=="night", modern=id=="studio"
         var a=Art()
-        let wall=night ? color("293850"):(modern ? color("D7DDD7"):color("C99B73"))
+        let wall=night ? color("293850"):(modern ? color("D7DDD7"):color("D2B396"))
         a.rect(0,0,180,120,wall)
         if modern {
             a.rect(0,0,180,6,color("B7C6BE")); a.rect(8,8,2,79,color("C1CEC4"))
             a.rect(168,8,2,79,color("C1CEC4")); a.rect(9,80,160,2,color("B7C6BE"))
         } else {
             for y in stride(from:5,to:89,by:12) {
-                a.rect(0,y,180,1,night ? color("202E45"):color("AD7C58"))
+                a.rect(0,y,180,1,night ? color("202E45"):color("BE9A7A"))
                 for x in stride(from:(y/12)%2*28+7,to:180,by:55) {
-                    a.rect(x,y+1,1,10,night ? color("31435B"):color("DCB18A"))
-                    a.rect(x+16,y+5,8,1,night ? color("304058"):color("B88861"))
+                    a.rect(x,y+1,1,10,night ? color("31435B"):color("E5CAB0"))
+                    a.rect(x+16,y+5,8,1,night ? color("304058"):color("CAA586"))
                 }
             }
             a.rect(0,0,7,91,night ? color("182A3E"):woodDark)
             a.rect(173,0,7,91,night ? color("182A3E"):woodDark)
             a.rect(0,0,180,5,night ? color("182A3E"):woodDark)
         }
-        a.rect(0,90,180,30,night ? color("3E3F51"):color("AA7D5D"))
+        a.rect(0,90,180,30,night ? color("3E3F51"):color("A9816A"))
         a.rect(0,86,180,4,night ? color("1C2A3E"):woodDark)
         for y in stride(from:98,to:120,by:10) {
-            a.rect(0,y,180,1,night ? color("2D3347"):color("875F4A"))
+            a.rect(0,y,180,1,night ? color("2D3347"):color("87624F"))
             for x in stride(from:(y/10)%2*23,to:180,by:43) { a.rect(x,y-8,1,8,night ? color("34394C"):color("966D52")) }
         }
         // Fixed architectural round window, with a separate window-slot sill.
@@ -596,104 +727,190 @@ func makeHome() throws {
         a.poly([(82,13),(94,13),(99,20),(77,20)],night ? color("A58655"):gold)
         a.rect(81,20,14,2,night ? color("D5AF71"):color("FFE3A0"))
         if !modern { a.rect(29,7,1,77,night ? color("3A4559"):color("D7AC84")) }
+        // Timber edges, skirting and broad reflected light, all on the art grid.
+        a.rect(0,86,180,1,night ? color("52617A") : color("E8C6A0"))
+        a.rect(0,90,180,3,night ? color("303449") : color("8D6550"))
+        a.rect(7,5,2,80,night ? color("3B4D65") : color("E9C7A0"))
+        a.rect(171,5,2,80,night ? color("152439") : color("A17353"))
+        a.rect(7,5,164,2,night ? color("34465F") : color("E4BC94"))
+        // Window joinery is thicker than distant scenery.
+        a.line(122,59,162,59,night ? color("7B8394") : color("F5D7AA"))
+        a.rect(118,63,47,2,night ? color("1D2C43") : color("A17F64"))
+        if modern {
+            a.rect(10,9,1,74,color("F1F0DF")); a.rect(168,9,1,74,color("B2C2B8"))
+        }
+        // Shallow side walls and converging floor seams establish room depth.
+        let side = night ? color("202D43") : (modern ? color("BCCBC3") : color("AE896D"))
+        a.poly([(0,0),(10,8),(10,86),(0,95)],side)
+        a.poly([(170,8),(180,0),(180,95),(170,86)],side)
+        a.line(10,8,10,86,night ? color("4A5A73") : color("F0D3AF"))
+        a.line(170,8,170,86,night ? color("17273C") : color("8F715B"),2)
+        a.line(0,95,10,86,night ? color("52617A") : color("E8C6A0"),2)
+        a.line(170,86,179,95,night ? color("52617A") : color("E8C6A0"),2)
+        for x in [28,66,108,150] {
+            a.line(x,93,90+(x-90)*2,119,night ? color("2D3347") : color("886752"))
+        }
+        a.rect(10,88,160,2,night ? color("172539") : color("785740"))
+        a.rect(10,90,160,2,night ? color("34384B") : color("B68B68"))
         var room=Bitmap(width:360,height:240)
         for y in 0..<120 { for x in 0..<180 { room.rect(x*2,y*2,2,2,a.b[x,y]) } }
         room.write(homeDir.appendingPathComponent("room-"+id+".png"))
         rooms[id]=["name":["cozy":"Cozy hut","studio":"Studio","night":"Night hut"][id]!,"file":"room-"+id+".png","floorY":180,
-            "slots":["floorLeft":[64,218],"floorRight":[300,218],"wallLeft":[95,45],"wallRight":[210,91],"window":[282,120],"rug":[184,208],"desk":[94,154],"shelf":[60,150]],"mascotSpot":[214,218]]
+            "slots":["floorLeft":[42,224],"floorRight":[302,224],"wallLeft":[55,45],"wallRight":[210,69],"window":[282,120],"rug":[236,204],"desk":[142,158],"shelf":[132,90]],"mascotSpot":[240,224]]
     }
     func item(_ id:String,_ name:String,_ slot:String,_ pivot:[Int],_ draw:(inout Art)->Void) {
-        var a=Art(); draw(&a)
-        let (sprite,p)=a.sprite(pivot:pivot)
+        var a=Art(); draw(&a); a.finishMaterials()
+        let fit = id == "big-plant" ? 0.66 : (id == "string-lights" ? 0.70 : (slot == "desk" ? 0.84 : (slot == "rug" ? 1.0 : 0.76)))
+        let original = a.b
+        a.b = Bitmap(width:180,height:140)
+        a.b.blit(original,0,0,width:Int(180*fit),height:Int(140*fit))
+        let (sprite,p)=a.sprite(pivot:[Int(Double(pivot[0])*fit),Int(Double(pivot[1])*fit)])
         sprite.write(homeDir.appendingPathComponent(id+".png"))
         items[id]=["name":name,"file":id+".png","slot":slot,"pivot":p]
     }
-    item("desk-monitor","Desk and monitor","desk",[40,36]) { a in
-        a.box(8,36,65,6,woodLight); a.box(13,42,5,23,wood); a.box(64,42,5,23,wood)
-        a.box(27,12,35,23,steel); a.rect(30,15,29,16,color("284C63")); a.rect(32,18,13,2,cyan)
-        for y in [23,27] { a.rect(33,y,19-(y-23)*2,1,color("73A6B4")) }
-        a.rect(43,35,4,2,steel); a.rect(38,37,14,1,steel); a.box(33,39,23,2,color("8993A4"))
-        a.box(20,44,39,8,wood); a.rect(36,47,8,1,gold); a.rect(10,37,12,1,color("F1C796"))
+    item("desk-monitor","Desk and monitor","desk",[40,42]) { a in
+        a.worktable()
+        a.box(23,12,44,26,steel); a.rect(26,15,38,19,color("22334B"))
+        a.rect(27,16,36,2,color("3E5572")); a.rect(29,21,15,2,cyan)
+        a.rect(29,26,25,1,color("88A7C1")); a.rect(29,29,18,1,color("88A7C1"))
+        a.rect(42,38,5,4,steel); a.rect(37,41,16,2,steel)
+        a.box(31,43,26,3,color("A5B0CA")); a.rect(34,43,20,1,paper)
+        a.box(13,32,7,10,coral); a.rect(14,32,5,2,paper)
     }
-    item("desk-lamp","Desk lamp","desk",[39,39]) { a in
-        a.oval(29,35,21,5,steel); a.line(39,34,45,24,steel,2); a.line(45,24,39,15,steel,2)
-        a.oval(41,23,5,5,gold); a.poly([(30,11),(43,11),(47,19),(26,19)],teal); a.rect(29,19,15,2,gold)
+    item("desk-lamp","Desk lamp and writing desk","desk",[40,42]) { a in
+        a.worktable()
+        a.oval(42,37,21,5,steel); a.line(52,36,58,24,steel,3); a.line(58,24,48,12,steel,3)
+        a.line(53,33,59,24,color("778BA4")); a.oval(55,22,6,6,gold)
+        a.poly([(38,8),(51,8),(55,18),(32,18)],teal); a.rect(35,18,17,3,gold)
+        a.rect(37,18,12,1,paper); a.rect(38,10,10,2,color("86D9BD"))
+        a.box(18,37,20,5,paper); a.rect(20,38,16,1,color("A5B0CA")); a.line(23,35,36,34,coral,2)
     }
     item("potted-plant","Potted plant","window",[39,42]) { a in
-        a.line(39,31,39,13,woodDark,2); a.oval(28,16,11,7,teal); a.oval(40,12,12,8,color("79B88F"))
-        a.oval(30,25,10,6,color("79B88F")); a.poly([(29,30),(50,30),(47,43),(32,43)],coral)
-        a.rect(29,30,21,3,woodLight); a.rect(34,35,2,6,color("EDAA8E"))
+        a.line(39,31,39,12,woodDark,2)
+        a.poly([(39,22),(31,12),(23,13),(26,21),(38,26)],teal)
+        a.poly([(40,17),(46,5),(55,8),(51,17),(40,23)],teal)
+        a.poly([(38,28),(27,22),(24,25),(29,31),(39,32)],teal)
+        a.line(29,16,37,22,color("86D9BD")); a.line(49,10,42,19,color("86D9BD"))
+        a.poly([(28,30),(51,30),(47,44),(32,44)],coral); a.box(27,29,25,5,woodLight)
+        a.rect(34,35,3,7,color("FFB59A")); a.rect(31,31,16,1,color("F4D4A0"))
     }
     item("big-plant","Big plant","floorRight",[40,72]) { a in
-        a.line(40,55,40,15,woodDark,2)
-        for (x,y,w,h) in [(22,16,18,11),(41,9,19,13),(18,33,22,11),(41,27,23,13),(27,4,13,18)] { a.oval(x,y,w,h,teal); a.line(x+3,y+h/2,x+w-3,y+h/2,color("79B88F")) }
-        a.poly([(26,51),(55,51),(50,73),(31,73)],color("D1AA82")); a.rect(27,52,27,3,woodDark)
-        a.rect(34,58,2,11,color("E8CCAA")); a.rect(47,58,2,11,woodLight)
+        a.line(40,55,40,15,woodDark,3)
+        for (x,y,flip) in [(21,18,false),(42,9,true),(18,35,false),(42,30,true)] {
+            let dx=flip ? 1 : -1, origin=flip ? x : x+18
+            a.poly([(origin,y+13),(origin+dx*20,y+4),(origin+dx*18,y-3),(origin+dx*7,y-1)],color("3C785F"))
+            a.line(origin,y+10,origin+dx*15,y+1,color("8BBE78"))
+        }
+        a.oval(33,3,11,21,color("3C785F")); a.line(38,8,39,21,color("8BBE78"))
+        a.poly([(26,52),(55,52),(51,73),(30,73)],woodLight); a.box(25,50,31,6,wood)
+        a.rect(32,58,3,11,color("F4D4A0")); a.rect(46,58,3,11,wood)
+        a.rect(28,52,24,1,color("F4D4A0"))
     }
     item("round-rug","Round rug","rug",[42,19]) { a in
-        a.oval(5,5,75,29,teal); a.ellipse(8,8,69,23,color("92C3AE")); a.ellipse(12,11,61,17,teal)
-        a.poly([(22,19),(42,12),(62,19),(42,26)],color("B9D6BF")); a.poly([(32,19),(42,15),(52,19),(42,23)],woodLight)
+        a.oval(3,4,79,31,color("286A70")); a.ellipse(6,6,73,27,woodLight)
+        a.ellipse(9,8,67,23,teal); a.ellipse(13,10,59,19,color("286A70"))
+        a.poly([(19,19),(42,11),(66,19),(42,27)],color("86D9BD"))
+        a.poly([(28,19),(42,14),(57,19),(42,24)],teal)
+        a.poly([(35,19),(42,16),(49,19),(42,22)],gold)
+        for x in stride(from:13,through:71,by:6) { a.rect(x,32,2,2,woodLight) }
     }
-    item("bookshelf","Bookshelf","shelf",[35,62]) { a in
-        a.box(11,8,48,55,woodDark); a.rect(15,12,40,47,wood)
-        for y in [27,44,59] { a.rect(13,y,44,3,woodLight) }
-        for (x,h,p) in [(17,12,teal),(23,15,coral),(29,11,gold),(35,14,purple),(43,13,steel)] {
-            a.box(x,27-h,5,h,p); a.rect(x+1,26-h+3,3,1,paper)
+    item("bookshelf","Bookshelf","shelf",[35,37]) { a in
+        a.box(12,8,47,31,woodDark); a.rect(15,10,41,25,wood)
+        a.rect(14,25,43,3,woodLight); a.rect(11,36,49,4,woodLight)
+        for (x,h,p) in [(17,10,teal),(23,13,coral),(29,10,gold),(35,12,purple)] {
+            a.box(x,25-h,5,h,p); a.rect(x+1,27-h,3,1,paper)
         }
-        a.box(17,34,12,9,color("D4C2A2")); a.rect(20,37,6,2,woodDark)
-        for i in 0..<3 { a.box(35,39-i*3,16-i*2,3,[coral,teal,paper][i]) }
-        a.oval(22,48,11,9,teal); a.box(40,49,11,10,coral); a.rect(43,52,5,1,gold)
+        a.oval(46,14,7,9,teal); a.box(43,22,12,3,woodLight)
+        for i in 0..<2 { a.box(18,32-i*3,16-i*2,3,[paper,teal][i]) }
+        a.box(39,29,13,7,coral); a.rect(42,31,6,1,gold)
+        a.rect(13,10,1,26,color("F4D4A0")); a.rect(15,37,41,1,color("F4D4A0"))
     }
     item("poster","Mountain poster","wallLeft",[27,24]) { a in
-        a.box(10,5,35,39,woodDark); a.rect(12,7,31,35,color("E3CEAD")); a.rect(15,10,25,24,color("8CAEB1"))
-        a.ellipse(29,12,7,7,gold); a.poly([(16,33),(26,18),(38,33)],teal); a.poly([(22,24),(26,18),(31,24)],paper)
-        a.rect(18,37,20,1,woodDark); a.rect(22,39,12,1,wood)
+        a.box(11,6,33,36,woodDark); a.box(13,8,29,32,woodLight)
+        a.rect(15,10,25,26,color("293D60")); a.ellipse(29,12,7,7,gold)
+        a.poly([(15,34),(25,18),(35,34)],color("86D9BD")); a.poly([(22,24),(25,18),(29,24)],paper)
+        a.poly([(25,34),(34,24),(40,34)],teal); a.rect(15,33,25,3,color("286A70"))
+        a.rect(19,38,18,1,woodDark); a.rect(12,7,29,1,color("F4D4A0"))
     }
     item("wall-clock","Wall clock","wallRight",[26,23]) { a in
-        a.oval(10,7,33,33,woodDark); a.ellipse(13,10,27,27,paper)
-        for (x,y) in [(26,12),(26,32),(15,22),(36,22)] { a.rect(x,y,2,3,woodDark) }
-        a.line(26,23,26,16,steel,2); a.line(26,23,32,26,steel,2); a.rect(25,22,3,3,orange)
+        a.oval(12,9,29,29,woodDark); a.oval(14,11,25,25,gold); a.ellipse(16,13,21,21,paper)
+        for (x,y) in [(26,14),(26,30),(17,23),(33,23)] { a.rect(x,y,2,2,steel) }
+        a.line(26,23,26,17,steel,2); a.line(26,23,31,26,steel,2); a.rect(25,22,3,3,coral)
+        a.rect(18,12,8,1,color("FFF0B0"))
     }
     item("floor-lamp","Floor lamp","floorLeft",[27,76]) { a in
-        a.oval(14,71,27,6,woodDark); a.rect(26,28,3,46,woodLight)
-        a.poly([(16,9),(38,9),(46,30),(8,30)],gold); a.rect(12,28,30,3,color("FFE3A0")); a.line(34,31,34,40,woodDark)
-        for x in [20,27,34] { a.line(x,12,x,25,color("E2AB58")) }
+        a.oval(12,71,31,7,steel); a.rect(26,28,4,45,woodLight); a.rect(26,29,1,41,gold)
+        a.poly([(16,9),(38,9),(45,31),(9,31)],gold)
+        a.poly([(34,11),(38,11),(43,29),(34,29)],color("B67635"))
+        a.rect(12,29,30,3,color("FFF0B0")); a.line(34,32,34,42,woodDark); a.oval(32,40,4,5,gold)
+        a.line(20,12,17,26,color("FFF0B0")); a.rect(16,73,16,1,color("778BA4"))
     }
     item("bean-bag","Bean bag","floorRight",[35,43]) { a in
-        a.poly([(7,34),(10,22),(23,11),(42,8),(56,20),(63,36),(53,45),(18,45)],purple)
-        a.ellipse(20,14,29,23,color("9A82B7")); a.line(14,35,27,41,color("55436F")); a.line(48,19,55,37,color("55436F"))
+        a.poly([(7,34),(10,21),(24,10),(42,8),(55,19),(63,36),(53,46),(17,46)],purple)
+        a.poly([(44,12),(55,21),(60,35),(51,41),(38,42),(45,32)],color("493C73"))
+        a.ellipse(21,17,28,20,color("BCA0DC")); a.ellipse(24,21,24,14,purple)
+        a.line(14,35,25,41,color("493C73"),2); a.line(25,41,43,41,color("493C73"),2)
+        a.line(16,27,24,16,color("BCA0DC")); a.box(48,40,6,3,woodLight)
+    }
+    item("companion-bed","Companion bed","floorRight",[42,52]) { a in
+        a.box(7,18,8,36,wood); a.box(69,31,7,24,wood)
+        a.poly([(14,27),(60,27),(72,39),(24,39)],woodLight)
+        a.poly([(15,29),(59,29),(69,39),(24,39)],paper)
+        a.poly([(23,32),(57,32),(69,40),(25,40)],teal)
+        a.box(23,39,47,10,teal); a.rect(25,40,43,2,color("86D9BD"))
+        a.poly([(16,29),(28,29),(35,34),(21,34)],paper)
+        a.line(24,46,68,46,gold,2)
+        a.box(13,49,7,8,wood); a.box(65,49,7,8,wood)
+        a.rect(8,19,4,30,woodLight); a.rect(70,32,3,20,woodLight)
     }
     item("coffee-machine","Coffee machine on stool","floorLeft",[31,61]) { a in
-        a.box(10,35,42,5,woodLight); a.box(14,40,4,22,wood); a.box(44,40,4,22,wood); a.rect(17,51,28,3,woodDark)
-        a.box(17,10,30,25,steel); a.rect(20,13,24,6,teal); a.rect(21,21,21,10,ink)
-        a.rect(32,19,3,5,woodLight); a.box(28,26,10,6,paper); a.rect(26,32,16,2,color("8993A4")); a.rect(38,14,3,3,orange)
+        a.box(12,36,38,5,woodLight); a.box(15,41,5,21,wood); a.box(42,41,5,21,wood)
+        a.rect(20,53,22,3,woodDark); a.rect(14,37,33,1,color("F4D4A0"))
+        a.box(16,10,31,26,steel); a.rect(19,13,25,7,coral); a.rect(21,22,21,11,ink)
+        a.oval(34,14,5,5,gold); a.rect(22,15,8,2,paper)
+        a.rect(30,20,4,6,color("A5B0CA")); a.box(27,27,10,7,paper)
+        a.oval(36,28,5,5,paper); a.rect(37,29,2,2,ink)
+        a.rect(23,34,19,2,color("778BA4")); a.rect(17,12,1,20,color("778BA4"))
     }
     item("cat-bed","Sleeping cat bed","floorLeft",[33,30]) { a in
-        a.oval(5,17,57,20,woodDark); a.ellipse(9,19,49,14,coral)
-        a.oval(18,11,32,19,woodLight); a.oval(13,13,19,14,color("E8BA83"))
-        a.poly([(14,16),(14,8),(21,14),(27,8),(29,18)],color("E8BA83")); a.line(17,21,20,22,woodDark); a.line(24,22,27,21,woodDark)
-        a.line(43,15,48,21,woodDark,2); a.line(47,23,36,25,woodDark,2); a.line(32,13,33,18,woodDark,2)
+        a.oval(13,15,41,21,woodDark); a.ellipse(15,17,37,16,coral); a.ellipse(18,19,31,11,color("A54758"))
+        a.oval(25,11,24,18,woodLight); a.oval(17,13,18,14,woodLight)
+        a.poly([(18,16),(18,7),(25,12),(31,8),(32,19)],woodLight)
+        a.poly([(20,13),(20,10),(23,13)],coral); a.poly([(28,13),(30,11),(30,15)],coral)
+        a.line(20,20,23,21,woodDark); a.line(27,21,30,20,woodDark); a.rect(24,23,2,1,coral)
+        a.line(40,15,45,20,woodDark,2); a.line(44,23,36,26,woodDark,2); a.line(34,13,35,17,woodDark,2)
+        a.line(19,29,34,31,color("FFB59A"),2)
     }
     item("guitar","Guitar on stand","floorRight",[28,64]) { a in
         a.line(28,43,28,62,steel,2); a.line(28,57,15,64,steel,2); a.line(28,57,42,64,steel,2)
-        a.oval(14,37,28,24,woodLight); a.oval(19,28,20,21,woodLight); a.box(26,9,7,29,woodDark)
-        a.box(24,5,11,9,woodLight); a.oval(24,38,10,10,woodDark); a.rect(25,53,9,3,woodDark)
-        a.line(28,11,28,54,gold); a.line(31,11,31,54,gold); a.rect(23,7,2,2,steel); a.rect(35,10,2,2,steel)
+        a.oval(14,36,29,26,woodDark); a.oval(16,37,25,23,woodLight); a.oval(20,27,19,23,woodLight)
+        a.box(26,9,7,29,woodDark); a.box(24,4,11,10,woodLight)
+        a.oval(24,37,10,11,woodDark); a.rect(24,53,11,3,woodDark)
+        a.line(28,11,28,54,gold); a.line(31,11,31,54,gold)
+        for y in [7,11] { a.rect(22,y,3,2,steel); a.rect(35,y,3,2,steel) }
+        for y in [18,23,28] { a.rect(27,y,5,1,color("A5B0CA")) }
+        a.rect(19,43,2,8,color("F4D4A0"))
     }
-    item("record-player","Record player","desk",[32,26]) { a in
-        a.box(9,12,48,15,wood); a.rect(11,14,44,10,woodLight); a.oval(15,13,25,11,ink)
-        a.ellipse(23,16,9,5,coral); a.rect(26,18,2,1,gold); a.line(49,15,49,19,steel,2); a.line(49,19,36,22,steel)
-        a.rect(12,25,4,3,ink); a.rect(49,25,4,3,ink); a.rect(50,22,3,2,teal)
+    item("record-player","Record player and console","desk",[40,42]) { a in
+        a.worktable()
+        a.box(17,18,48,16,woodDark); a.rect(20,21,42,11,color("286A70"))
+        a.box(17,33,48,9,wood); a.rect(19,34,44,5,woodLight)
+        a.oval(22,32,25,8,ink); a.ellipse(30,34,9,4,coral); a.rect(33,35,2,1,gold)
+        a.line(57,34,57,37,steel,2); a.line(57,37,45,39,steel)
+        a.rect(58,39,3,2,teal); a.rect(20,20,39,1,color("86D9BD"))
     }
     item("certificate","Framed certificate","wallRight",[30,22]) { a in
-        a.box(7,7,47,31,woodDark); a.box(9,9,43,27,gold); a.rect(12,12,37,21,paper)
-        a.rect(19,15,23,2,steel); a.rect(16,20,29,1,color("8993A4")); a.rect(19,23,23,1,color("8993A4")); a.oval(26,26,8,7,gold)
+        a.box(9,8,43,29,woodDark); a.box(11,10,39,25,gold); a.rect(14,13,33,19,paper)
+        a.rect(20,16,21,2,steel); a.rect(18,21,25,1,color("778BA4")); a.rect(21,24,19,1,color("778BA4"))
+        a.oval(27,26,7,6,gold); a.poly([(28,30),(30,30),(28,35)],coral); a.poly([(31,30),(33,30),(33,35)],coral)
+        a.rect(12,11,35,1,color("FFF0B0"))
     }
-    item("string-lights","String lights","wallLeft",[42,14]) { a in
-        a.line(3,7,23,14,woodDark); a.line(23,14,61,14,woodDark); a.line(61,14,82,7,woodDark)
-        for (i,x) in [9,21,34,47,60,73].enumerated() {
-            let y = (x<20 || x>65) ? 12:17
-            a.line(x,y-4,x,y,woodDark); a.oval(x-2,y,5,6,i%2==0 ? gold:coral); a.rect(x,y+1,1,2,paper)
+    item("string-lights","String lights","wallLeft",[30,14]) { a in
+        a.line(5,5,19,11,woodDark); a.line(19,11,41,11,woodDark); a.line(41,11,55,5,woodDark)
+        for (i,x) in [9,19,30,41,51].enumerated() {
+            let y=(x<15 || x>45) ? 9:14
+            a.rect(x,y-3,1,4,steel); a.oval(x-3,y,7,9,i%2==0 ? gold:coral)
+            a.rect(x-1,y+2,2,4,paper)
         }
     }
     try saveJSON(["rooms":rooms,"items":items],homeDir.appendingPathComponent("home-items.json"))
@@ -701,7 +918,7 @@ func makeHome() throws {
 }
 if CommandLine.arguments.last == "home" { try makeHome() }
 func makePreview() throws {
-    let anchors=try json(framesDir.appendingPathComponent("mascot-anchors.json"))
+    let anchors=try json(framesDir.appendingPathComponent("mascot-anchors.json")).merging(json(framesDir.appendingPathComponent("fixed-pose-anchors.json"))) { original, _ in original }
     let wardrobe=try json(wardrobeDir.appendingPathComponent("wardrobe-sprites.json"))
     let colorways = try JSONDecoder().decode([String: WardrobeColorway].self, from: Data(contentsOf: framesDir.appendingPathComponent("colorways.json")))
     let home=try json(homeDir.appendingPathComponent("home-items.json"))
@@ -716,11 +933,19 @@ func makePreview() throws {
     }
     func dressed(_ frame:String,_ ids:[String],_ way:String="classic")->Bitmap {
         let anchor=anchors[frame] as! [String:Any]
-        let original=recolored(Bitmap(url:framesDir.appendingPathComponent(frame+".png")),way)
+        let sourceURL = frame.hasPrefix("pose")
+            ? root.appendingPathComponent("iOS/Clockin/Assets.xcassets/"+frame+".imageset/"+frame+".png")
+            : framesDir.appendingPathComponent(frame+".png")
+        var normalized = Bitmap(width:314,height:314)
+        normalized.blit(Bitmap(url:sourceURL),0,0,width:314,height:314)
+        let original=recolored(normalized,way)
         var out=Bitmap(width:314,height:314)
         func overlay(_ id:String) {
             let entry=wardrobe[id] as! [String:Any], key=entry["anchorPoint"] as! String
-            guard let point=anchor[key] as? [Int] else { return }
+            guard var point=anchor[key] as? [Int] else { return }
+            let fits = entry["poseOffsets"] as? [String: [Int]] ?? [:]
+            let offset = fits[frame] ?? fits[String(frame.prefix(1))] ?? [0, 0]
+            point[0] += offset[0]; point[1] += offset[1]
             let sprite=Bitmap(url:wardrobeDir.appendingPathComponent(id+".png")), pivot=entry["pivot"] as! [Int]
             let slot=entry["slot"] as! String
             let theta=(slot=="head" || slot=="face") ? (anchor["tilt"] as! Double)*Double.pi/180:0
@@ -739,7 +964,7 @@ func makePreview() throws {
         for id in ids where (wardrobe[id] as! [String:Any])["layer"] as! String=="front" { overlay(id) }
         return out
     }
-    var sheet=Bitmap(width:1440,height:2600,fill:color("252C37"))
+    var sheet=Bitmap(width:1440,height:2800,fill:color("252C37"))
     label("COMPANION / WARDROBE AND HOME",&sheet,28,24,3)
     label("PIVOT ON ANCHOR / BACK THEN ROBOT THEN FRONT / NEAREST NEIGHBOR",&sheet,28,51)
     let outfit=["beanie","round-glasses","scarf","wings","mug"]
@@ -769,9 +994,9 @@ func makePreview() throws {
     }
     label("HOME / 340 PX WIDE / FEET ON MASCOT SPOT",&sheet,28,1666)
     let sets=[
-        ["round-rug","wall-clock","bookshelf","desk-monitor","potted-plant","big-plant","cat-bed"],
-        ["round-rug","certificate","poster","desk-monitor","potted-plant","guitar"],
-        ["round-rug","string-lights","certificate","bookshelf","potted-plant","bean-bag","floor-lamp"]]
+        ["round-rug","poster","wall-clock","bookshelf","desk-monitor","potted-plant","big-plant","cat-bed"],
+        ["round-rug","certificate","string-lights","bookshelf","desk-lamp","potted-plant","guitar","coffee-machine"],
+        ["round-rug","string-lights","certificate","bookshelf","potted-plant","bean-bag","floor-lamp","record-player"]]
     for (i,id) in ["cozy","studio","night"].enumerated() {
         let room=rooms[id]!, slots=room["slots"] as! [String:[Int]], spot=room["mascotSpot"] as! [Int]
         var scene=Bitmap(url:homeDir.appendingPathComponent(room["file"] as! String))
@@ -780,24 +1005,82 @@ func makePreview() throws {
             scene.blit(Bitmap(url:homeDir.appendingPathComponent(item["file"] as! String)),xy[0]-p[0],xy[1]-p[1])
         }
         let b=dressed(hello,["beanie","scarf"],i==2 ? "midnight":"classic")
-        // Feet derive from opaque pixels in the lower half, excluding floaty mood
-        // marks and the antenna. Canvas scaling is 0.46, identical in both axes.
-        let footPixels=(0..<(b.width*b.height)).filter{$0/b.width>190 && b[$0%b.width,$0/b.width].a>200}
-        let feet=bounds(footPixels,width:b.width), scale=0.46, size=Int(314*scale)
-        scene.blit(b,spot[0]-Int(Double(feet.midX)*scale),spot[1]-Int(Double(feet.y1)*scale),width:size,height:size)
+        // Match CompanionHomeView's centered canvas and the mood's feet anchor.
+        let helloFeet = 0.89 // MascotMood.hello.feet
+        scene.blit(b,spot[0]-68,spot[1]-Int(136*helloFeet),width:136,height:136)
         let x=60+i*466
         label(id,&sheet,x,1706)
         sheet.blit(scene,x,1731,width:340,height:227)
         scene.write(URL(fileURLWithPath:"/tmp/clockin-home-"+id+".png"))
     }
-    label("16 FURNITURE SPRITES / NATIVE IMAGE PIXELS",&sheet,28,2006)
+    label("17 FURNITURE SPRITES / NATIVE IMAGE PIXELS",&sheet,28,2006)
     for (i,id) in furniture.keys.sorted().enumerated() {
         let x=24+i%8*177,y=2040+i/8*225,b=Bitmap(url:homeDir.appendingPathComponent(id+".png"))
         sheet.rect(x,y,165,208,color("303A47")); sheet.blit(b,x+(165-b.width)/2,y+18+(160-b.height)/2)
         label(id,&sheet,x+5,y+192,1)
     }
-    label("SOURCE CANVAS 314 X 314 / ART CELL 2 X 2 / ROOMS 360 X 240",&sheet,28,2516)
+    label("SOURCE CANVAS 314 X 314 / ART CELL 2 X 2 / ROOMS 360 X 240",&sheet,28,2760)
     sheet.write(URL(fileURLWithPath:"/tmp/clockin-wardrobe-preview.png"))
+    // Compact review board, from the same sprites, anchors and room manifests.
+    var board = Bitmap(width: 960, height: 600, fill: color("252C37"))
+    label("COMPANION / PIXEL ART POLISH", &board, 24, 22, 3)
+    let looks = [["cap","scarf","mug"], ["crown","bow-tie","cape"],
+                 ["headphones","wings"], ["wizard-hat","backpack"]]
+    for (i, look) in looks.enumerated() {
+        board.rect(16+i*236,62,224,248,color("303A47"))
+        board.blit(dressed(hello,look),16+i*236,65,width:224,height:224)
+        label(["DAILY","ROYAL","EXPLORER","WIZARD"][i], &board, 36+i*236,288)
+    }
+    for (i,id) in ["cozy","studio","night"].enumerated() {
+        board.blit(Bitmap(url:URL(fileURLWithPath:"/tmp/clockin-home-"+id+".png")),
+                   16+i*316,346,width:296,height:198)
+        label(id, &board, 24+i*316,558)
+    }
+    board.write(URL(fileURLWithPath:"/tmp/clockin-companion-polish.png"))
+    let homeExamples = [
+        ("cozy-idle-deskLeft", "AT HOME"), ("cozy-working-deskLeft", "AT THE DESK"),
+        ("studio-relaxing-deskRight", "BREAK / DESK RIGHT"), ("night-sleeping-deskRight", "REST / DESK RIGHT")]
+    if homeExamples.allSatisfy({ FileManager.default.fileExists(atPath:"/tmp/clockin-home-"+$0.0+".png") }) {
+        var homeBoard=Bitmap(width:1024,height:790,fill:color("252C37"))
+        label("COMPANION HOME / ROOM AND ACTIVITY REVIEW",&homeBoard,24,22,2)
+        for (i,example) in homeExamples.enumerated() {
+            let x=24+(i%2)*500, y=64+(i/2)*360
+            homeBoard.blit(Bitmap(url:URL(fileURLWithPath:"/tmp/clockin-home-"+example.0+".png")),x,y,width:476,height:317)
+            label(example.1,&homeBoard,x,y+328,2)
+        }
+        homeBoard.write(URL(fileURLWithPath:"/tmp/clockin-home-development.png"))
+    }
+
+    let proportionBaseline = root.appendingPathComponent("docs/art-review/companion-polish/proportions-before.png")
+    if FileManager.default.fileExists(atPath: proportionBaseline.path) {
+        let before = Bitmap(url: proportionBaseline)
+        var comparison = Bitmap(width:960,height:644,fill:color("252C37"))
+        label("BEFORE / ACCESSORY PROPORTIONS", &comparison, 24, 14)
+        label("AFTER / FITTED TO THE COMPANION", &comparison, 24, 336)
+        for y in 0..<260 { for x in 0..<960 {
+            comparison[x,44+y] = before[x,54+y]
+            comparison[x,366+y] = board[x,54+y]
+        } }
+        comparison.write(URL(fileURLWithPath:"/tmp/clockin-proportions-comparison.png"))
+    }
+
+    var surfaces=Bitmap(width:1100,height:820,fill:color("252C37"))
+    label("COMPANION / REAL DISPLAY SIZES / STATIC ART REVIEW", &surfaces, 20, 20)
+    for (row,frame) in [hello,"t01","pose2","pose3","pose4"].enumerated() {
+        let y=65+row*148
+        label(frame,&surfaces,16,y+16)
+        let sizes=[48,62,64,72,80,120]
+        var x=136
+        for side in sizes {
+            surfaces.rect(x,y,side,side,color("394453"))
+            surfaces.blit(dressed(frame,["beanie","scarf","mug"]),x,y,width:side,height:side)
+            label(String(side),&surfaces,x,y+side+8,1)
+            x += side+32
+        }
+    }
+    surfaces.write(URL(fileURLWithPath:"/tmp/clockin-companion-surfaces.png"))
+
+
     let baseline = URL(fileURLWithPath: "/tmp/clockin-wardrobe-preview-before.png")
     if FileManager.default.fileExists(atPath: baseline.path) {
         let before = Bitmap(url: baseline)
@@ -834,3 +1117,18 @@ func makePreview() throws {
     print("Preview: /tmp/clockin-wardrobe-preview.png; all-item pose checks: /tmp/clockin-wardrobe-fit.png")
 }
 if CommandLine.arguments.last == "preview" { try makePreview() }
+
+if CommandLine.arguments.last == "fixed-anchors" {
+    var fixed = [String: Any]()
+    for id in ["pose2", "pose3", "pose4"] {
+        let url = root.appendingPathComponent("iOS/Clockin/Assets.xcassets/" + id + ".imageset/" + id + ".png")
+        var normalized = Bitmap(width:314, height:314)
+        normalized.blit(Bitmap(url:url), 0, 0, width:314, height:314)
+        let geometry = Geometry(normalized, id:id, diagnostics:true)
+        var anchors = geometry.anchors
+        // Both hands are occupied by the overhead stretch.
+        if id == "pose2" { anchors.handL = nil; anchors.handR = nil }
+        fixed[id] = anchors.object
+    }
+    try saveJSON(fixed, framesDir.appendingPathComponent("fixed-pose-anchors.json"))
+}

@@ -37,6 +37,7 @@ struct WardrobeItem: Identifiable, Sendable {
     let name: String
     let slot: WardrobeSlot
     let unlock: WardrobeUnlock
+    var isHomeItem: Bool { slot == .room || WardrobeSlot.furniture.contains(slot) }
 }
 
 struct WardrobeProgress: Sendable {
@@ -59,6 +60,31 @@ struct WardrobeState: Codable, Equatable, Sendable {
     var room = "cozy"
     var furniture: [String: String] = [:]
     var seeded = false
+    var homeLayout: CompanionHomeLayout = .deskLeft
+    var homeLampOn = true
+
+    init() {}
+    private enum CodingKeys: String, CodingKey {
+        case owned, equipped, colorway, room, furniture, seeded, homeLayout, homeLampOn
+    }
+    init(from decoder: any Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        owned = try values.decodeIfPresent(Set<String>.self, forKey: .owned) ?? []
+        equipped = try values.decodeIfPresent([String:String].self, forKey: .equipped) ?? [:]
+        colorway = try values.decodeIfPresent(String.self, forKey: .colorway) ?? "classic"
+        room = try values.decodeIfPresent(String.self, forKey: .room) ?? "cozy"
+        furniture = try values.decodeIfPresent([String:String].self, forKey: .furniture) ?? [:]
+        seeded = try values.decodeIfPresent(Bool.self, forKey: .seeded) ?? false
+        homeLayout = CompanionHomeLayout(rawValue: try values.decodeIfPresent(String.self, forKey: .homeLayout) ?? "") ?? .deskLeft
+        homeLampOn = try values.decodeIfPresent(Bool.self, forKey: .homeLampOn) ?? true
+    }
+
+    func previewing(_ item: WardrobeItem) -> Self {
+        var copy = self
+        copy.owned.insert(item.id)
+        copy.equip(item)
+        return copy
+    }
 
     static let stateKey = "Clockin.WardrobeState"
     static let ledgerKey = "Clockin.WardrobeLedger"
@@ -159,6 +185,12 @@ struct WardrobeSprite: Codable, Sendable {
     let anchorPoint: String
     let pivot: WardrobePoint
     let layer: String
+    /// Authored fitting adjustments for side-facing clips and fixed poses.
+    let poseOffsets: [String: WardrobePoint]?
+
+    func offset(for frameID: String) -> WardrobePoint {
+        poseOffsets?[frameID] ?? poseOffsets?[String(frameID.prefix(1))] ?? WardrobePoint(0, 0)
+    }
 }
 struct WardrobeRoom: Codable, Sendable {
     let name: String
@@ -187,8 +219,77 @@ enum WardrobeGeometry {
         return .init(anchor.x - pivot.x * cos(angle) + pivot.y * sin(angle),
                      anchor.y - pivot.x * sin(angle) - pivot.y * cos(angle))
     }
-    static func placement(sprite: WardrobeSprite, frame: WardrobeAnchors) -> WardrobePoint? {
+    static func placement(sprite: WardrobeSprite, frame: WardrobeAnchors, frameID: String = "") -> WardrobePoint? {
+        // Keep the selection, but free occupied hands for the entire pose.
+        if sprite.slot == "hand", frameID.hasPrefix("t") || frameID.hasPrefix("c") { return nil }
         guard frame.tilt.isFinite, let anchor = frame.point(sprite.slot == "hand" ? "handR" : sprite.anchorPoint) else { return nil }
-        return origin(pivot: sprite.pivot, anchor: anchor, degrees: tilt(sprite: sprite, frame: frame))
+        let offset = sprite.offset(for: frameID)
+        guard offset.x.isFinite, offset.y.isFinite else { return nil }
+        let fitted = WardrobePoint(anchor.x + offset.x, anchor.y + offset.y)
+        return origin(pivot: sprite.pivot, anchor: fitted, degrees: tilt(sprite: sprite, frame: frame))
+    }
+}
+
+
+enum CompanionHomeLayout: String, Codable, CaseIterable, Sendable {
+    case deskLeft, deskRight
+    var title: String { self == .deskLeft ? "Desk left" : "Desk right" }
+    var mirrored: Bool { self == .deskRight }
+    func x(_ x: Double) -> Double { mirrored ? 360 - x : x }
+}
+
+enum CompanionHomeActivity: String, CaseIterable, Sendable {
+    case idle, working, relaxing, sleeping
+    static func resolve(working: Bool, paused: Bool, elapsed: Double, tired: Bool, furniture: [String:String]) -> Self {
+        if working && furniture["desk"] != nil { return .working }
+        // Rest never hides an active session. A long paused session can use the bed.
+        if !working && (tired || (paused && elapsed >= 4 * 3600)), furniture["floorRight"] == "companion-bed" { return .sleeping }
+        if !working && furniture["floorRight"] == "bean-bag" { return .relaxing }
+        return .idle
+    }
+    var title: String {
+        switch self {
+        case .idle: "At home"
+        case .working: "At the desk"
+        case .relaxing: "Taking a break"
+        case .sleeping: "Resting"
+        }
+    }
+    var mood: MascotMood {
+        switch self { case .idle: .hello; case .working: .working; case .relaxing: .coffee; case .sleeping: .tired }
+    }
+    var side: Double { self == .idle ? 136 : (self == .sleeping ? 96 : (self == .relaxing ? 116 : 118)) }
+    func legsRect(in room: WardrobeRoom, layout: CompanionHomeLayout) -> CGRect {
+        let center = center(in: room, layout: layout)
+        let scale = side / 314
+        return CGRect(x: center.x + (87 - 157) * scale,
+                      y: (room.slots["desk"]?.y ?? 158) + 50 - 54 * scale,
+                      width: 132 * scale, height: 54 * scale)
+    }
+    func center(in room: WardrobeRoom, layout: CompanionHomeLayout) -> WardrobePoint {
+        let point: WardrobePoint
+        switch self {
+        case .idle: point = .init(room.mascotSpot.x, room.mascotSpot.y - side * (mood.feet - 0.5))
+        case .working:
+            let desk = room.slots["desk"] ?? .init(142,158)
+            // The desktop fixes the upper pose independently of its feet.
+            point = .init(desk.x + 20, desk.y + 34 - side * (0.86 - 0.5))
+        case .relaxing:
+            let seat = room.slots["floorRight"] ?? .init(302,224)
+            point = .init(seat.x, seat.y - 12 - side * (mood.feet - 0.5))
+        case .sleeping:
+            let bed = room.slots["floorRight"] ?? .init(302,224)
+            point = .init(bed.x - 7, bed.y - 28)
+        }
+        return .init(layout.x(point.x), point.y)
+    }
+}
+
+enum CompanionHomeLight: String, Sendable {
+    case day, dusk, night
+    static func at(hour: Int) -> Self {
+        if hour >= 8 && hour < 18 { return .day }
+        if hour >= 18 && hour < 21 || hour >= 6 && hour < 8 { return .dusk }
+        return .night
     }
 }

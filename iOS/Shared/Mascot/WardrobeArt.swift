@@ -26,7 +26,11 @@ enum WardrobeArt {
     static func read<T: Decodable>(_ type: T.Type, _ file: String, folder: String) -> T? {
         url(file, folder: folder).flatMap { try? Data(contentsOf: $0) }.flatMap { try? JSONDecoder().decode(type, from: $0) }
     }
-    static let anchors = read([String: WardrobeAnchors].self, "mascot-anchors.json", folder: "Frames") ?? [:]
+    static let anchors: [String: WardrobeAnchors] = {
+        let motion = read([String: WardrobeAnchors].self, "mascot-anchors.json", folder: "Frames") ?? [:]
+        let fixed = read([String: WardrobeAnchors].self, "fixed-pose-anchors.json", folder: "Frames") ?? [:]
+        return motion.merging(fixed) { original, _ in original }
+    }()
     static let sprites = read([String: WardrobeSprite].self, "wardrobe-sprites.json", folder: "Wardrobe") ?? [:]
     static let colorways = read([String: WardrobeColorway].self, "colorways.json", folder: "Frames") ?? [:]
     static let home = read(WardrobeHome.self, "home-items.json", folder: "Home") ?? WardrobeHome()
@@ -49,6 +53,64 @@ enum WardrobeArt {
     static func decode(_ file: String, folder: String) -> CGImage? {
         guard let url = url(file, folder: folder), let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
         return CGImageSourceCreateImageAtIndex(source, 0, [kCGImageSourceShouldCacheImmediately: true] as CFDictionary)
+    }
+
+    static func hidesAntenna(_ outfit: WardrobeState, spriteManifest: [String: WardrobeSprite] = sprites) -> Bool {
+        guard let id = outfit.equipped["head"] else { return false }
+        return spriteManifest[id]?.slot == "head"
+    }
+
+    /// Authored antenna-only bounds in the shared 314-point canvas. Keep the
+    /// helmet and raised hands intact, including tilted and fixed poses.
+    static func antennaRect(frame: String) -> CGRect? {
+        if frame == "pose2" { return CGRect(x: 149, y: 59, width: 10, height: 18) }
+        if frame == "pose4" { return CGRect(x: 90, y: 25, width: 19, height: 27) }
+        if frame == "pose3" { return CGRect(x: 176, y: 29, width: 22, height: 26) }
+        guard frame.count == 3, Int(frame.dropFirst()) != nil else { return nil }
+        switch frame.first {
+        case "h", "a", "z", "p": return CGRect(x: 165, y: 47, width: 17, height: 24)
+        case "t": return CGRect(x: 108, y: 51, width: 19, height: 28)
+        case "c": return CGRect(x: 189, y: 35, width: 24, height: 31)
+        case "e":
+            let x = frame == "e02" ? 179 : (["e07", "e08", "e09"].contains(frame) ? 173 : 176)
+            return CGRect(x: x, y: 29, width: 22, height: 26)
+        default: return nil
+        }
+    }
+
+    static func removingAntenna(_ image: CGImage, frame: String) -> CGImage {
+        guard let rect = antennaRect(frame: frame),
+              let context = CGContext(data: nil, width: image.width, height: image.height,
+                                      bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpaceCreateDeviceRGB(),
+                                      bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return image }
+        context.interpolationQuality = .none
+        context.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
+        let sx = Double(image.width) / 314, sy = Double(image.height) / 314
+        context.clear(CGRect(x: rect.minX * sx, y: (314 - rect.maxY) * sy,
+                             width: rect.width * sx, height: rect.height * sy))
+        return context.makeImage() ?? image
+    }
+
+    // Reuse the authored seated lower body, preserving the pixel scale and shading.
+    static func workingLegs(from seated: CGImage) -> CGImage? {
+        guard seated.width == 314, seated.height == 314,
+              let legs = seated.cropping(to: CGRect(x: 124, y: 224, width: 132, height: 54)),
+              let context = CGContext(data: nil, width: 132, height: 54, bitsPerComponent: 8,
+                                      bytesPerRow: 0, space: CGColorSpaceCreateDeviceRGB(),
+                                      bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
+        // Coffee faces left, typing faces right. Mirror the entire seated lower
+        // body together so its knees and toes follow the torso toward the laptop.
+        context.interpolationQuality = .none
+        context.translateBy(x: 132, y: 0)
+        context.scaleBy(x: -1, y: 1)
+        context.draw(legs, in: CGRect(x: 0, y: 0, width: 132, height: 54))
+        return context.makeImage()
+    }
+
+    static func seatedWorkingFrame(_ robot: CGImage, seated: CGImage) -> CGImage {
+        guard let legs = workingLegs(from: seated) else { return robot }
+        return composite(robot: robot, parts: [WardrobeOverlay(id: "working-legs", image: legs,
+            origin: .init(87, 246), tilt: 0, behind: true)], size: 314) ?? robot
     }
 
     static func recolor(_ image: CGImage, colorway: String) -> CGImage {
@@ -96,7 +158,7 @@ enum WardrobeArt {
         return WardrobeSlot.outfit.compactMap { slot in
             guard let id = outfit.equipped[slot.rawValue], let sprite = spriteManifest[id], sprite.slot == slot.rawValue,
                   ["front", "back"].contains(sprite.layer), let image = images[id],
-                  let origin = WardrobeGeometry.placement(sprite: sprite, frame: anchors) else { return nil }
+                  let origin = WardrobeGeometry.placement(sprite: sprite, frame: anchors, frameID: frame) else { return nil }
             return WardrobeOverlay(id: id, image: image, origin: origin, tilt: WardrobeGeometry.tilt(sprite: sprite, frame: anchors), behind: sprite.layer == "back")
         }
     }
@@ -150,7 +212,7 @@ actor WardrobeFrameCache {
     func composite(frame: String, outfit: WardrobeState, size: Int) -> CGImage? {
         let key = "\(size)/\(frame)/\(outfit.colorway)/" + outfit.equipped.sorted { $0.key < $1.key }.map { $0.key + "=" + $0.value }.joined(separator: ";")
         if let image = stills[key] { return image }
-        guard let robot = image(frame, colorway: outfit.colorway) else { return nil }
+        guard let robot = image(frame, colorway: outfit.colorway, hidingAntenna: WardrobeArt.hidesAntenna(outfit)) else { return nil }
         let images = outfit.equipped.values.reduce(into: [String: CGImage]()) { result, id in
             result[id] = WardrobeArt.decode(id + ".png", folder: "Wardrobe")
         }
@@ -161,11 +223,16 @@ actor WardrobeFrameCache {
         return result
     }
 
-    func image(_ id: String, colorway: String, fixedPose: Bool = false) -> CGImage? {
-        let key = (fixedPose ? "pose/" : "frame/") + colorway + "/" + id
+    func image(_ id: String, colorway: String, fixedPose: Bool = false, hidingAntenna: Bool = false) -> CGImage? {
+        let key = (fixedPose ? "pose/" : "frame/") + colorway + "/" + id + "/" + String(hidingAntenna)
         if let image = frames[key] { return image }
         guard let source = decode(id, fixedPose) else { return nil }
-        let image = WardrobeArt.recolor(source, colorway: colorway)
+        let complete: CGImage
+        if !fixedPose, id.hasPrefix("t"), let seated = decode("c01", false) {
+            complete = WardrobeArt.seatedWorkingFrame(source, seated: seated)
+        } else { complete = source }
+        let fitted = hidingAntenna ? WardrobeArt.removingAntenna(complete, frame: id) : complete
+        let image = WardrobeArt.recolor(fitted, colorway: colorway)
         frames[key] = image
         return image
     }

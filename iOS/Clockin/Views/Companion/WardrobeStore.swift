@@ -56,6 +56,9 @@ final class WardrobeStore: ObservableObject {
         persist(); SessionMirror.shared.refreshCompanion()
         return true
     }
+    func setHomeLayout(_ layout: CompanionHomeLayout) { state.homeLayout = layout; persist() }
+    func setHomeLamp(_ enabled: Bool) { state.homeLampOn = enabled; persist() }
+
     func selected(_ item: WardrobeItem) -> Bool {
         if item.slot == .colorway { return state.colorway == item.id }
         if item.slot == .room { return state.room == item.id }
