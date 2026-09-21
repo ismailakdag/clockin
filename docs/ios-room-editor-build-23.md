@@ -34,7 +34,9 @@ room/equipped assets, not drag position.
 - All 354 frozen source hashes verified. App and widget both 0.2 (23); strict deep
   signature verification passed with host keychain access. No GLB/USDZ experiments.
 
-Reproduce the automated checks:
+Reproduce the automated checks. The first script was removed once main became
+the release baseline; it and the worktree it reads are only in history and on
+the `archive/companion-art-polish` tag.
 
 ```sh
 python3 scripts/prepare-ios-live-activity-release.py \
