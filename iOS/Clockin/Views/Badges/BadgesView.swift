@@ -1,11 +1,6 @@
 import SwiftUI
 
-/// Seviye, seriler ve rozetler.
-///
-/// Once Insights'in icindeydi. Insights hedefler, isi haritasi, ritim ve
-/// raporlarla zaten uzun bir sayfaydi; kirk alti rozet de eklenince
-/// kaydirmak zorlasti. Alttaki Ayarlar sekmesi Bugun ekranina tasininca bos
-/// kalan yere ilerleme kendi sekmesiyle geldi.
+/// Levels, streaks and rewards in Progress > Badges.
 @MainActor
 struct BadgesView: View {
     @EnvironmentObject private var store: ClockStore
@@ -14,7 +9,7 @@ struct BadgesView: View {
     @AppStorage("Clockin.GoalMonthlyHours") private var monthlyGoalHours = 0.0
 
     var body: some View {
-        NavigationStack {
+        Group {
             TimelineView(.periodic(from: .now, by: 60)) { context in
                 let stats = InsightsSnapshot(store: store, now: context.date,
                                              dailyGoal: dailyGoalHours, monthlyGoal: monthlyGoalHours)
@@ -28,7 +23,6 @@ struct BadgesView: View {
                 .scrollBounceBehavior(.basedOnSize)
             }
             .background(palette.background)
-            .navigationTitle("Badges")
         }
         .tint(palette.accent)
         .fontDesign(palette.fontDesign)

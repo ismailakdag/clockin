@@ -3,8 +3,7 @@ import SwiftUI
 enum AppTab: Hashable {
     case today
     case history
-    case insights
-    case badges
+    case progress
 }
 
 struct RootView: View {
@@ -22,6 +21,7 @@ struct RootView: View {
     @AppStorage("Clockin.GoalMonthlyHours") private var monthlyGoalHours = 0.0
     @AppStorage(GoalPrompt.configuredKey) private var everConfiguredGoal = false
     @State private var goalEditorRequest = false
+    @State private var progressSection: ProgressSection = .goals
     @ObservedObject private var nudges = NudgeController.shared
     @ObservedObject private var reminder = LongSessionReminderController.shared
     @State private var tab: AppTab = .today
@@ -107,24 +107,26 @@ struct RootView: View {
 
     private var tabs: some View {
         TabView(selection: $tab.hapticSelection($selectionFeedback)) {
-            DashboardView(isSelected: tab == .today && !showsDeskMode && deskSummary == nil, showHistory: { tab = .history }, showInsights: { tab = .insights }, setGoals: {
+            DashboardView(isSelected: tab == .today && !showsDeskMode && deskSummary == nil, showHistory: { tab = .history }, showInsights: {
+                progressSection = .goals
+                tab = .progress
+            }, setGoals: {
                 goalEditorRequest = true
-                tab = .insights
-            }, showProgress: { tab = .badges })
+                progressSection = .goals
+                tab = .progress
+            }, showProgress: {
+                progressSection = .badges
+                tab = .progress
+            })
                 .tabItem { Label("Today", systemImage: "timer") }
                 .tag(AppTab.today)
             HistoryView()
                 .tabItem { Label("History", systemImage: "chart.bar.xaxis") }
                 .tag(AppTab.history)
-            InsightsView(openGoalEditor: $goalEditorRequest)
-                .tabItem { Label("Insights", systemImage: "target") }
-                .tag(AppTab.insights)
-            // Ayarlar alt sekmede degil, Bugun ekraninin ust cubugunda. Sik
-            // acilan bir yer degil; sekmeyi ilerleme icin kullanmak sayfalari
-            // daha anlasilir boluyor.
-            BadgesView()
-                .tabItem { Label("Badges", systemImage: "rosette") }
-                .tag(AppTab.badges)
+            ProgressHubView(section: $progressSection, openGoalEditor: $goalEditorRequest)
+                .environment(\.clockinContentActive, tab == .progress && !showsDeskMode)
+                .tabItem { Label("Progress", systemImage: "chart.line.uptrend.xyaxis") }
+                .tag(AppTab.progress)
         }
     }
 

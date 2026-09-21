@@ -7,6 +7,8 @@ private enum SettingsSheet: String, Identifiable {
     case importTimecards
     case backups
     case guide
+    case liveActivitySetup
+    case privacyPolicy
 
     var id: String { rawValue }
 }
@@ -16,6 +18,7 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.palette) private var palette
     @AppStorage("Clockin.Theme") private var themeRaw = ClockinThemeChoice.carbon.rawValue
+    @AppStorage("Clockin.Mascot3DEnabled") private var robotEnabled = false
     @AppStorage("Clockin.MascotEnabled") private var mascotEnabled = true
     @AppStorage("Clockin.MascotDefault") private var mascotDefault = "Auto"
     @AppStorage(DeskMode.enabledKey) private var deskModeEnabled = true
@@ -49,6 +52,7 @@ struct SettingsView: View {
                     Toggle("Haptics", isOn: $hapticsEnabled.hapticSelection($selectionFeedback))
                     Toggle("Focus companion", isOn: $mascotEnabled.hapticSelection($selectionFeedback))
                     if mascotEnabled {
+                        Toggle("3D greeting", isOn: $robotEnabled.hapticSelection($selectionFeedback))
                         companionBehavior
                     }
                 } header: {
@@ -72,6 +76,10 @@ struct SettingsView: View {
                 }
                 FocusSettingsSection()
                 LongSessionReminderSettingsSection()
+                LiveActivityPrivacySection(
+                    openSetup: { openPrivacySheet(.liveActivitySetup) },
+                    openPolicy: { openPrivacySheet(.privacyPolicy) }
+                )
                 dataSection
                 Section("About") {
                     LabeledContent("Version", value: versionText)
@@ -147,6 +155,8 @@ struct SettingsView: View {
                     case .importTimecards: TimecardImportView()
                     case .backups: BackupsView()
                     case .guide: UsageGuideView()
+                    case .liveActivitySetup: LiveActivitySetupView()
+                    case .privacyPolicy: PrivacyPolicyBrowser()
                     }
                 }
                 // Sheet ayri bir sunum; renk semasi tercihi yeniden verilmeli.
@@ -173,6 +183,14 @@ struct SettingsView: View {
                 Text("This replaces every session and the running timer on this iPhone with the selected file. Your current data is kept as a backup first, so it can be restored from Automatic backups.")
             }
         }
+    }
+
+    private func openPrivacySheet(_ destination: SettingsSheet) {
+        commitEarlierRate()
+        commitRate()
+        rateIsFocused = false
+        earlierRateIsFocused = false
+        if pendingRate == nil { sheet = destination }
     }
 
     private var paySection: some View {
