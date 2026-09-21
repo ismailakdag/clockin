@@ -7,7 +7,6 @@ struct CelebrationOverlay: View {
     @ObservedObject private var animationPolicy = RollingAnimationPolicy.shared
     @Environment(\.scenePhase) private var scenePhase
     @AppStorage("Clockin.MascotEnabled") private var companionEnabled = true
-    @ScaledMetric(relativeTo: .largeTitle) private var levelFontSize = 44
     let share: () -> Void
     let openBadges: () -> Void
     let openCompanion: () -> Void
@@ -19,23 +18,24 @@ struct CelebrationOverlay: View {
     }
 
     private var cardTransition: AnyTransition {
-        reduceMotion ? .opacity : .scale(scale: 0.9).combined(with: .opacity)
+        !policy.motion ? .opacity : .scale(scale: 0.96).combined(with: .opacity)
     }
 
     var body: some View {
         ZStack {
             if let event = center.event, !event.isReaction {
-                Color.black.opacity(event.isLevel ? 0.45 : 0.15)
+                Color.black.opacity(event.isLevel ? 0.58 : 0.15)
                     .ignoresSafeArea()
                     .contentShape(Rectangle())
-                    .onTapGesture { center.dismiss() }
+                    .onTapGesture { if !event.isLevel { center.dismiss() } }
                     .accessibilityHidden(true)
                     .transition(.opacity.animation(.easeInOut(duration: 0.15)))
 
                 Group {
                     switch event {
                     case .levelUp(let level, let hours):
-                        levelMoment(level: level, hours: hours)
+                        LevelOrbitCard(level: level, hours: hours, xp: center.snapshot?.level == level ? (center.snapshot?.xp ?? 0) : 0, moving: policy.motion, companionEnabled: policy.companion,
+                                       dismiss: { center.dismiss() }, share: share)
                     case .badge(let badge):
                         banner(title: badge.title, icon: badge.icon)
                     case .accessory(let accessory):
@@ -59,71 +59,6 @@ struct CelebrationOverlay: View {
         .animation(.easeInOut(duration: 0.2), value: center.presentationID)
     }
 
-    private func levelMoment(level: Int, hours: Int) -> some View {
-        ViewThatFits(in: .vertical) {
-            levelContent(level: level, hours: hours)
-            // Buyuk metin ve yatay ekranda kartin tamami erisilebilir kalir.
-            ScrollView {
-                levelContent(level: level, hours: hours)
-            }
-            .scrollBounceBehavior(.basedOnSize)
-        }
-        .frame(maxWidth: 440)
-        .background {
-            if policy.confetti {
-                CelebrationConfetti()
-                    .allowsHitTesting(false)
-                    .accessibilityHidden(true)
-                    .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-            }
-        }
-        .card(palette, cornerRadius: 24)
-        .background(palette.background, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
-        .shadow(color: .black.opacity(0.25), radius: 24, y: 12)
-        .contentShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-        .onTapGesture { center.dismiss() }
-        .padding(16)
-    }
-
-    private func levelContent(level: Int, hours: Int) -> some View {
-        VStack(spacing: 20) {
-            if policy.companion {
-                CelebrationMascot(mood: .proud, reaction: .wave, moving: policy.motion)
-                    .frame(width: 120, height: 120)
-                    // Ziplama da kartin icinde kalir.
-                    .padding(.top, policy.motion ? 72 : 0)
-            }
-            Text("LEVEL \(level)")
-                .font(.system(size: levelFontSize, weight: .black, design: .rounded))
-                .foregroundStyle(palette.accent)
-                .fixedSize(horizontal: false, vertical: true)
-            Text("\(hours) \(hours == 1 ? "hour" : "hours") of focus")
-                .font(.headline)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-            HStack(alignment: .center, spacing: 12) {
-                Button(action: { center.dismiss() }) {
-                    actionLabel("Dismiss")
-                }
-                Button(action: share) {
-                    actionLabel("Share")
-                }
-            }
-            .font(.subheadline.weight(.semibold))
-            .buttonStyle(.bordered)
-            .buttonPressHaptic(false)
-        }
-        .multilineTextAlignment(.center)
-        .frame(maxWidth: .infinity)
-        .padding(24)
-    }
-
-    private func actionLabel(_ title: String) -> some View {
-        Text(title)
-            .fixedSize(horizontal: false, vertical: true)
-            .frame(maxWidth: .infinity, minHeight: 44)
-    }
-
     private func banner(title: String, icon: String, accessory: CompanionAccessory? = nil, wardrobeTitle: String? = nil) -> some View {
         Button {
             center.dismiss()
@@ -139,7 +74,7 @@ struct CelebrationOverlay: View {
                 Spacer(minLength: 0)
                 if policy.companion {
                     if let accessory {
-                        ClockinMascotStill(mood: .hello, accessory: accessory)
+                        ClockinMascotStill(mood: .hello, accessory: accessory, outfit: WardrobeStore.shared.state)
                             .frame(width: 48, height: 48)
                     } else {
                         CelebrationMascot(mood: .proud, reaction: .wiggle, moving: policy.motion)

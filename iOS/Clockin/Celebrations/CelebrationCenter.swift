@@ -46,6 +46,16 @@ final class CelebrationCenter: ObservableObject {
         releaseTasks.values.forEach { $0.cancel() }
     }
 
+    #if DEBUG
+    func previewLevelForReview() {
+        var seed = CelebrationState(); seed.level = 499
+        queue.ingest(seed, now: 0, canReact: false)
+        seed.level = 500; seed.focusHours = 2495
+        queue.ingest(seed, now: 1, canReact: false)
+        setActive(true)
+    }
+    #endif
+
     // SessionMirror ve mevcut dakika yenilemesi tek ortak ozeti besler.
     func refresh(store: ClockStore, now: Date = .now) {
         let dailyGoal = defaults.double(forKey: "Clockin.GoalDailyHours")
@@ -188,7 +198,11 @@ final class CelebrationCenter: ObservableObject {
                 Haptics.play(.levelUp)
             }
             self.persist()
-            do { try await Task.sleep(for: .seconds(event.isReaction ? 1.6 : 2.5)) } catch { return }
+            guard let delay = event.autoDismissDelay else {
+                self.dismissal = nil
+                return
+            }
+            do { try await Task.sleep(for: .seconds(delay)) } catch { return }
             guard !Task.isCancelled else { return }
             self.dismiss()
         }

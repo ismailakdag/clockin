@@ -18,6 +18,15 @@ enum CelebrationEvent: Equatable, Sendable {
     case moreBadges([String])
     case reaction(CelebrationReaction)
 
+    /// Full level cards contain reading and sharing actions; only banners expire.
+    var autoDismissDelay: TimeInterval? {
+        switch self {
+        case .levelUp: nil
+        case .reaction: 1.6
+        default: 4
+        }
+    }
+
     var startsPride: Bool {
         switch self {
         case .levelUp, .badge, .moreBadges: true

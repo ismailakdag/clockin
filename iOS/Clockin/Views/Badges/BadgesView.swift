@@ -13,6 +13,7 @@ struct BadgesView: View {
     @Environment(\.palette) private var palette
 
     @State private var showCompanion = false
+    @State private var showRanks = false
 
     var body: some View {
         NavigationStack {
@@ -33,7 +34,10 @@ struct BadgesView: View {
             .navigationTitle("Badges")
         }
         .sheet(isPresented: $showCompanion) { CompanionView() }
-        .celebrationBlocked(by: showCompanion)
+        .sheet(isPresented: $showRanks) {
+            LevelBadgeGallery(currentLevel: celebrations.snapshot?.level ?? 1, xp: celebrations.snapshot?.xp ?? 0)
+        }
+        .celebrationBlocked(by: showCompanion || showRanks)
         .tint(palette.accent)
         .fontDesign(palette.fontDesign)
     }
@@ -61,10 +65,20 @@ struct BadgesView: View {
             Text("\(stats.xp.formatted()) XP")
                 .font(.headline).monospacedDigit()
                 .contentTransition(.numericText())
-            SwiftUI.ProgressView(value: Double(stats.xp % 500) / 500)
+            PrestigeProgressBar(level: stats.level, progress: LevelPrestige.progress(xp: stats.xp), active: !showCompanion && !showRanks)
                 .accessibilityLabel("Progress to next level")
             Text("\(500 - stats.xp % 500) XP to level \(stats.level + 1)")
                 .font(.subheadline).foregroundStyle(.secondary)
+            Text("\(LevelPrestige(level: stats.level).name) · Next rank at level \(LevelPrestige(level: stats.level).nextUnlock)")
+                .font(.caption).foregroundStyle(.secondary)
+            Button { showRanks = true } label: {
+                HStack {
+                    Label("Level badges", systemImage: "square.grid.2x2")
+                    Spacer()
+                    Text("View all").font(.caption)
+                    Image(systemName: "chevron.right").font(.caption.weight(.semibold))
+                }.frame(minHeight: 44)
+            }.accessibilityIdentifier("badges.levelGallery")
             Divider()
             metric("Current streak", value: "\(stats.currentStreak) days")
             metric("Longest streak", value: "\(stats.longestStreak) days")
