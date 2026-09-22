@@ -3,22 +3,22 @@ export const html = `<!doctype html>
 <body><main><header><a class="brand" href="/admin/">Clockin<span>Servis durumu</span></a><button id="logout" class="quiet" hidden>Çıkış yap</button></header>
 <section id="login" class="login"><span class="clock" aria-hidden="true">◷</span><h1>Clockin’in nabzı.</h1><form id="loginForm"><label for="password">Panel parolası</label><input id="password" name="password" type="password" autocomplete="current-password" required maxlength="256"><button id="submit" type="submit">Giriş yap</button></form><p id="loginError" class="error" role="alert"></p></section>
 
-<section id="dashboard" hidden aria-label="Canlı güncelleme durumu">
-<div class="dial"><strong id="active">—</strong><span>cihaz şu an canlı</span></div>
+<section id="dashboard" hidden aria-label="Clock durumu">
+<div class="dial"><strong id="active">—</strong><span>cihazda clock açık</span></div>
 <p id="health" class="health">Ölçüm bekleniyor</p><p id="age" class="age muted">—</p>
 <p id="notice" class="notice" role="status" aria-live="polite"></p>
 
 <section class="card">
-<div class="cardhead"><h2>Canlı cihaz</h2><div class="ranges" role="group" aria-label="Zaman aralığı"><button id="range2" class="range on" type="button">2 saat</button><button id="range24" class="range" type="button">24 saat</button></div></div>
-<figure class="plot"><div id="chart" class="chart" role="img" aria-label="Canlı cihaz sayısının zaman içindeki grafiği"></div><div id="tip" class="tip" hidden aria-hidden="true"></div></figure>
+<div class="cardhead"><h2>Clock açık cihaz</h2><div class="ranges" role="group" aria-label="Zaman aralığı"><button id="range2" class="range on" type="button">2 saat</button><button id="range24" class="range" type="button">24 saat</button></div></div>
+<figure class="plot"><div id="chart" class="chart" role="img" aria-label="Clock açık cihaz sayısının zaman içindeki grafiği"></div><div id="tip" class="tip" hidden aria-hidden="true"></div></figure>
 <p id="chartEmpty" class="muted small" hidden>Henüz yeterli geçmiş yok. Servis her dakika bir nokta ekliyor.</p>
 <button id="tableToggle" class="quiet small" type="button" aria-expanded="false">Tabloyu göster</button>
-<div id="tableWrap" hidden><table id="table"><caption class="sr">Canlı cihaz sayısı, zamana göre</caption><thead><tr><th scope="col">Saat</th><th scope="col">Canlı</th><th scope="col">Hata</th></tr></thead><tbody id="tableBody"></tbody></table></div>
+<div id="tableWrap" hidden><table id="table"><caption class="sr">Clock açık cihaz sayısı, zamana göre</caption><thead><tr><th scope="col">Saat</th><th scope="col">Clock açık</th><th scope="col">Hata</th></tr></thead><tbody id="tableBody"></tbody></table></div>
 </section>
 
 <section class="card">
 <div class="cardhead"><h2>Son turda bakılan kayıt</h2><strong id="processed" class="total">—</strong></div>
-<dl><div><dt><i class="dot live" aria-hidden="true"></i>Canlı</dt><dd id="bActive">—</dd></div><div><dt><i class="dot stop" aria-hidden="true"></i>Durdurulan</dt><dd id="bStopped">—</dd></div><div><dt><i class="dot wait" aria-hidden="true"></i>Kayıt bekleyen</dt><dd id="bPending">—</dd></div><div><dt><i class="dot gone" aria-hidden="true"></i>Süresi dolan</dt><dd id="bExpired">—</dd></div></dl>
+<dl><div><dt><i class="dot live" aria-hidden="true"></i>Clock açık</dt><dd id="bActive">—</dd></div><div><dt><i class="dot wait" aria-hidden="true"></i>Clock açılıyor</dt><dd id="bPending">—</dd></div><div><dt><i class="dot stop" aria-hidden="true"></i>Clock kapandı</dt><dd id="bStopped">—</dd></div><div><dt><i class="dot gone" aria-hidden="true"></i>Clock kapandı, haber gelmedi, silindi</dt><dd id="bExpired">—</dd></div></dl>
 <p id="sumNote" class="small muted">Bu dört satır üstteki toplamı verir. Bir kayıt kaybolduysa bu satırlardan birindedir.</p>
 </section>
 
@@ -138,7 +138,7 @@ function hover(event){if(!points.length)return;const wrap=$('chart');const svg=w
  let best=points[0];for(const p of points)if(Math.abs(p.x-x)<Math.abs(best.x-x))best=p;
  const cross=svg.querySelector('#cross');if(cross){cross.setAttribute('x1',best.x);cross.setAttribute('x2',best.x);cross.setAttribute('opacity','0.35');}
  const tip=$('tip');tip.hidden=false;
- tip.textContent=clock(best.t)+' · '+fmt.format(best.v)+' canlı'+(best.f>0?' · '+fmt.format(best.f)+' hata':'');
+ tip.textContent=clock(best.t)+' · '+fmt.format(best.v)+' clock açık'+(best.f>0?' · '+fmt.format(best.f)+' hata':'');
  tip.style.left=(best.x*scale)+'px';tip.style.top=(best.y*scale)+'px';}
 
 function leave(){const svg=$('chart').querySelector('svg');const cross=svg&&svg.querySelector('#cross');
