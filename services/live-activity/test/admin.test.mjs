@@ -74,3 +74,54 @@ test('scheduler counts active, invalid, pending, stopped and expired records wit
   assert.equal(sends, 2); assert.equal(result.active, 1); assert.equal(result.stopped, 2);
   assert.equal(result.pending, 1); assert.equal(result.expired, 1); assert.equal(result.delivered, 1);
 });
+
+test('history needs a session and returns nothing but counts and times', async () => {
+  const stored = { minutes: [[now, 3, 1, 0, 0, 3, 0, 3, 0]], buckets: [[now - 300, 2, 0, 0, 0, 2, 0, 0, 2]],
+    token: 'private', notes: ['private'] };
+  const guarded = { ...deps, store: { get: () => assert.fail('private read') } };
+  assert.equal((await admin(req('history', 'GET', { headers: { cookie: '' } }), guarded)).status, 401);
+  const cookie = (await login()).headers.get('set-cookie').split(';')[0];
+  const options = { ...deps, store: { get: async key => (assert.equal(key, 'monitor/history'), stored) } };
+  const data = await (await admin(req('history', 'GET', { headers: { cookie } }), options)).json();
+  assert.deepEqual(Object.keys(data), ['fields', 'minutes', 'buckets']);
+  assert.deepEqual(data.minutes, stored.minutes);
+  assert.deepEqual(data.buckets, stored.buckets);
+  assert.equal(JSON.stringify(data).includes('private'), false);
+  assert.equal((await admin(req('history', 'DELETE', { headers: { cookie, origin } }), options)).status, 405);
+  const missing = await (await admin(req('history', 'GET', { headers: { cookie } }),
+    { ...deps, store: { get: async () => null } })).json();
+  assert.deepEqual(missing.minutes, []); assert.deepEqual(missing.buckets, []);
+});
+
+test('the scheduler reports which build the live devices came from', async () => {
+  const live = { protocol: 2, expiresAt: now + 100 };
+  const data = new Map(Object.entries({
+    'activities/a': { ...live, environment: 'production', token: 'valid' },
+    'activities/b': { ...live, environment: 'production', token: 'valid' },
+    'activities/c': { ...live, environment: 'sandbox', token: 'valid' },
+    'activities/d': { ...live, environment: 'sandbox', token: 'gone' },
+    'activities/e': { stopped: true, expiresAt: now + 100 } }));
+  const store = { list: async () => ({ blobs: [...data.keys()].map(key => ({ key })) }),
+    get: async key => data.get(key), set: async () => {},
+    setJSON: async (key, value) => data.set(key, value), delete: async key => data.delete(key) };
+  const result = await tick({ store, now: () => now,
+    send: async token => ({ status: token === 'valid' ? 200 : 410 }) });
+  // The rejected sandbox device leaves both the active total and its own build.
+  assert.equal(result.active, 3); assert.equal(result.stopped, 2);
+  assert.equal(result.production, 2); assert.equal(result.sandbox, 1);
+  assert.equal(result.sandbox + result.production, result.active);
+});
+
+test('every record the round walked lands in exactly one bucket', async () => {
+  const live = { protocol: 2, expiresAt: now + 100, environment: 'production', token: 'valid' };
+  const data = new Map(Object.entries({ 'activities/a': live, 'activities/b': { ...live, token: 'gone' },
+    'activities/c': { stopped: true, expiresAt: now + 100 }, 'activities/d': { pending: true, expiresAt: now + 100 },
+    'activities/e': { ...live, expiresAt: now - 1 }, 'activities/f': { protocol: 1, expiresAt: now + 100 } }));
+  const store = { list: async () => ({ blobs: [...data.keys()].map(key => ({ key })) }),
+    get: async key => data.get(key), set: async () => {},
+    setJSON: async (key, value) => data.set(key, value), delete: async key => data.delete(key) };
+  const r = await tick({ store, now: () => now, send: async token => ({ status: token === 'valid' ? 200 : 410 }) });
+  assert.equal(r.remaining, 0);
+  assert.equal(r.active + r.stopped + r.pending + r.expired, r.processed,
+    'the panel shows these four against the total, so they must add up');
+});

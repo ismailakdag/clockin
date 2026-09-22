@@ -28,6 +28,11 @@ APNs acceptance is not proof of delivery or rendering.
   The Netlify function declares 20 requests per minute per IP/domain. Responses
   are not cached. CSP blocks inline scripts, framing and third-party resources.
 - No token, activity ID, earnings, notes or user identity is returned by the panel API.
+- The panel keeps a rolling aggregate history in `monitor/history`: two hours at one
+  minute and twenty four hours at five minutes, counts and timestamps only. One blob of
+  about 20 KB is rewritten each minute and nothing older is retained. This is the
+  "aggregate delivery counts" the published policy already allows in application logs;
+  a partial round is left out so the series never shows a dip that did not happen.
 
 ## Validation
 

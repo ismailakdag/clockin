@@ -65,6 +65,12 @@ export async function tick({ store, send, now = () => Date.now() / 1000 }) {
   const ordered = keys.slice(offset).concat(keys.slice(0, offset));
   let next = 0, processed = 0, delivered = 0, failed = 0, last;
   let active = 0, stopped = 0, pending = 0, expired = 0;
+  // Which build the live devices came from. registration() already limits the
+  // value to these two, so an unknown environment cannot invent a third bucket.
+  const environments = { sandbox: 0, production: 0 };
+  const track = (record, by) => {
+    if (record.environment in environments) environments[record.environment] += by;
+  };
   await Promise.all(Array.from({ length: Math.min(8, ordered.length) }, async () => {
     while (next < ordered.length && now() - started < 22) {
       const key = ordered[next++]; last = key;
@@ -80,7 +86,7 @@ export async function tick({ store, send, now = () => Date.now() / 1000 }) {
         continue;
       }
       if (record.stopped) stopped++;
-      else active++;
+      else { active++; track(record, 1); }
       const body = payload(record, now());
       if (!body) continue;
       try {
@@ -88,12 +94,12 @@ export async function tick({ store, send, now = () => Date.now() / 1000 }) {
         if (result.status === 200) delivered++;
         else if (result.status === 410 || ['BadDeviceToken', 'Unregistered', 'DeviceTokenNotForTopic'].includes(result.reason)) {
           await store.setJSON(key, { stopped: true, expiresAt: record.expiresAt });
-          active--; stopped++;
+          active--; stopped++; track(record, -1);
         } else failed++;
       } catch { failed++; }
     }
   }));
   if (last) await store.set('cursor', last);
   return { processed, delivered, failed, remaining: ordered.length - next,
-    active, stopped, pending, expired };
+    active, stopped, pending, expired, ...environments };
 }
