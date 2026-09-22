@@ -1,5 +1,6 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { html, css, javascript } from './admin-page.mjs';
+import { FIELDS, sanitise } from './history.mjs';
 
 const cookieName = '__Host-clockin-admin';
 const lifetime = 8 * 3600;
@@ -50,7 +51,7 @@ export async function admin(request, { store, passwordHash, sessionSecret, now =
     const asset = path.endsWith('.css') ? [css, 'text/css'] : path.endsWith('.js') ? [javascript, 'text/javascript'] : [html, 'text/html'];
     return new Response(asset[0], { headers: { ...headers, 'Content-Type': `${asset[1]}; charset=utf-8` } });
   }
-  if (!['/api/admin/session', '/api/admin/status'].includes(path)) return json({ error: 'Not found' }, 404);
+  if (!['/api/admin/session', '/api/admin/status', '/api/admin/history'].includes(path)) return json({ error: 'Not found' }, 404);
   if (!/^[a-f0-9]{64}$/.test(passwordHash || '') || (sessionSecret || '').length < 64) return json({ error: 'Panel henüz yapılandırılmadı.' }, 503);
   if (path === '/api/admin/session') {
     if (!['POST', 'DELETE'].includes(request.method)) return json({ error: 'Method not allowed' }, 405);
@@ -64,13 +65,20 @@ export async function admin(request, { store, passwordHash, sessionSecret, now =
   }
   if (request.method !== 'GET') return json({ error: 'Method not allowed' }, 405);
   if (!sessionValid(request, sessionSecret, now, url.origin)) return json({ error: 'Giriş yapman gerekiyor.' }, 401);
+  if (path === '/api/admin/history') {
+    // sanitise() rebuilds every row from validated integers, so a corrupted or
+    // tampered blob cannot put anything but counts and timestamps on the page.
+    const series = sanitise(await store.get('monitor/history', { type: 'json' }));
+    return json({ fields: FIELDS, minutes: series.minutes, buckets: series.buckets });
+  }
   const snapshot = await store.get('monitor/latest', { type: 'json' });
   if (!snapshot) return json({ checkedAt: null, status: 'waiting', stale: true });
   // Whitelist fields: never return raw store records, tokens or arbitrary metadata.
   const result = { checkedAt: Number.isFinite(snapshot.checkedAt) ? snapshot.checkedAt : null,
     status: ['ok', 'error', 'unconfigured'].includes(snapshot.status) ? snapshot.status : 'error' };
   result.stale = !result.checkedAt || now * 1000 - result.checkedAt > 180000;
-  for (const key of ['active', 'stopped', 'pending', 'expired', 'processed', 'apnsAccepted', 'failed', 'remaining']) {
+  for (const key of ['active', 'stopped', 'pending', 'expired', 'processed', 'apnsAccepted', 'failed', 'remaining',
+    'sandbox', 'production']) {
     result[key] = Number.isSafeInteger(snapshot[key]) && snapshot[key] >= 0 ? snapshot[key] : null;
   }
   return json(result);
